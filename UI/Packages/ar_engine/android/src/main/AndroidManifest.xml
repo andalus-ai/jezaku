@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Camera permission is required for AR -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- Indicates ARCore is optional. Change to "required" to limit installs to AR-capable devices -->
+    <uses-feature android:name="android.hardware.camera.ar" android:required="false" />
+
+    <!-- ARCore library meta-data: "required" means app won't install on non-AR devices -->
+    <application>
+        <meta-data
+            android:name="com.google.ar.core"
+            android:value="optional" />
+    </application>
+
+</manifest>

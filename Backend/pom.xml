@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>tech.kayys.jezaku</groupId>
+    <artifactId>jezaku-backend</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>Jezaku Backend</name>
+    <description>Aggregator for Jezaku reactive Quarkus backend services.</description>
+
+    <modules>
+        <module>common</module>
+        <module>identity</module>
+        <module>profile</module>
+        <module>social</module>
+        <module>engagement</module>
+        <module>discovery</module>
+        <module>journeys</module>
+        <module>messaging</module>
+        <module>rewards</module>
+        <module>memory</module>
+        <module>camera</module>
+        <module>media</module>
+        <module>presence</module>
+        <module>safety</module>
+        <module>spatial-trails-places</module>
+        <module>events</module>
+        <module>notifications</module>
+    </modules>
+</project>

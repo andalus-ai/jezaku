@@ -1,0 +1,23 @@
+name: jezaku_ar
+description: Jejaku-specific geospatial AR memory anchoring helpers built on ar_engine.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: '>=3.19.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ar_engine:
+    path: ../ar_engine
+  ar_model_cache:
+    path: ../ar_model_cache
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  ar_engine_testkit:
+    path: ../ar_engine_testkit
+  flutter_lints: ^4.0.0

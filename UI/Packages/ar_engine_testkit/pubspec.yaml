@@ -1,0 +1,19 @@
+name: ar_engine_testkit
+description: Deterministic test helpers for ar_engine controllers and platform backends.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ar_engine:
+    path: ../ar_engine
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
