@@ -9,6 +9,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 ## Unreleased
 
 ### Added
+- Geospatial quality API: `ARController.getGeospatialStatus()` returns `ARGeospatialStatus` (Earth state, tracking flag, camera `ARGeospatialPose` with horizontal, vertical and heading accuracy), and `ARController.checkVpsAvailability()` returns `ARVpsAvailability`. Android (ARCore) implements both; other backends report unsupported.
 - Geospatial anchor API: `ARGeoOrigin`, `ARGeospatialAnchor`, `ARGeospatialProjector`, and `ARController.addGeospatialAnchor()` provide a portable WGS84-to-AR path with native ARCore Earth / ARKit GeoAnchor attempts and local projection fallback.
 - Native geospatial session wiring: `geospatialEnabled` maps to ARCore `Config.GeospatialMode` and ARKit `ARGeoTrackingConfiguration`.
 - Geospatial anchor metadata now keeps custom fields, WGS84 coordinates, correction offsets, and a `nativeGeospatial` marker across native and fallback placement paths.

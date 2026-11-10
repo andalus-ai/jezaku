@@ -1011,7 +1011,8 @@ void main() {
       expect(find.text('AR limited'), findsOneWidget);
       expect(
         find.byTooltip(
-          'Disabled native features: Plane detection, Light estimation',
+          'Disabled native features: Plane detection, Light estimation, '
+          'Native geospatial',
         ),
         findsOneWidget,
       );
@@ -1024,6 +1025,7 @@ void main() {
         containsAll(<String>{
           'planeDetection',
           'lightEstimation',
+          'geospatial',
         }),
       );
 

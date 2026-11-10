@@ -12,6 +12,7 @@ import 'ar_session_config.dart';
 import 'ar_session_health.dart';
 import 'exceptions/ar_exceptions.dart';
 import 'geospatial/ar_geospatial.dart';
+import 'geospatial/ar_geospatial_status.dart';
 import 'platform/ar_platform_interface.dart';
 
 // ─── Pose input helper ────────────────────────────────────────────────────────
@@ -490,6 +491,46 @@ class ARController {
     }
     _anchorCache[placed.id] = placed;
     return placed;
+  }
+
+  /// Check whether VPS corrections are available at a location.
+  ///
+  /// Returns [ARVpsAvailability.unsupported] when the backend has no native
+  /// geospatial support. Error values mean the check failed, not that VPS is
+  /// missing at that location.
+  Future<ARVpsAvailability> checkVpsAvailability({
+    required double latitude,
+    required double longitude,
+  }) async {
+    if (!latitude.isFinite || latitude < -90 || latitude > 90) {
+      throw RangeError.value(
+        latitude,
+        'latitude',
+        'Must be finite and within -90..90.',
+      );
+    }
+    if (!longitude.isFinite || longitude < -180 || longitude > 180) {
+      throw RangeError.value(
+        longitude,
+        'longitude',
+        'Must be finite and within -180..180.',
+      );
+    }
+    final epoch = _activeEpoch();
+    final availability = await _platform.checkVpsAvailability(
+      latitude: latitude,
+      longitude: longitude,
+    );
+    _ensureActiveEpoch(epoch);
+    return availability;
+  }
+
+  /// Current native geospatial state with camera pose and accuracy estimates.
+  Future<ARGeospatialStatus> getGeospatialStatus() async {
+    final epoch = _activeEpoch();
+    final status = await _platform.getGeospatialStatus();
+    _ensureActiveEpoch(epoch);
+    return status;
   }
 
   /// Remove an anchor and all its attached nodes.
