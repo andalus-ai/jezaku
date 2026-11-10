@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
+import 'package:jejaku/features/home/states/sample_data_provider.dart';
 import 'package:jejaku/features/virtual_wall/models/ar_wall.dart';
 import 'package:jejaku/features/virtual_wall/services/sample_wall_service.dart';
 
@@ -28,6 +29,9 @@ final memoryLinkedWallsProvider =
 class ARWallController extends Notifier<List<ARWall>> {
   @override
   List<ARWall> build() {
+    if (!ref.watch(sampleDataEnabledProvider)) {
+      return const <ARWall>[];
+    }
     return const SampleWallService().walls();
   }
 

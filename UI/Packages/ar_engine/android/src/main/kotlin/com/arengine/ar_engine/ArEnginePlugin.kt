@@ -139,6 +139,8 @@ class ArEnginePlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             "addAnchor"          -> handleAddAnchor(call, result)
             "addAnchorAtPose"    -> handleAddAnchorAtPose(call, result)
             "addGeospatialAnchor"-> handleAddGeospatialAnchor(call, result)
+            "checkVpsAvailability" -> handleCheckVpsAvailability(call, result)
+            "getGeospatialStatus"  -> handleGetGeospatialStatus(result)
             "hostCloudAnchor"    -> handleHostCloudAnchor(call, result)
             "resolveCloudAnchor" -> handleResolveCloudAnchor(call, result)
             "removeAnchor"       -> handleRemoveAnchor(call, result)
@@ -422,6 +424,35 @@ class ArEnginePlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             result.error("UNSUPPORTED_GEOSPATIAL", e.message, null)
         } catch (e: Exception) {
             result.error("GEOSPATIAL_ANCHOR_FAILED", e.message, null)
+        }
+    }
+
+    private fun handleCheckVpsAvailability(call: MethodCall, result: Result) {
+        val args = call.arguments as? Map<*, *> ?: return result.error("INVALID_ARGS", null, null)
+        val latitude = (args["latitude"] as? Number)?.toDouble()
+        val longitude = (args["longitude"] as? Number)?.toDouble()
+        if (latitude == null || longitude == null) {
+            return result.error("INVALID_ARGS", "latitude and longitude required", null)
+        }
+        try {
+            arSession?.checkVpsAvailability(latitude, longitude, result)
+                ?: result.error("SESSION_NOT_INITIALISED", "Session not initialised", null)
+        } catch (e: UnsupportedOperationException) {
+            result.error("UNSUPPORTED_GEOSPATIAL", e.message, null)
+        } catch (e: Exception) {
+            result.error("VPS_CHECK_FAILED", e.message, null)
+        }
+    }
+
+    private fun handleGetGeospatialStatus(result: Result) {
+        try {
+            val status = arSession?.geospatialStatus()
+                ?: return result.error("SESSION_NOT_INITIALISED", "Session not initialised", null)
+            result.success(status)
+        } catch (e: UnsupportedOperationException) {
+            result.error("UNSUPPORTED_GEOSPATIAL", e.message, null)
+        } catch (e: Exception) {
+            result.error("GEOSPATIAL_STATUS_FAILED", e.message, null)
         }
     }
 
@@ -1216,6 +1247,68 @@ class ArCoreSession(
                 "pose" to anchor.pose.toMap(),
                 "trackingState" to anchor.trackingState.toEventName(),
                 "metadata" to metadata,
+            )
+        }
+    }
+
+    /**
+     * Asks ARCore whether VPS corrections exist at a location. The result is
+     * delivered asynchronously on an ARCore thread, so it is posted to the
+     * main looper before it reaches Flutter.
+     */
+    fun checkVpsAvailability(latitude: Double, longitude: Double, result: Result) {
+        val s = session ?: throw IllegalStateException("Session not initialised")
+        if (s.config.geospatialMode != Config.GeospatialMode.ENABLED) {
+            throw UnsupportedOperationException("ARCore geospatial mode is not enabled")
+        }
+        val mainHandler = Handler(Looper.getMainLooper())
+        s.checkVpsAvailabilityAsync(latitude, longitude) { availability ->
+            mainHandler.post { result.success(availability.name) }
+        }
+    }
+
+    /**
+     * Snapshot of the Earth service. The pose is only included while Earth is
+     * tracking, because ARCore throws when the pose is read otherwise.
+     */
+    fun geospatialStatus(): Map<String, Any?> {
+        return synchronized(sessionLock) {
+            val s = session ?: throw IllegalStateException("Session not initialised")
+            if (s.config.geospatialMode != Config.GeospatialMode.ENABLED) {
+                return@synchronized mapOf(
+                    "enabled" to false,
+                    "tracking" to false,
+                    "earthState" to null,
+                    "pose" to null,
+                )
+            }
+            val earth = s.earth
+                ?: return@synchronized mapOf(
+                    "enabled" to true,
+                    "tracking" to false,
+                    "earthState" to null,
+                    "pose" to null,
+                )
+            val tracking = earth.trackingState == TrackingState.TRACKING
+            val pose = if (tracking) {
+                val p = earth.cameraGeospatialPose
+                mapOf(
+                    "latitude" to p.latitude,
+                    "longitude" to p.longitude,
+                    "altitudeMeters" to p.altitude,
+                    "headingDegrees" to p.heading,
+                    "horizontalAccuracyMeters" to p.horizontalAccuracy,
+                    "verticalAccuracyMeters" to p.verticalAccuracy,
+                    "headingAccuracyDegrees" to p.headingAccuracy,
+                )
+            } else {
+                null
+            }
+            mapOf(
+                "enabled" to true,
+                "tracking" to tracking,
+                "earthState" to earth.earthState.name,
+                "pose" to pose,
             )
         }
     }

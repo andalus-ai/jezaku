@@ -12,6 +12,7 @@ import '../ar_plane.dart';
 import '../ar_runtime_diagnostics.dart';
 import '../ar_session_config.dart';
 import '../geospatial/ar_geospatial.dart';
+import '../geospatial/ar_geospatial_status.dart';
 import 'ar_method_channel.dart';
 
 /// The platform interface every backend must implement.
@@ -172,6 +173,21 @@ abstract class ArEnginePlatform extends PlatformInterface {
       },
     );
   }
+
+  /// Ask the platform whether VPS corrections exist at a location.
+  ///
+  /// Backends without native geospatial support return
+  /// [ARVpsAvailability.unsupported].
+  Future<ARVpsAvailability> checkVpsAvailability({
+    required double latitude,
+    required double longitude,
+  }) async =>
+      ARVpsAvailability.unsupported;
+
+  /// Current native geospatial state: whether Earth is tracking and, if so,
+  /// the camera geospatial pose with its accuracy estimates.
+  Future<ARGeospatialStatus> getGeospatialStatus() async =>
+      const ARGeospatialStatus.unsupported();
 
   // ─── Nodes ────────────────────────────────────────────────────────────────
 

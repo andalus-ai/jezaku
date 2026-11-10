@@ -10,4 +10,5 @@ export 'src/memory_model_descriptor.dart';
 export 'src/memory_model_placement.dart';
 export 'src/memory_photo_frame.dart';
 export 'src/memory_scene.dart';
+export 'src/placement_quality.dart';
 export 'src/view_projection.dart';

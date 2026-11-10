@@ -7,6 +7,7 @@ import 'package:jejaku/features/home/services/anchor_spatial_journey_service.dar
 import 'package:jejaku/features/home/services/sample_anchor_service.dart';
 import 'package:jejaku/features/home/services/viewer_location.dart';
 import 'package:jejaku/features/home/states/viewer_location_provider.dart';
+import 'package:jejaku/features/home/states/sample_data_provider.dart';
 import 'package:jejaku/features/sync/models/anchor_media_sync_manifest.dart';
 import 'package:jejaku/features/sync/states/anchor_media_upload_queue_provider.dart';
 
@@ -115,7 +116,9 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
   List<AnchorMemory> build() {
     final storedMemories =
         ref.watch(anchorMemoryStoreProvider).loadCapturedMemories();
-    final samples = const SampleAnchorService().nearbyAnchors();
+    final samples = ref.watch(sampleDataEnabledProvider)
+        ? const SampleAnchorService().nearbyAnchors()
+        : const <AnchorMemory>[];
     return [
       ...storedMemories,
       for (final sample in samples)
