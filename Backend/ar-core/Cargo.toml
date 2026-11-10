@@ -1,6 +1,12 @@
 [workspace]
 resolver = "2"
-members = ["crates/ar-core", "crates/ar-geo", "crates/ar-fusion", "crates/ar-planes", "crates/ar-service"]
+members = ["crates/ar-core", "crates/ar-geo", "crates/ar-fusion", "crates/ar-planes", "crates/ar-vo", "crates/ar-service"]
+
+[profile.dev]
+opt-level = 2
+
+[profile.test]
+opt-level = 2
 
 [workspace.package]
 version = "0.1.0"

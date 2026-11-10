@@ -129,7 +129,14 @@ impl Session {
         if gray.len() != (width as usize) * (height as usize) { return Response::err(InvalidValue, "frame byte length != width*height"); }
         if let Some(vp) = fe.track(t, &gray, &intr) {
             if let Err(e) = validate::visual(&vp) { return Response::err(Internal, format!("frontend produced invalid pose: {e}")); }
+            let prev_map = self.fusion.map_id();
             self.fusion.on_visual(&vp);
+            if prev_map.is_some() && prev_map != self.fusion.map_id() { self.planes.clear(); } // old planes belong to the abandoned map
+        }
+        // Keep plane finding fed from the frontend's own map; clients need not upload points.
+        let pts = fe.map_points();
+        if !pts.is_empty() && pts.len() <= MAX_MAP_POINTS {
+            self.map_points = pts.into_iter().map(|p| Point3::new(p[0], p[1], p[2])).collect();
         }
         Response::Ok
     }
@@ -140,7 +147,16 @@ impl Session {
         };
         // Planes are computed in ENU (z up) so "horizontal" is meaningful.
         let world: Vec<_> = self.map_points.iter().map(|p| Point3::from(al.apply(&p.coords))).collect();
-        self.planes = detect(&world, &Params::default(), 0x5eed);
+        // Triangulation noise grows with depth, so scale the inlier band with the typical point distance
+        // (about 1.5%, clamped to 2-12 cm) instead of using a fixed tolerance.
+        let cam = self.fusion.world_pose().map(|p| p.translation.vector)
+            .or_else(|| (!world.is_empty()).then(|| world.iter().map(|p| p.coords).sum::<Vector3<f64>>() / world.len() as f64))
+            .unwrap_or_else(Vector3::zeros);
+        let mut dists: Vec<f64> = world.iter().map(|p| (p.coords - cam).norm()).collect();
+        dists.sort_by(|a, b| a.total_cmp(b));
+        let d_med = dists.get(dists.len() / 2).copied().unwrap_or(1.0);
+        let params = Params { dist_thresh: (0.015 * d_med).clamp(0.02, 0.12), iterations: 300, ..Params::default() };
+        self.planes = detect(&world, &params, 0x5eed);
         let planes = self.planes.iter().enumerate().map(|(i, p)| PlaneDto {
             id: i, normal: p.normal.into(), d: p.d, horizontal: p.horizontal, inliers: p.inliers.len(),
             center: p.center.into(), extent_m: p.extent(),

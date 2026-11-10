@@ -1,0 +1,11 @@
+[package]
+name = "ar-vo"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+nalgebra.workspace = true
+ar-core = { path = "../ar-core" }
+
+[dev-dependencies]
+ar-fusion = { path = "../ar-fusion" }

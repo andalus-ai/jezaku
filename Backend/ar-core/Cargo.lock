@@ -66,6 +66,7 @@ dependencies = [
  "ar-fusion",
  "ar-geo",
  "ar-planes",
+ "ar-vo",
  "base64",
  "futures-util",
  "nalgebra",
@@ -73,6 +74,15 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-util",
+]
+
+[[package]]
+name = "ar-vo"
+version = "0.1.0"
+dependencies = [
+ "ar-core",
+ "ar-fusion",
+ "nalgebra",
 ]
 
 [[package]]

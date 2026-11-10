@@ -11,7 +11,7 @@
 pub mod align;
 pub mod eskf;
 
-use align::{umeyama, Similarity};
+use align::{gravity_yaw_similarity, umeyama, Similarity};
 use ar_core::{GnssFix, ImuSample, TrackingState, VisualPose};
 use ar_geo::EnuFrame;
 use eskf::{Eskf, Noise};
@@ -36,6 +36,8 @@ pub struct FusionConfig {
     pub min_visual_quality: f64,
     /// No visual pose for this long (s, sensor clock) => `Lost`.
     pub lost_after_s: f64,
+    /// Use IMU gravity to fix tilt and solve only yaw/translation/scale (falls back to 6-DoF without IMU).
+    pub use_gravity: bool,
 }
 impl Default for FusionConfig {
     fn default() -> Self {
@@ -50,6 +52,7 @@ impl Default for FusionConfig {
             max_gnss_acc_m: 30.0,
             min_visual_quality: 0.2,
             lost_after_s: 1.0,
+            use_gravity: true,
         }
     }
 }
@@ -83,12 +86,18 @@ pub struct WorldFusion {
     filter: Option<Eskf>,
     last_accel: Option<Vector3<f64>>,
     last_gyro: Vector3<f64>,
+    accel_lp: Option<Vector3<f64>>,
+    last_imu_t: Option<f64>,
+    up_sum: Vector3<f64>,
+    up_w: f64,
     pairs: Vec<(Vector3<f64>, Vector3<f64>)>, // (map, enu)
     pairs_since_solve: usize,
     last_visual_map: Option<(f64, Vector3<f64>)>,
     last_visual: Option<(f64, f64)>, // (t, quality)
     latest_t: f64,
     gnss_rejects: u32,
+    orient_rejects: u32,
+    orient_seeded: bool,
     map_id: Option<u32>,
     map_to_world: Option<Similarity>,
 }
@@ -96,9 +105,9 @@ pub struct WorldFusion {
 impl WorldFusion {
     pub fn new(cfg: FusionConfig) -> Self {
         Self {
-            cfg, enu: None, filter: None, last_accel: None, last_gyro: Vector3::zeros(), pairs: vec![],
+            cfg, enu: None, filter: None, last_accel: None, last_gyro: Vector3::zeros(), accel_lp: None, last_imu_t: None, up_sum: Vector3::zeros(), up_w: 0.0, pairs: vec![],
             pairs_since_solve: 0, last_visual_map: None, last_visual: None, latest_t: f64::NEG_INFINITY,
-            gnss_rejects: 0, map_id: None, map_to_world: None,
+            gnss_rejects: 0, orient_rejects: 0, orient_seeded: false, map_id: None, map_to_world: None,
         }
     }
 
@@ -116,6 +125,11 @@ impl WorldFusion {
         self.latest_t = self.latest_t.max(s.t);
         self.last_accel = Some(s.accel);
         self.last_gyro = s.gyro;
+        // Low-pass the specific force (tau ~0.4 s) so linear acceleration averages out of the gravity estimate.
+        let dt = self.last_imu_t.map_or(0.0, |t0| (s.t - t0).clamp(0.0, 0.5));
+        self.last_imu_t = Some(s.t);
+        let alpha = 1.0 - (-dt / 0.4).exp();
+        self.accel_lp = Some(match self.accel_lp { Some(a) => a + (s.accel - a) * alpha, None => s.accel });
         if let Some(f) = self.filter.as_mut() { f.predict(s.t, s.gyro, s.accel); }
     }
 
@@ -159,6 +173,10 @@ impl WorldFusion {
                 self.pairs.clear();
                 self.pairs_since_solve = 0;
                 self.last_visual_map = None;
+                self.up_sum = Vector3::zeros();
+                self.up_w = 0.0;
+                self.orient_seeded = false;
+                self.orient_rejects = 0;
                 self.map_id = Some(vp.map_id);
             }
             None => self.map_id = Some(vp.map_id),
@@ -169,11 +187,31 @@ impl WorldFusion {
         let t_map_body = vp.t_map_cam * self.cfg.t_body_cam.inverse();
         let p_map = t_map_body.translation.vector;
         self.last_visual_map = Some((vp.t, p_map));
+        // Gravity direction in the map frame: body "up" (specific force) rotated by visual orientation.
+        if let Some(a) = self.accel_lp {
+            if (8.8..10.8).contains(&a.norm()) {
+                self.up_sum = self.up_sum * 0.995 + (t_map_body.rotation * a).normalize();
+                self.up_w = self.up_w * 0.995 + 1.0;
+            }
+        }
 
         let (Some(f), Some(al)) = (self.filter.as_mut(), self.map_to_world) else { return };
         let q_w = UnitQuaternion::from_rotation_matrix(&al.rot) * t_map_body.rotation;
+        if !self.orient_seeded {
+            // First time the world frame is known: take attitude (incl. yaw) from the visual estimate.
+            f.reset_orientation(q_w, self.cfg.visual_rot_sigma * 3.0);
+            self.orient_seeded = true;
+        }
         f.update_position(al.apply(&p_map), Vector3::repeat(self.cfg.visual_pos_sigma / vp.quality.max(0.2)));
-        f.update_orientation(&q_w, self.cfg.visual_rot_sigma);
+        if f.update_orientation(&q_w, self.cfg.visual_rot_sigma) {
+            self.orient_rejects = 0;
+        } else {
+            self.orient_rejects += 1;
+            if self.orient_rejects >= 3 {
+                f.reset_orientation(q_w, self.cfg.visual_rot_sigma * 3.0); // alignment moved or attitude diverged
+                self.orient_rejects = 0;
+            }
+        }
     }
 
     fn try_align(&mut self) {
@@ -183,7 +221,12 @@ impl WorldFusion {
         let c = dst.iter().sum::<Vector3<f64>>() / dst.len() as f64;
         let spread = (dst.iter().map(|p| (p - c).norm_squared()).sum::<f64>() / dst.len() as f64).sqrt();
         if spread < self.cfg.min_baseline_m * 0.25 { return; }
-        if let Some(sim) = umeyama(&src, &dst, self.cfg.estimate_scale) {
+        let up = (self.cfg.use_gravity && self.up_w >= 10.0 && self.up_sum.norm() / self.up_w > 0.9).then(|| self.up_sum.normalize());
+        let sim = match up {
+            Some(u) => gravity_yaw_similarity(&src, &dst, &u, self.cfg.estimate_scale),
+            None => umeyama(&src, &dst, self.cfg.estimate_scale),
+        };
+        if let Some(sim) = sim {
             let rms = (src.iter().zip(&dst).map(|(s, d)| (sim.apply(s) - d).norm_squared()).sum::<f64>() / src.len() as f64).sqrt();
             if rms < 5.0 { self.map_to_world = Some(sim); }
         }
@@ -293,6 +336,22 @@ mod tests {
         assert!((al.rot.euler_angles().2 + 0.9).abs() < 0.05, "yaw {}", al.rot.euler_angles().2);
         assert_eq!(fu.tracking_at(), TrackingState::Tracking);
         assert!(fu.geo_pose().is_some());
+    }
+
+    #[test]
+    fn gravity_alignment_resolves_tilt_on_a_planar_walk() {
+        // A nearly flat walk cannot observe tilt from positions alone; gravity must.
+        let enu = EnuFrame::new(-6.9175, 107.6191, 700.0);
+        let m = Isometry3::from_parts(Translation3::new(2.0, 5.0, -1.0), UnitQuaternion::from_euler_angles(0.3, -0.2, 0.9));
+        let mut fu = WorldFusion::new(FusionConfig::default());
+        fu.on_imu(&ImuSample { t: 0.0, gyro: Vector3::zeros(), accel: level() });
+        walk(&mut fu, &enu, &m, 0, 0.0, 200);
+        let al = fu.alignment().expect("alignment");
+        let want = m.rotation.inverse();
+        let got = UnitQuaternion::from_rotation_matrix(&al.rot);
+        assert!(got.angle_to(&want) < 0.02, "alignment off by {} rad", got.angle_to(&want));
+        let p_map = (m * Isometry3::translation(8.0, 4.0, 0.0)).translation.vector;
+        assert!((al.apply(&p_map) - Vector3::new(8.0, 4.0, 0.0)).norm() < 0.1);
     }
 
     #[test]

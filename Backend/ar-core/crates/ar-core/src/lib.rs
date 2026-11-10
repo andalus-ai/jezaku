@@ -68,4 +68,6 @@ pub trait VisualFrontend: Send {
     fn track(&mut self, t: Timestamp, gray: &[u8], intr: &Intrinsics) -> Option<VisualPose>;
     fn state(&self) -> TrackingState;
     fn reset(&mut self);
+    /// Current sparse map points in the frontend's map frame (for plane finding). Optional.
+    fn map_points(&self) -> Vec<[f64; 3]> { Vec::new() }
 }

@@ -141,6 +141,24 @@ impl Eskf {
         }
     }
 
+    /// Hard re-initialise orientation (yaw is unobservable until a visual/geo reference exists, so the
+    /// initial guess can be arbitrarily wrong and a Mahalanobis gate would reject the first measurement).
+    /// Velocity was integrated through the wrong attitude, so it is reset too.
+    pub fn reset_orientation(&mut self, q: UnitQuaternion<f64>, sigma_rad: f64) {
+        self.q = q;
+        self.v = Vector3::zeros();
+        for i in 3..9 {
+            for j in 0..15 {
+                self.cov[(i, j)] = 0.0;
+                self.cov[(j, i)] = 0.0;
+            }
+        }
+        for i in 0..3 {
+            self.cov[(3 + i, 3 + i)] = 1.0;
+            self.cov[(6 + i, 6 + i)] = sigma_rad * sigma_rad;
+        }
+    }
+
     pub fn pos_sigma(&self) -> f64 {
         (self.cov[(0, 0)] + self.cov[(1, 1)] + self.cov[(2, 2)]).sqrt()
     }

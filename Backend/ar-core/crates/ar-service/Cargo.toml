@@ -15,4 +15,5 @@ ar-core = { path = "../ar-core" }
 ar-fusion = { path = "../ar-fusion" }
 ar-geo = { path = "../ar-geo" }
 ar-planes = { path = "../ar-planes" }
+ar-vo = { path = "../ar-vo" }
 
