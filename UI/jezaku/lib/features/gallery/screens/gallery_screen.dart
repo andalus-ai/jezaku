@@ -5,7 +5,9 @@ import 'package:jejaku/features/home/models/anchor_map_point.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/services/anchor_geo_service.dart';
 import 'package:jejaku/features/home/services/anchor_map_projection_service.dart';
+import 'package:jejaku/features/home/services/viewer_location.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
+import 'package:jejaku/features/home/states/viewer_location_provider.dart';
 import 'package:jejaku/features/home/widgets/anchor_health_chip.dart';
 import 'package:jejaku/features/home/widgets/anchor_media_detail_sheet.dart';
 import 'package:jejaku/features/home/widgets/anchor_media_pill.dart';
@@ -22,15 +24,16 @@ class GalleryScreen extends ConsumerStatefulWidget {
 class _GalleryScreenState extends ConsumerState<GalleryScreen> {
   static const _geoService = AnchorGeoService();
   static const _mapProjectionService = AnchorMapProjectionService();
-  static const _viewerLatitude = -6.9175;
-  static const _viewerLongitude = 107.6191;
   static const _mapRadiusMeters = 100.0;
 
   String _view = 'All';
   _GallerySortOption _sort = _GallerySortOption.newest;
   _GalleryMediaFilter _mediaFilter = _GalleryMediaFilter.all;
 
-  List<AnchorMemory> _items(List<AnchorMemory> anchors) {
+  List<AnchorMemory> _items(
+    List<AnchorMemory> anchors,
+    ViewerLocation origin,
+  ) {
     final filteredItems = switch (_view) {
       'Private' => anchors.where((anchor) => anchor.isPrivate).toList(),
       'AR' => anchors.where((anchor) => anchor.hasArExperience).toList(),
@@ -40,16 +43,18 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
       _ => anchors.toList(),
     };
 
-    return _sortItems(filteredItems);
+    return _sortItems(filteredItems, origin);
   }
 
   @override
   Widget build(BuildContext context) {
-    final items = _items(ref.watch(nearbyAnchorsProvider));
+    final origin = ref.watch(viewerLocationProvider);
+    final items = _items(ref.watch(nearbyAnchorsProvider), origin);
     final spatialPoints = _mapProjectionService.pointsFor(
       anchors: items,
-      originLatitude: _viewerLatitude,
-      originLongitude: _viewerLongitude,
+      originLatitude: origin.latitude,
+      originLongitude: origin.longitude,
+      useCoordinateDistance: origin.isLive,
       radiusMeters: _mapRadiusMeters,
     );
 
@@ -197,20 +202,32 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     return _mediaFilter.matches(attachment);
   }
 
-  List<AnchorMemory> _sortItems(List<AnchorMemory> items) {
+  List<AnchorMemory> _sortItems(
+    List<AnchorMemory> items,
+    ViewerLocation origin,
+  ) {
     return switch (_sort) {
       _GallerySortOption.newest => items,
       _GallerySortOption.oldest => items.reversed.toList(),
       _GallerySortOption.nearest => items
         ..sort(
-          (a, b) => _distanceMeters(a).compareTo(_distanceMeters(b)),
+          (a, b) =>
+              _distanceMeters(a, origin).compareTo(_distanceMeters(b, origin)),
         ),
       _GallerySortOption.reactions => items
         ..sort((a, b) => b.reactions.compareTo(a.reactions)),
     };
   }
 
-  double _distanceMeters(AnchorMemory anchor) {
+  double _distanceMeters(AnchorMemory anchor, ViewerLocation origin) {
+    if (origin.isLive) {
+      return _geoService.distanceBetweenMeters(
+        origin.latitude,
+        origin.longitude,
+        anchor.latitude,
+        anchor.longitude,
+      );
+    }
     return _geoService.distanceFromLabel(anchor.distanceLabel) ??
         double.infinity;
   }

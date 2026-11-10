@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
+import 'package:jejaku/features/home/services/viewer_location.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
+import 'package:jejaku/features/home/states/viewer_location_provider.dart';
 import 'package:jejaku/features/trails/models/ar_trail_session.dart';
 import 'package:jejaku/features/virtual_wall/models/ar_wall.dart';
 import 'package:jejaku/features/virtual_wall/models/wall_trail_preview.dart';
@@ -22,6 +24,7 @@ class _VirtualWallScreenState extends ConsumerState<VirtualWallScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final origin = ref.watch(viewerLocationProvider);
     final walls = ref.watch(
       visibleARWallsProvider((filter: _filter, query: _query)),
     );
@@ -90,8 +93,8 @@ class _VirtualWallScreenState extends ConsumerState<VirtualWallScreen> {
                           ref.watch(wallLinkedMemoriesProvider(wall.id));
                       final trailPreview = wallTrailPreviewFor(
                         linkedMemories,
-                        originLatitude: viewerLatitude,
-                        originLongitude: viewerLongitude,
+                        originLatitude: origin.latitude,
+                        originLongitude: origin.longitude,
                         optimizeFromOrigin: true,
                       );
                       return ARWallCard(
@@ -248,16 +251,16 @@ class _WallDraft {
   final List<String> linkedMemoryIds;
 }
 
-class _CreateWallDialog extends StatefulWidget {
+class _CreateWallDialog extends ConsumerStatefulWidget {
   const _CreateWallDialog({required this.availableMemories});
 
   final List<AnchorMemory> availableMemories;
 
   @override
-  State<_CreateWallDialog> createState() => _CreateWallDialogState();
+  ConsumerState<_CreateWallDialog> createState() => _CreateWallDialogState();
 }
 
-class _CreateWallDialogState extends State<_CreateWallDialog> {
+class _CreateWallDialogState extends ConsumerState<_CreateWallDialog> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _selectedMemoryIds = <String>[];
@@ -433,6 +436,7 @@ class _CreateWallDialogState extends State<_CreateWallDialog> {
     final orderedMemories = _nearestFirstMemories(
       memoryIds: _selectedMemoryIds,
       availableMemories: widget.availableMemories,
+      origin: ref.read(viewerLocationProvider),
     );
 
     setState(() {
@@ -445,7 +449,7 @@ class _CreateWallDialogState extends State<_CreateWallDialog> {
   }
 }
 
-class _ManageLinkedAnchorsDialog extends StatefulWidget {
+class _ManageLinkedAnchorsDialog extends ConsumerStatefulWidget {
   const _ManageLinkedAnchorsDialog({
     required this.availableMemories,
     required this.selectedMemoryIds,
@@ -455,12 +459,12 @@ class _ManageLinkedAnchorsDialog extends StatefulWidget {
   final List<String> selectedMemoryIds;
 
   @override
-  State<_ManageLinkedAnchorsDialog> createState() =>
+  ConsumerState<_ManageLinkedAnchorsDialog> createState() =>
       _ManageLinkedAnchorsDialogState();
 }
 
 class _ManageLinkedAnchorsDialogState
-    extends State<_ManageLinkedAnchorsDialog> {
+    extends ConsumerState<_ManageLinkedAnchorsDialog> {
   late final List<String> _selectedMemoryIds = [
     ...normalizeLinkedMemoryIds(widget.selectedMemoryIds),
   ];
@@ -570,6 +574,7 @@ class _ManageLinkedAnchorsDialogState
     final orderedMemories = _nearestFirstMemories(
       memoryIds: _selectedMemoryIds,
       availableMemories: widget.availableMemories,
+      origin: ref.read(viewerLocationProvider),
     );
 
     setState(() {
@@ -582,7 +587,7 @@ class _ManageLinkedAnchorsDialogState
   }
 }
 
-class _LinkedAnchorRouteOrderEditor extends StatelessWidget {
+class _LinkedAnchorRouteOrderEditor extends ConsumerWidget {
   const _LinkedAnchorRouteOrderEditor({
     required this.keyPrefix,
     required this.selectedMemories,
@@ -598,11 +603,12 @@ class _LinkedAnchorRouteOrderEditor extends StatelessWidget {
   final ValueChanged<String> onMoveLater;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final origin = ref.watch(viewerLocationProvider);
     final preview = wallTrailPreviewFor(
       selectedMemories,
-      originLatitude: viewerLatitude,
-      originLongitude: viewerLongitude,
+      originLatitude: origin.latitude,
+      originLongitude: origin.longitude,
     );
 
     return Column(
@@ -845,6 +851,7 @@ void _moveMemoryId(List<String> memoryIds, String memoryId, int delta) {
 List<AnchorMemory> _nearestFirstMemories({
   required List<String> memoryIds,
   required List<AnchorMemory> availableMemories,
+  required ViewerLocation origin,
 }) {
   final memoriesById = {
     for (final memory in availableMemories) memory.id: memory,
@@ -856,8 +863,8 @@ List<AnchorMemory> _nearestFirstMemories({
 
   return wallTrailMemoriesFor(
     selectedMemories,
-    originLatitude: viewerLatitude,
-    originLongitude: viewerLongitude,
+    originLatitude: origin.latitude,
+    originLongitude: origin.longitude,
   );
 }
 
@@ -1373,7 +1380,7 @@ class _WallOverviewTab extends StatelessWidget {
   }
 }
 
-class _LinkedWallMemoriesCard extends StatelessWidget {
+class _LinkedWallMemoriesCard extends ConsumerWidget {
   const _LinkedWallMemoriesCard({
     required this.wall,
     required this.memories,
@@ -1383,12 +1390,13 @@ class _LinkedWallMemoriesCard extends StatelessWidget {
   final List<AnchorMemory> memories;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final origin = ref.watch(viewerLocationProvider);
     final colorScheme = Theme.of(context).colorScheme;
     final trailPreview = wallTrailPreviewFor(
       memories,
-      originLatitude: viewerLatitude,
-      originLongitude: viewerLongitude,
+      originLatitude: origin.latitude,
+      originLongitude: origin.longitude,
       optimizeFromOrigin: true,
     );
     final trailMemoryIds = trailPreview?.orderedMemoryIds ??

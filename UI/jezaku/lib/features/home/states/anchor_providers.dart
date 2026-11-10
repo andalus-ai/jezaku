@@ -5,11 +5,13 @@ import 'package:jejaku/features/home/services/anchor_media_repository.dart';
 import 'package:jejaku/features/home/services/anchor_memory_store.dart';
 import 'package:jejaku/features/home/services/anchor_spatial_journey_service.dart';
 import 'package:jejaku/features/home/services/sample_anchor_service.dart';
+import 'package:jejaku/features/home/services/viewer_location.dart';
+import 'package:jejaku/features/home/states/viewer_location_provider.dart';
 import 'package:jejaku/features/sync/models/anchor_media_sync_manifest.dart';
 import 'package:jejaku/features/sync/states/anchor_media_upload_queue_provider.dart';
 
-const viewerLatitude = -6.9175;
-const viewerLongitude = 107.6191;
+const viewerLatitude = fallbackViewerLatitude;
+const viewerLongitude = fallbackViewerLongitude;
 const _journeyRadiusMeters = 100.0;
 final _sampleMemoryIds = const SampleAnchorService()
     .nearbyAnchors()
@@ -22,10 +24,12 @@ final nearbyAnchorsProvider =
 );
 
 final spatialJourneyProvider = Provider<List<AnchorJourneyStep>>((ref) {
+  final origin = ref.watch(viewerLocationProvider);
   return const AnchorSpatialJourneyService().stepsFor(
     anchors: ref.watch(nearbyAnchorsProvider),
-    originLatitude: viewerLatitude,
-    originLongitude: viewerLongitude,
+    originLatitude: origin.latitude,
+    originLongitude: origin.longitude,
+    useCoordinateDistance: origin.isLive,
     radiusMeters: _journeyRadiusMeters,
   );
 });
