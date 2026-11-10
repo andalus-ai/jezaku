@@ -16,6 +16,7 @@ class AnchorMapProjectionService {
     required double originLatitude,
     required double originLongitude,
     double radiusMeters = 100,
+    bool useCoordinateDistance = false,
   }) {
     final points = [
       for (final anchor in anchors)
@@ -24,6 +25,7 @@ class AnchorMapProjectionService {
           originLatitude: originLatitude,
           originLongitude: originLongitude,
           radiusMeters: radiusMeters,
+          useCoordinateDistance: useCoordinateDistance,
         ),
     ];
 
@@ -36,8 +38,14 @@ class AnchorMapProjectionService {
     required double originLatitude,
     required double originLongitude,
     required double radiusMeters,
+    required bool useCoordinateDistance,
   }) {
-    final distanceMeters = geoService.distanceFromLabel(anchor.distanceLabel) ??
+    // The label is authored against the fallback origin, so it is only
+    // trustworthy there. With a live origin, measure from coordinates.
+    final labelDistance = useCoordinateDistance
+        ? null
+        : geoService.distanceFromLabel(anchor.distanceLabel);
+    final distanceMeters = labelDistance ??
         geoService.distanceBetweenMeters(
           originLatitude,
           originLongitude,

@@ -8,6 +8,8 @@ import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_store.da
 import 'package:jejaku/features/camera/services/ar_capture_diagnostics_cache_store.dart';
 import 'package:jejaku/features/home/services/anchor_media_repository_bootstrap.dart';
 import 'package:jejaku/features/home/services/anchor_memory_store.dart';
+import 'package:jejaku/features/home/services/viewer_location.dart';
+import 'package:jejaku/features/home/states/viewer_location_provider.dart';
 import 'package:jejaku/features/sync/services/anchor_sync_delivery_log_store.dart';
 import 'package:jejaku/features/sync/services/anchor_media_upload_queue_store.dart';
 import 'package:jejaku/features/trails/services/ar_trail_progress_store.dart';
@@ -32,6 +34,9 @@ void main() async {
   runApp(
     ProviderScope(
       overrides: [
+        viewerLocationSourceProvider.overrideWithValue(
+          const GeolocatorViewerLocationSource(),
+        ),
         persistentAnchorMediaRepositoryOverride(
           rootDirectory: mediaStorageDirectory,
         ),

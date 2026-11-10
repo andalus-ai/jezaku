@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/services/anchor_geo_service.dart';
+import 'package:jejaku/features/home/services/viewer_location.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
+import 'package:jejaku/features/home/states/viewer_location_provider.dart';
 import 'package:jejaku/features/profile/models/user_profile.dart';
 import 'package:jejaku/features/profile/states/profile_providers.dart';
 import 'package:jejaku/features/trails/models/ar_trail_route.dart';
@@ -707,6 +709,7 @@ class ProfileScreen extends ConsumerWidget {
                               trail.session,
                               memoriesById,
                               wallLinkedMemoryIds,
+                              ref.read(viewerLocationProvider),
                             );
                             return ListTile(
                               key: ValueKey(
@@ -784,6 +787,7 @@ class ProfileScreen extends ConsumerWidget {
           trail.session,
           memoriesById,
           wallLinkedMemoryIds,
+          ref.read(viewerLocationProvider),
         );
 
         return SafeArea(
@@ -952,6 +956,7 @@ class ProfileScreen extends ConsumerWidget {
           trail.session,
           memoriesById,
           wallLinkedMemoryIds,
+          ref.read(viewerLocationProvider),
         );
 
         return SafeArea(
@@ -1181,6 +1186,7 @@ class ProfileScreen extends ConsumerWidget {
     ARTrailSession session,
     Map<String, AnchorMemory> memoriesById,
     Set<String> wallLinkedMemoryIds,
+    ViewerLocation origin,
   ) {
     return _profileRouteService.routeFor(
       points: [
@@ -1188,6 +1194,7 @@ class ProfileScreen extends ConsumerWidget {
           if (memoriesById[memoryId] != null)
             _routePointForMemory(
               memoriesById[memoryId]!,
+              origin: origin,
               isWallLinked: wallLinkedMemoryIds.contains(memoryId),
             ),
       ],
@@ -1196,6 +1203,7 @@ class ProfileScreen extends ConsumerWidget {
 
   ARTrailRoutePoint _routePointForMemory(
     AnchorMemory memory, {
+    required ViewerLocation origin,
     required bool isWallLinked,
   }) {
     return ARTrailRoutePoint(
@@ -1203,11 +1211,10 @@ class ProfileScreen extends ConsumerWidget {
       title: memory.title,
       latitude: memory.latitude,
       longitude: memory.longitude,
-      distanceFromOriginMeters:
-          _profileGeoService.distanceFromLabel(memory.distanceLabel),
+      distanceFromOriginMeters: origin.distanceToMemoryMeters(memory),
       bearingFromOriginDegrees: _profileGeoService.bearingDegrees(
-        viewerLatitude,
-        viewerLongitude,
+        origin.latitude,
+        origin.longitude,
         memory.latitude,
         memory.longitude,
       ),

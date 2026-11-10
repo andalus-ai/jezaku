@@ -5,6 +5,7 @@ import 'package:jejaku/features/home/models/anchor_journey_step.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/services/anchor_spatial_journey_service.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
+import 'package:jejaku/features/home/states/viewer_location_provider.dart';
 import 'package:jejaku/features/home/widgets/anchor_list_tile.dart';
 import 'package:jejaku/features/trails/models/ar_trail_session.dart';
 import 'package:jejaku/features/virtual_wall/models/ar_wall.dart';
@@ -214,10 +215,12 @@ class _MemorySearchScreenState extends ConsumerState<MemorySearchScreen> {
       return const <AnchorJourneyStep>[];
     }
 
+    final origin = ref.watch(viewerLocationProvider);
     return const AnchorSpatialJourneyService().stepsFor(
       anchors: results,
-      originLatitude: viewerLatitude,
-      originLongitude: viewerLongitude,
+      originLatitude: origin.latitude,
+      originLongitude: origin.longitude,
+      useCoordinateDistance: origin.isLive,
       radiusMeters: _trailRadiusMeters,
     );
   }
