@@ -18,10 +18,10 @@ class ARGeospatialQualityMonitor {
     this.policy = const JejakuPlacementPolicy(),
     this.interval = const Duration(seconds: 2),
     this.onFirstPrecise,
-    ValueNotifier<JejakuPlacementAssessment>? assessment,
+    ValueNotifier<JejakuGeospatialAssessment>? assessment,
   }) : assessment = assessment ??
-            ValueNotifier<JejakuPlacementAssessment>(
-              const JejakuPlacementAssessment.initial(),
+            ValueNotifier<JejakuGeospatialAssessment>(
+              const JejakuGeospatialAssessment.initial(),
             );
 
   /// Reads the native geospatial status, usually
@@ -35,7 +35,7 @@ class ARGeospatialQualityMonitor {
   final FutureOr<void> Function()? onFirstPrecise;
 
   /// Latest assessment. Only notifies when the value actually changes.
-  final ValueNotifier<JejakuPlacementAssessment> assessment;
+  final ValueNotifier<JejakuGeospatialAssessment> assessment;
 
   Timer? _timer;
   bool _polling = false;
