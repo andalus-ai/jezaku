@@ -146,9 +146,9 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
   late final ARViewerCaptureController _captureController;
   ARController? _arController;
   ARGeospatialQualityMonitor? _geospatialQualityMonitor;
-  final ValueNotifier<JejakuPlacementAssessment> _placementAssessment =
-      ValueNotifier<JejakuPlacementAssessment>(
-    const JejakuPlacementAssessment.initial(),
+  final ValueNotifier<JejakuGeospatialAssessment> _placementAssessment =
+      ValueNotifier<JejakuGeospatialAssessment>(
+    const JejakuGeospatialAssessment.initial(),
   );
   DateTime? _cloudAnchorMaintenanceCheckAt;
   Timer? _cloudAnchorMaintenanceTimer;
@@ -421,7 +421,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
   void _startGeospatialQualityMonitor(ARController controller) {
     _stopGeospatialQualityMonitor();
     // A new native session starts from scratch; the previous lock is gone.
-    _placementAssessment.value = const JejakuPlacementAssessment.initial();
+    _placementAssessment.value = const JejakuGeospatialAssessment.initial();
     final monitor = ARGeospatialQualityMonitor(
       assessment: _placementAssessment,
       readStatus: controller.getGeospatialStatus,
@@ -886,7 +886,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
                             onPressed: () => _showHudSettingsSheet(context),
                           ),
                           const SizedBox(width: 8),
-                          ValueListenableBuilder<JejakuPlacementAssessment>(
+                          ValueListenableBuilder<JejakuGeospatialAssessment>(
                             valueListenable: _placementAssessment,
                             builder: (context, assessment, _) {
                               return ARPlacementQualityChip(
@@ -2415,7 +2415,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
       if (cameraBytes == null || cameraBytes.isEmpty) {
         return null;
       }
-      return _decodeImage(cameraBytes);
+      return await _decodeImage(cameraBytes);
     } on Object {
       return null;
     }
@@ -2465,7 +2465,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
       );
     final picture = recorder.endRecording();
     try {
-      return picture.toImage(width, height);
+      return await picture.toImage(width, height);
     } finally {
       picture.dispose();
     }

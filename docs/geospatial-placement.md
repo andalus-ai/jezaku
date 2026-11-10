@@ -12,7 +12,7 @@ projection is only a rough fallback, so the app reports which one is active.
    permission, the session falls back and the HUD says so.
 2. `ARGeospatialQualityMonitor` polls `ARController.getGeospatialStatus()`
    every 2 s and `JejakuPlacementPolicy` turns it into a
-   `JejakuPlacementAssessment`: **Precise** or **Approx.**, with a reason
+   `JejakuGeospatialAssessment`: **Precise** or **Approx.**, with a reason
    (localizing, not authorized, accuracy too low, and so on).
 3. Memories start on the GPS/compass projection. The first time the assessment
    is precise, the viewer sets `JejakuMemoryARScene.preferNativeGeospatialAnchors`

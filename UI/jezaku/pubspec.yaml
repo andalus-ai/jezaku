@@ -87,10 +87,5 @@ flutter:
 
 
   assets:
-  - assets/images/
   - assets/icons/
-  - assets/fonts/
-  - assets/data/
-  - assets/models/
-  - assets/bin/
   - pubspec.yaml

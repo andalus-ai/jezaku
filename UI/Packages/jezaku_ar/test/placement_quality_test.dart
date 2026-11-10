@@ -190,9 +190,9 @@ void main() {
     });
   });
 
-  group('JejakuPlacementAssessment', () {
+  group('JejakuGeospatialAssessment', () {
     test('initial assessment is approximate', () {
-      const initial = JejakuPlacementAssessment.initial();
+      const initial = JejakuGeospatialAssessment.initial();
 
       expect(initial.isPrecise, isFalse);
       expect(initial.shortLabel, 'Approx.');

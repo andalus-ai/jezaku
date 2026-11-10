@@ -69,25 +69,25 @@ class JejakuPlacementPolicy {
   /// never forces [JejakuPlacementMode.precise]: the accuracy estimates in
   /// [status] decide. It is only used to report an authorization or quota
   /// error that the Earth state has not surfaced yet.
-  JejakuPlacementAssessment assess({
+  JejakuGeospatialAssessment assess({
     ARGeospatialStatus? status,
     ARVpsAvailability? vps,
   }) {
     if (status == null || !status.isEnabled) {
-      return const JejakuPlacementAssessment._(
+      return const JejakuGeospatialAssessment._(
         JejakuPlacementMode.approximate,
         JejakuPlacementReason.geospatialUnavailable,
       );
     }
     if (status.isNotAuthorized || vps == ARVpsAvailability.errorNotAuthorized) {
-      return const JejakuPlacementAssessment._(
+      return const JejakuGeospatialAssessment._(
         JejakuPlacementMode.approximate,
         JejakuPlacementReason.notAuthorized,
       );
     }
     if (status.earthState == 'ERROR_RESOURCE_EXHAUSTED' ||
         vps == ARVpsAvailability.errorResourceExhausted) {
-      return const JejakuPlacementAssessment._(
+      return const JejakuGeospatialAssessment._(
         JejakuPlacementMode.approximate,
         JejakuPlacementReason.resourceExhausted,
       );
@@ -95,7 +95,7 @@ class JejakuPlacementPolicy {
 
     final pose = status.pose;
     if (!status.isTracking || pose == null) {
-      return const JejakuPlacementAssessment._(
+      return const JejakuGeospatialAssessment._(
         JejakuPlacementMode.approximate,
         JejakuPlacementReason.localizing,
       );
@@ -104,21 +104,21 @@ class JejakuPlacementPolicy {
     final horizontal = pose.horizontalAccuracyMeters;
     final heading = pose.headingAccuracyDegrees;
     if (!_isUsable(horizontal) || !_isUsable(heading)) {
-      return JejakuPlacementAssessment._(
+      return JejakuGeospatialAssessment._(
         JejakuPlacementMode.approximate,
         JejakuPlacementReason.accuracyUnknown,
         pose: pose,
       );
     }
     if (horizontal! > maxHorizontalAccuracyMeters) {
-      return JejakuPlacementAssessment._(
+      return JejakuGeospatialAssessment._(
         JejakuPlacementMode.approximate,
         JejakuPlacementReason.horizontalAccuracyTooLow,
         pose: pose,
       );
     }
     if (heading! > maxHeadingAccuracyDegrees) {
-      return JejakuPlacementAssessment._(
+      return JejakuGeospatialAssessment._(
         JejakuPlacementMode.approximate,
         JejakuPlacementReason.headingAccuracyTooLow,
         pose: pose,
@@ -128,13 +128,13 @@ class JejakuPlacementPolicy {
     // Altitude accuracy is optional: some devices do not report it, and a
     // missing value should not block placement.
     if (_isUsable(vertical) && vertical! > maxVerticalAccuracyMeters) {
-      return JejakuPlacementAssessment._(
+      return JejakuGeospatialAssessment._(
         JejakuPlacementMode.approximate,
         JejakuPlacementReason.verticalAccuracyTooLow,
         pose: pose,
       );
     }
-    return JejakuPlacementAssessment._(
+    return JejakuGeospatialAssessment._(
       JejakuPlacementMode.precise,
       JejakuPlacementReason.accurate,
       pose: pose,
@@ -146,15 +146,15 @@ class JejakuPlacementPolicy {
 }
 
 /// Outcome of [JejakuPlacementPolicy.assess].
-class JejakuPlacementAssessment {
-  const JejakuPlacementAssessment._(
+class JejakuGeospatialAssessment {
+  const JejakuGeospatialAssessment._(
     this.quality,
     this.reason, {
     this.pose,
   });
 
   /// Placement before any native status has been read.
-  const JejakuPlacementAssessment.initial()
+  const JejakuGeospatialAssessment.initial()
       : quality = JejakuPlacementMode.approximate,
         reason = JejakuPlacementReason.geospatialUnavailable,
         pose = null;
@@ -217,7 +217,7 @@ class JejakuPlacementAssessment {
 
   @override
   bool operator ==(Object other) {
-    return other is JejakuPlacementAssessment &&
+    return other is JejakuGeospatialAssessment &&
         quality == other.quality &&
         reason == other.reason &&
         pose == other.pose;

@@ -37,6 +37,10 @@ jobs:
   flutter-app:
     name: Flutter app
     runs-on: ubuntu-latest
+    env:
+      # Several tests assert local-time labels (e.g. "Reviewed 18:05") written
+      # in Jakarta time.
+      TZ: Asia/Jakarta
     defaults:
       run:
         working-directory: UI/jezaku
