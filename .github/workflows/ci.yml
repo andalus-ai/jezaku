@@ -32,6 +32,7 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
+        if: ${{ !cancelled() }}
 
   flutter-app:
     name: Flutter app
@@ -48,6 +49,7 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
+        if: ${{ !cancelled() }}
 
   rust-ar-core:
     name: Rust ar-core

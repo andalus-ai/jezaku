@@ -1,7 +1,7 @@
 import 'package:ar_engine/ar_engine.dart';
 
 /// How trustworthy the current anchor placement is.
-enum JejakuPlacementQuality {
+enum JejakuPlacementMode {
   /// Native geospatial tracking meets the accuracy thresholds. Memories can
   /// be placed with native geospatial anchors and appear where they were
   /// captured.
@@ -12,7 +12,7 @@ enum JejakuPlacementQuality {
   approximate,
 }
 
-/// Why the placement is [JejakuPlacementQuality.precise] or not.
+/// Why the placement is [JejakuPlacementMode.precise] or not.
 enum JejakuPlacementReason {
   /// Native geospatial tracking meets every accuracy threshold.
   accurate,
@@ -66,7 +66,7 @@ class JejakuPlacementPolicy {
   /// Evaluates the native geospatial [status].
   ///
   /// [vps] is optional context from [ARController.checkVpsAvailability]. It
-  /// never forces [JejakuPlacementQuality.precise]: the accuracy estimates in
+  /// never forces [JejakuPlacementMode.precise]: the accuracy estimates in
   /// [status] decide. It is only used to report an authorization or quota
   /// error that the Earth state has not surfaced yet.
   JejakuPlacementAssessment assess({
@@ -75,20 +75,20 @@ class JejakuPlacementPolicy {
   }) {
     if (status == null || !status.isEnabled) {
       return const JejakuPlacementAssessment._(
-        JejakuPlacementQuality.approximate,
+        JejakuPlacementMode.approximate,
         JejakuPlacementReason.geospatialUnavailable,
       );
     }
     if (status.isNotAuthorized || vps == ARVpsAvailability.errorNotAuthorized) {
       return const JejakuPlacementAssessment._(
-        JejakuPlacementQuality.approximate,
+        JejakuPlacementMode.approximate,
         JejakuPlacementReason.notAuthorized,
       );
     }
     if (status.earthState == 'ERROR_RESOURCE_EXHAUSTED' ||
         vps == ARVpsAvailability.errorResourceExhausted) {
       return const JejakuPlacementAssessment._(
-        JejakuPlacementQuality.approximate,
+        JejakuPlacementMode.approximate,
         JejakuPlacementReason.resourceExhausted,
       );
     }
@@ -96,7 +96,7 @@ class JejakuPlacementPolicy {
     final pose = status.pose;
     if (!status.isTracking || pose == null) {
       return const JejakuPlacementAssessment._(
-        JejakuPlacementQuality.approximate,
+        JejakuPlacementMode.approximate,
         JejakuPlacementReason.localizing,
       );
     }
@@ -105,21 +105,21 @@ class JejakuPlacementPolicy {
     final heading = pose.headingAccuracyDegrees;
     if (!_isUsable(horizontal) || !_isUsable(heading)) {
       return JejakuPlacementAssessment._(
-        JejakuPlacementQuality.approximate,
+        JejakuPlacementMode.approximate,
         JejakuPlacementReason.accuracyUnknown,
         pose: pose,
       );
     }
     if (horizontal! > maxHorizontalAccuracyMeters) {
       return JejakuPlacementAssessment._(
-        JejakuPlacementQuality.approximate,
+        JejakuPlacementMode.approximate,
         JejakuPlacementReason.horizontalAccuracyTooLow,
         pose: pose,
       );
     }
     if (heading! > maxHeadingAccuracyDegrees) {
       return JejakuPlacementAssessment._(
-        JejakuPlacementQuality.approximate,
+        JejakuPlacementMode.approximate,
         JejakuPlacementReason.headingAccuracyTooLow,
         pose: pose,
       );
@@ -129,13 +129,13 @@ class JejakuPlacementPolicy {
     // missing value should not block placement.
     if (_isUsable(vertical) && vertical! > maxVerticalAccuracyMeters) {
       return JejakuPlacementAssessment._(
-        JejakuPlacementQuality.approximate,
+        JejakuPlacementMode.approximate,
         JejakuPlacementReason.verticalAccuracyTooLow,
         pose: pose,
       );
     }
     return JejakuPlacementAssessment._(
-      JejakuPlacementQuality.precise,
+      JejakuPlacementMode.precise,
       JejakuPlacementReason.accurate,
       pose: pose,
     );
@@ -155,24 +155,24 @@ class JejakuPlacementAssessment {
 
   /// Placement before any native status has been read.
   const JejakuPlacementAssessment.initial()
-      : quality = JejakuPlacementQuality.approximate,
+      : quality = JejakuPlacementMode.approximate,
         reason = JejakuPlacementReason.geospatialUnavailable,
         pose = null;
 
-  final JejakuPlacementQuality quality;
+  final JejakuPlacementMode quality;
   final JejakuPlacementReason reason;
 
   /// Camera geospatial pose the decision was based on, when tracking.
   final ARGeospatialPose? pose;
 
-  bool get isPrecise => quality == JejakuPlacementQuality.precise;
+  bool get isPrecise => quality == JejakuPlacementMode.precise;
 
   /// Short label for a status chip.
   String get shortLabel {
     switch (quality) {
-      case JejakuPlacementQuality.precise:
+      case JejakuPlacementMode.precise:
         return 'Precise';
-      case JejakuPlacementQuality.approximate:
+      case JejakuPlacementMode.approximate:
         return 'Approx.';
     }
   }
