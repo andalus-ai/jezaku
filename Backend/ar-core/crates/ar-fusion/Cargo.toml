@@ -1,0 +1,9 @@
+[package]
+name = "ar-fusion"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+nalgebra.workspace = true
+ar-core = { path = "../ar-core" }
+ar-geo = { path = "../ar-geo" }
+serde.workspace = true
