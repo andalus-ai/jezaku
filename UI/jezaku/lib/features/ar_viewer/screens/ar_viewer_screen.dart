@@ -19,12 +19,14 @@ import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider
 import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_hosting_service.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_maintenance_policy.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_retry_policy.dart';
+import 'package:jejaku/features/ar_viewer/services/ar_geospatial_quality_monitor.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_scene_sync_service.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_runtime_permission_service.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capture_provider.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capability_providers.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_scene_diagnostics_provider.dart';
+import 'package:jejaku/features/ar_viewer/widgets/ar_placement_quality_chip.dart';
 import 'package:jejaku/features/camera/models/capture_sensor_snapshot.dart';
 import 'package:jejaku/features/camera/states/capture_session_provider.dart';
 import 'package:jejaku/features/home/models/anchor_journey_step.dart';
@@ -143,6 +145,11 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
   );
   late final ARViewerCaptureController _captureController;
   ARController? _arController;
+  ARGeospatialQualityMonitor? _geospatialQualityMonitor;
+  final ValueNotifier<JejakuPlacementAssessment> _placementAssessment =
+      ValueNotifier<JejakuPlacementAssessment>(
+    const JejakuPlacementAssessment.initial(),
+  );
   DateTime? _cloudAnchorMaintenanceCheckAt;
   Timer? _cloudAnchorMaintenanceTimer;
   Timer? _viewerPoseRefreshTimer;
@@ -409,6 +416,59 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
     unawaited(_refreshViewerPoseFromDeviceSensors());
     _startCompassTracking();
     unawaited(_startPositionTracking());
+  }
+
+  void _startGeospatialQualityMonitor(ARController controller) {
+    _stopGeospatialQualityMonitor();
+    // A new native session starts from scratch; the previous lock is gone.
+    _placementAssessment.value = const JejakuPlacementAssessment.initial();
+    final monitor = ARGeospatialQualityMonitor(
+      assessment: _placementAssessment,
+      readStatus: controller.getGeospatialStatus,
+      onFirstPrecise: _upgradeToNativeGeospatialPlacement,
+    );
+    _geospatialQualityMonitor = monitor;
+    monitor.start();
+    unawaited(_checkVpsAvailability(controller, monitor));
+  }
+
+  void _stopGeospatialQualityMonitor() {
+    _geospatialQualityMonitor?.dispose();
+    _geospatialQualityMonitor = null;
+  }
+
+  /// Asks ARCore once whether VPS exists at the viewer position. The answer
+  /// is only context: accuracy estimates decide placement quality.
+  Future<void> _checkVpsAvailability(
+    ARController controller,
+    ARGeospatialQualityMonitor monitor,
+  ) async {
+    try {
+      final origin = _viewerOriginFor(
+        ref.read(captureSessionProvider).previewSnapshot,
+      );
+      final availability = await controller.checkVpsAvailability(
+        latitude: origin.latitude,
+        longitude: origin.longitude,
+      );
+      if (mounted && identical(monitor, _geospatialQualityMonitor)) {
+        monitor.setVpsAvailability(availability);
+      }
+    } on Object {
+      // VPS availability is optional context; ignore failures.
+    }
+  }
+
+  /// Native geospatial tracking reached the accuracy thresholds: re-place
+  /// memories that were positioned from GPS/compass with native anchors.
+  Future<void> _upgradeToNativeGeospatialPlacement() async {
+    final scene = _nativeMemoryScene;
+    if (!mounted || scene == null) {
+      return;
+    }
+    scene.preferNativeGeospatialAnchors = true;
+    setState(() => _nativeSceneFingerprint = null);
+    _scheduleNativeSceneSync();
   }
 
   void _startCompassTracking() {
@@ -697,6 +757,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
 
   @override
   void dispose() {
+    _stopGeospatialQualityMonitor();
+    _placementAssessment.dispose();
     _arController = null;
     _nativeMemoryScene = null;
     _nativeCloudAnchorManager = null;
@@ -823,6 +885,16 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
                             icon: Icons.tune,
                             onPressed: () => _showHudSettingsSheet(context),
                           ),
+                          const SizedBox(width: 8),
+                          ValueListenableBuilder<JejakuPlacementAssessment>(
+                            valueListenable: _placementAssessment,
+                            builder: (context, assessment, _) {
+                              return ARPlacementQualityChip(
+                                key: const ValueKey('ar_placement_quality_chip'),
+                                assessment: assessment,
+                              );
+                            },
+                          ),
                         ],
                       ),
                     ),
@@ -929,8 +1001,11 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
                 Positioned.fill(
                   child: ARWidget(
                     key: const ValueKey('native_ar_hanging_photo_view'),
+                    // Geospatial stays as resolved against device capabilities
+                    // so memories can lock to real-world coordinates. Placement
+                    // quality is reported in the HUD; GPS/compass projection
+                    // remains the labeled fallback.
                     config: config.copyWith(
-                      geospatialEnabled: false,
                       depthEnabled: false,
                       occlusionEnabled: false,
                       targetFrameRate: 30,
@@ -1008,6 +1083,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
     });
     _nativeSessionPlacementCache.clear();
     _lastARHeadingUpdateAt = null;
+    _startGeospatialQualityMonitor(controller);
     _scheduleNativeSceneSync();
   }
 

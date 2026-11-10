@@ -401,6 +401,83 @@ void main() {
     await controller.dispose();
   });
 
+  test(
+      'memory scene re-places lat/lon memories when native geospatial is '
+      'turned on', () async {
+    final platform = arHarness.platform;
+    final controller = await ARController.create(const ARSessionConfig());
+    final scene = JejakuMemoryARScene(
+      controller: controller,
+      preferNativeGeospatialAnchors: false,
+    );
+    const origin = JejakuGeoOrigin(latitude: -6.9175, longitude: 107.6191);
+    const memory = JejakuGeoAnchor(
+      id: 'upgrade_me',
+      title: 'Starts approximate',
+      latitude: -6.9174,
+      longitude: 107.6192,
+    );
+
+    final first = await scene.syncMemories(origin: origin, memories: [memory]);
+    expect(first.added, hasLength(1));
+    expect(platform.geospatialAnchorRequests, isEmpty);
+    final approximateAnchorId = first.added.single.anchorId;
+
+    // Nothing changed: the scene stays put and does not re-place.
+    final unchanged =
+        await scene.syncMemories(origin: origin, memories: [memory]);
+    expect(unchanged.added, isEmpty);
+    expect(unchanged.updated, isEmpty);
+
+    scene.preferNativeGeospatialAnchors = true;
+    final upgraded =
+        await scene.syncMemories(origin: origin, memories: [memory]);
+
+    expect(upgraded.updated, hasLength(1));
+    expect(platform.geospatialAnchorRequests.map((a) => a.id), ['upgrade_me']);
+    expect(upgraded.updated.single.anchorId, isNot(approximateAnchorId));
+    expect(platform.removedAnchorIds, contains(approximateAnchorId));
+
+    await controller.dispose();
+  });
+
+  test('turning on native geospatial does not re-place stored-pose memories',
+      () async {
+    final platform = arHarness.platform;
+    final controller = await ARController.create(const ARSessionConfig());
+    final scene = JejakuMemoryARScene(
+      controller: controller,
+      preferNativeGeospatialAnchors: false,
+    );
+    const origin = JejakuGeoOrigin(latitude: -6.9175, longitude: 107.6191);
+    const memory = JejakuGeoAnchor(
+      id: 'stored_pose',
+      latitude: -6.9174,
+      longitude: 107.6192,
+      metadata: <String, Object?>{
+        'localAnchorPose': <String, Object?>{
+          'x': 0.5,
+          'y': 0.0,
+          'z': -1.0,
+          'qx': 0.0,
+          'qy': 0.0,
+          'qz': 0.0,
+          'qw': 1.0,
+        },
+      },
+    );
+
+    await scene.syncMemories(origin: origin, memories: [memory]);
+    scene.preferNativeGeospatialAnchors = true;
+    final result = await scene.syncMemories(origin: origin, memories: [memory]);
+
+    expect(result.added, isEmpty);
+    expect(result.updated, isEmpty);
+    expect(platform.geospatialAnchorRequests, isEmpty);
+
+    await controller.dispose();
+  });
+
   test('memory scene exposes Jejaku capability report', () async {
     arHarness.platform.capabilities = const ARCapabilities(
       isARSupported: true,

@@ -162,6 +162,17 @@ class TestArEnginePlatform extends ArEnginePlatform {
   Object? removeNodeError;
   Object? hostCloudAnchorError;
   Object? resolveCloudAnchorError;
+  Object? checkVpsAvailabilityError;
+  Object? getGeospatialStatusError;
+
+  /// Value returned by [checkVpsAvailability].
+  ARVpsAvailability vpsAvailability = ARVpsAvailability.available;
+
+  /// Value returned by [getGeospatialStatus].
+  ARGeospatialStatus geospatialStatus = const ARGeospatialStatus.unsupported();
+
+  /// Coordinates passed to [checkVpsAvailability], in call order.
+  final List<List<double>> vpsAvailabilityRequests = <List<double>>[];
   Object? sampleDepthError;
   Object? hitTestError;
   Object? captureSnapshotError;
@@ -272,6 +283,22 @@ class TestArEnginePlatform extends ArEnginePlatform {
     anchors[placed.id] = placed;
     geospatialFallbackAnchors.add(placed);
     return placed;
+  }
+
+  @override
+  Future<ARVpsAvailability> checkVpsAvailability({
+    required double latitude,
+    required double longitude,
+  }) async {
+    vpsAvailabilityRequests.add(<double>[latitude, longitude]);
+    _throwIfSet(checkVpsAvailabilityError);
+    return vpsAvailability;
+  }
+
+  @override
+  Future<ARGeospatialStatus> getGeospatialStatus() async {
+    _throwIfSet(getGeospatialStatusError);
+    return geospatialStatus;
   }
 
   @override
