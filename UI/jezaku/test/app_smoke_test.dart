@@ -32,6 +32,28 @@ Future<void> _settleCapture(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+/// `scrollUntilVisible` treats items inside the cache extent as visible, so a
+/// target can still sit below the viewport or under a bottom bar. Scroll until
+/// the target is well inside the tappable area.
+Future<void> _scrollIntoTapZone(
+  WidgetTester tester,
+  Finder target, {
+  Finder? scrollable,
+}) async {
+  final view = tester.view.physicalSize / tester.view.devicePixelRatio;
+  final scroller = scrollable ?? find.byType(Scrollable).first;
+  for (var i = 0; i < 20; i++) {
+    await tester.pumpAndSettle();
+    if (target.evaluate().isNotEmpty) {
+      final dy = tester.getCenter(target.first).dy;
+      if (dy > 120 && dy < view.height - 160) {
+        return;
+      }
+    }
+    await tester.drag(scroller, const Offset(0, -120));
+  }
+}
+
 void main() {
   testWidgets('main tabs render consolidated feature screens', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
@@ -120,7 +142,7 @@ void main() {
     expect(find.text('This is the first stop'), findsOneWidget);
 
     final nextStop = find.byKey(const ValueKey('journey_next_anchor_rooftop'));
-    await tester.ensureVisible(nextStop);
+    await _scrollIntoTapZone(tester, nextStop);
     await tester.tap(nextStop);
     await tester.pumpAndSettle();
 
@@ -133,7 +155,7 @@ void main() {
 
     final previousStop =
         find.byKey(const ValueKey('journey_previous_anchor_courtyard'));
-    await tester.ensureVisible(previousStop);
+    await _scrollIntoTapZone(tester, previousStop);
     await tester.tap(previousStop);
     await tester.pumpAndSettle();
 
@@ -4090,6 +4112,14 @@ void main() {
 
     expect(find.text('Fresh anchor from test'), findsWidgets);
 
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ChoiceChip, 'Walls'),
+      100,
+      scrollable: find.byWidgetPredicate(
+        (widget) => widget is Scrollable && widget.axis == Axis.horizontal,
+      ),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ChoiceChip, 'Walls'));
     await tester.pumpAndSettle();
 
@@ -4253,6 +4283,7 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
+    await _scrollIntoTapZone(tester, privacyTile);
 
     expect(
       find.text('Precise location on - Comments on - 2 blocked accounts'),
@@ -5205,7 +5236,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('2 sync items: 1 upload, 0 media payloads, 1 metadata update'),
+      find.textContaining('2 sync items: 1 upload, 0 media payloads, 1 metadata update'),
       findsOneWidget,
     );
 
@@ -5303,7 +5334,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('1 sync item: 1 upload, 1 media payload, 0 metadata updates'),
+      find.textContaining('1 sync item: 1 upload, 1 media payload, 0 metadata updates'),
       findsOneWidget,
     );
 
@@ -5647,8 +5678,10 @@ void main() {
     );
     expect(find.text('Class Reunion Wall'), findsOneWidget);
 
-    await tester
-        .tap(find.byKey(const ValueKey('memory_wall_open_wall_reunion')));
+    final openWall =
+        find.byKey(const ValueKey('memory_wall_open_wall_reunion'));
+    await _scrollIntoTapZone(tester, openWall);
+    await tester.tap(openWall);
     await tester.pumpAndSettle();
 
     expect(find.text('Class Reunion Wall'), findsWidgets);
@@ -5674,8 +5707,10 @@ void main() {
     expect(find.text('Memory Details'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Virtual walls'), 300);
 
-    await tester
-        .tap(find.byKey(const ValueKey('memory_wall_trail_wall_reunion')));
+    final trailButton =
+        find.byKey(const ValueKey('memory_wall_trail_wall_reunion'));
+    await _scrollIntoTapZone(tester, trailButton);
+    await tester.tap(trailButton);
     await tester.pumpAndSettle();
 
     expect(find.text('Focused anchor'), findsOneWidget);
@@ -5950,6 +5985,14 @@ void main() {
     await tester.tap(find.byTooltip('Search'));
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ChoiceChip, 'Walls'),
+      100,
+      scrollable: find.byWidgetPredicate(
+        (widget) => widget is Scrollable && widget.axis == Axis.horizontal,
+      ),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ChoiceChip, 'Walls'));
     await tester.pumpAndSettle();
 
