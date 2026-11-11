@@ -13,6 +13,15 @@ import 'package:jejaku/features/trails/models/ar_trail_session.dart';
 import 'package:jejaku/features/trails/states/ar_trail_session_providers.dart';
 import 'package:jejaku/main.dart';
 
+/// Staging a capture waits on short sensor timeouts (compass, accelerometer).
+/// Those are timers, not frames, so plain `pumpAndSettle` can return before
+/// they fire; advance fake time explicitly.
+Future<void> _settleCapture(WidgetTester tester) async {
+  await tester.pumpAndSettle();
+  await tester.pump(const Duration(seconds: 3));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('main tabs render consolidated feature screens', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
@@ -2530,7 +2539,7 @@ void main() {
         matching: find.text('Capture anyway'),
       ),
     );
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     expect(find.text('Publish Memory'), findsOneWidget);
   });
@@ -3382,7 +3391,7 @@ void main() {
     expect(find.text('Anchor: Perimeter - 100 m'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     expect(find.text('Publish Memory'), findsOneWidget);
     expect(find.text('Anchor radius: 100 m'), findsOneWidget);
@@ -3427,7 +3436,7 @@ void main() {
         find.textContaining('-6.9177, 107.6193 | +/- 4.6 m'), findsOneWidget);
 
     await tester.tap(find.text('Museum hallway EXIF'));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     expect(find.text('Publish Memory'), findsOneWidget);
     await tester.enterText(
@@ -4058,7 +4067,7 @@ void main() {
     expect(find.text('AR Camera Preview'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
     expect(find.text('Publish Memory'), findsOneWidget);
 
     await tester.scrollUntilVisible(find.byType(EditableText), 300);
@@ -4085,7 +4094,7 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     expect(find.text('Publish Memory'), findsOneWidget);
     final captionField = find.byKey(const ValueKey('publish_caption_field'));
@@ -4152,7 +4161,7 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     await tester.scrollUntilVisible(
       find.byKey(
@@ -4307,7 +4316,7 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     await tester.scrollUntilVisible(find.byType(EditableText), 300);
     await tester.enterText(
@@ -4351,7 +4360,7 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     await tester.scrollUntilVisible(
       find.byKey(
@@ -4412,7 +4421,7 @@ void main() {
     expect(find.text('+/- 3.2 m'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     final captionField =
         find.byKey(const ValueKey('publish_caption_field')).first;
@@ -4487,7 +4496,7 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     final captionField = find.byType(EditableText).first;
     await tester.scrollUntilVisible(
@@ -4674,7 +4683,7 @@ void main() {
         matching: find.text('Capture anyway'),
       ),
     );
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     expect(find.text('Publish Memory'), findsOneWidget);
     await tester.scrollUntilVisible(find.byType(EditableText), 300);
@@ -5061,7 +5070,7 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     final captionField = find.byType(EditableText);
     await tester.scrollUntilVisible(captionField, 300);
