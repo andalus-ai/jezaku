@@ -155,6 +155,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
   Timer? _viewerPoseRefreshTimer;
   StreamSubscription<CompassEvent>? _compassSubscription;
   StreamSubscription<Position>? _positionSubscription;
+  final Set<Timer> _boundedTimers = <Timer>{};
   StreamSubscription<ARCamera>? _arCameraSubscription;
   ARCamera? _latestARCamera;
   DateTime? _lastARCameraFrameAt;
@@ -490,20 +491,72 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
     );
   }
 
+  /// Like [Future.timeout], but the timer is owned by this state and cancelled
+  /// in [dispose], so a slow platform call can never leave a timer running
+  /// after the screen is gone. After disposal the returned future simply never
+  /// completes.
+  Future<T> _withinBounds<T>(
+    Future<T> operation,
+    Duration limit, {
+    T Function()? onTimeout,
+  }) {
+    final completer = Completer<T>();
+    late final Timer timer;
+    timer = Timer(limit, () {
+      _boundedTimers.remove(timer);
+      if (completer.isCompleted) {
+        return;
+      }
+      if (onTimeout != null) {
+        completer.complete(onTimeout());
+      } else {
+        completer.completeError(TimeoutException('Timed out', limit));
+      }
+    });
+    _boundedTimers.add(timer);
+    operation.then<void>(
+      (value) {
+        timer.cancel();
+        _boundedTimers.remove(timer);
+        if (!completer.isCompleted) {
+          completer.complete(value);
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        timer.cancel();
+        _boundedTimers.remove(timer);
+        if (!completer.isCompleted) {
+          completer.completeError(error, stackTrace);
+        }
+      },
+    );
+    return completer.future;
+  }
+
   Future<void> _startPositionTracking() async {
     await _positionSubscription?.cancel();
     _positionSubscription = null;
+    if (!mounted) {
+      return;
+    }
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled()
-          .timeout(const Duration(milliseconds: 700), onTimeout: () => false);
+      final serviceEnabled = await _withinBounds(
+        Geolocator.isLocationServiceEnabled(),
+        const Duration(milliseconds: 700),
+        onTimeout: () => false,
+      );
       if (!mounted || !serviceEnabled) {
         return;
       }
-      var permission = await Geolocator.checkPermission()
-          .timeout(const Duration(milliseconds: 700));
+      var permission = await _withinBounds(
+        Geolocator.checkPermission(),
+        const Duration(milliseconds: 700),
+      );
       if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission()
-            .timeout(const Duration(seconds: 2));
+        permission = await _withinBounds(
+          Geolocator.requestPermission(),
+          const Duration(seconds: 2),
+        );
       }
       if (!mounted ||
           permission == LocationPermission.denied ||
@@ -772,6 +825,10 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
     _cancelCloudAnchorRetry();
     _viewerPoseRefreshTimer?.cancel();
     _viewerPoseRefreshTimer = null;
+    for (final timer in _boundedTimers) {
+      timer.cancel();
+    }
+    _boundedTimers.clear();
     unawaited(_compassSubscription?.cancel());
     _compassSubscription = null;
     unawaited(_positionSubscription?.cancel());
@@ -2250,9 +2307,10 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
       return null;
     }
     try {
-      final hits = await controller.hitTest(0.5, 0.5).timeout(
-            const Duration(milliseconds: 700),
-          );
+      final hits = await _withinBounds(
+        controller.hitTest(0.5, 0.5),
+        const Duration(milliseconds: 700),
+      );
       final hit = _bestHangingPhotoHit(hits);
       final cameraPosition = camera.pose.position;
       final cameraForward = camera.pose.rotation.rotateVector(
