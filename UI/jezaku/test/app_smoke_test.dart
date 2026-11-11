@@ -5880,8 +5880,17 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.scrollUntilVisible(find.text('Mark Metadata Synced'), 300);
+    await tester.scrollUntilVisible(
+      find.text('Mark Metadata Synced'),
+      300,
+      scrollable: find
+          .byWidgetPredicate(
+            (widget) => widget is Scrollable && widget.axis == Axis.vertical,
+          )
+          .first,
+    );
     await tester.pumpAndSettle();
+    await _scrollIntoTapZone(tester, find.text('Mark Metadata Synced'));
     await tester.tap(find.text('Mark Metadata Synced'));
     await tester.pumpAndSettle();
 
