@@ -47,6 +47,13 @@ class InMemoryARTrailProgressStore implements ARTrailProgressStore {
   List<ARTrailAchievementUnlock> _achievementUnlocks =
       const <ARTrailAchievementUnlock>[];
 
+  /// Keeps unreadable data under `<key>.corrupt` before removing the original,
+  /// so a bad write does not silently erase a player's trail history.
+  void _quarantine(String key, String rawValue) {
+    unawaited(_preferences.setString('$key.corrupt', rawValue));
+    unawaited(_preferences.remove(key));
+  }
+
   @override
   ARTrailProgress? loadActiveProgress() {
     return _activeProgress;
@@ -137,19 +144,23 @@ class SharedPreferencesARTrailProgressStore implements ARTrailProgressStore {
     try {
       final decodedProgress = jsonDecode(encodedProgress);
       if (decodedProgress is! Map) {
-        clearActiveProgress();
+        _quarantine(_activeProgressKey, encodedProgress);
         return null;
       }
       final progress = ARTrailProgress.fromJson(
         Map<String, Object?>.from(decodedProgress),
       );
-      if (progress == null || progress.isFinished) {
+      if (progress == null) {
+        _quarantine(_activeProgressKey, encodedProgress);
+        return null;
+      }
+      if (progress.isFinished) {
         clearActiveProgress();
         return null;
       }
       return progress;
     } on Object {
-      clearActiveProgress();
+      _quarantine(_activeProgressKey, encodedProgress);
       return null;
     }
   }
@@ -222,7 +233,7 @@ class SharedPreferencesARTrailProgressStore implements ARTrailProgressStore {
     try {
       final decodedStats = jsonDecode(encodedStats);
       if (decodedStats is! Map) {
-        unawaited(_preferences.remove(_lifetimeStatsKey));
+        _quarantine(_lifetimeStatsKey, encodedStats);
         return const ARTrailLifetimeStats.empty();
       }
       return ARTrailLifetimeStats.fromJson(
@@ -230,7 +241,7 @@ class SharedPreferencesARTrailProgressStore implements ARTrailProgressStore {
           ) ??
           const ARTrailLifetimeStats.empty();
     } on Object {
-      unawaited(_preferences.remove(_lifetimeStatsKey));
+      _quarantine(_lifetimeStatsKey, encodedStats);
       return const ARTrailLifetimeStats.empty();
     }
   }
@@ -274,7 +285,7 @@ class SharedPreferencesARTrailProgressStore implements ARTrailProgressStore {
     try {
       final decodedList = jsonDecode(encodedList);
       if (decodedList is! List) {
-        unawaited(_preferences.remove(key));
+        _quarantine(key, encodedList);
         return <T>[];
       }
 
@@ -285,7 +296,7 @@ class SharedPreferencesARTrailProgressStore implements ARTrailProgressStore {
               decoded,
       ]);
     } on Object {
-      unawaited(_preferences.remove(key));
+      _quarantine(key, encodedList);
       return <T>[];
     }
   }
