@@ -18,10 +18,7 @@ void main() {
     debugPrint('DIAG before: gps=${before.gpsAccuracyMeters} '
         'heading=${before.headingDegrees} level=${before.captureReadinessLevel}');
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pump();
-    for (var i = 0; i < 12; i++) {
-      await tester.pump(const Duration(milliseconds: 500));
-    }
+    await tester.pumpAndSettle();
     final after = container.read(captureSessionProvider).previewSnapshot;
     debugPrint('DIAG after: gps=${after.gpsAccuracyMeters} '
         'heading=${after.headingDegrees} level=${after.captureReadinessLevel} '
