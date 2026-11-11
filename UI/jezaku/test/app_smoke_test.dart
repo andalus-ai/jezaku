@@ -5847,9 +5847,9 @@ void main() {
     );
     expect(find.textContaining('Correction saved'), findsOneWidget);
 
-    await tester.ensureVisible(
-      find.text('Queued update', skipOffstage: false).first,
-    );
+    // The sync chip sits at the top of the list and is not built while the
+    // correction row is scrolled into view, so scroll back up to it.
+    await tester.scrollUntilVisible(find.text('Queued update'), -300);
     await tester.pumpAndSettle();
     expect(find.text('Queued update'), findsOneWidget);
 

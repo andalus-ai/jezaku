@@ -729,7 +729,14 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Latest trend'), findsOneWidget);
+    final dbgLatest = store.loadCache().latest;
+    expect(
+      find.text('Latest trend'),
+      findsOneWidget,
+      reason: 'DIAGB history=${dbgLatest?.sessionDiagnosticsReportHistory.length} '
+          'scene=${dbgLatest?.sceneDiagnostics.sessionDiagnosticsReportHistory.length} '
+          'diff=${dbgLatest?.sessionDiagnosticsReportDiff}',
+    );
     expect(find.text('1 new AR warning'), findsOneWidget);
     final recentBundlesHeader = find.text('Recent bundles');
     await tester.scrollUntilVisible(
