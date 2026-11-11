@@ -47,13 +47,6 @@ class InMemoryARTrailProgressStore implements ARTrailProgressStore {
   List<ARTrailAchievementUnlock> _achievementUnlocks =
       const <ARTrailAchievementUnlock>[];
 
-  /// Keeps unreadable data under `<key>.corrupt` before removing the original,
-  /// so a bad write does not silently erase a player's trail history.
-  void _quarantine(String key, String rawValue) {
-    unawaited(_preferences.setString('$key.corrupt', rawValue));
-    unawaited(_preferences.remove(key));
-  }
-
   @override
   ARTrailProgress? loadActiveProgress() {
     return _activeProgress;
@@ -133,6 +126,13 @@ class SharedPreferencesARTrailProgressStore implements ARTrailProgressStore {
   final String _savedTrailsKey;
   final String _lifetimeStatsKey;
   final String _achievementUnlocksKey;
+
+  /// Keeps unreadable data under `<key>.corrupt` before removing the original,
+  /// so a bad write does not silently erase a player's trail history.
+  void _quarantine(String key, String rawValue) {
+    unawaited(_preferences.setString('$key.corrupt', rawValue));
+    unawaited(_preferences.remove(key));
+  }
 
   @override
   ARTrailProgress? loadActiveProgress() {
