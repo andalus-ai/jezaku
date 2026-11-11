@@ -729,14 +729,14 @@ void main() {
       ),
       findsOneWidget,
     );
-    final dbgLatest = store.loadCache().latest;
-    expect(
+    // Rows below the fold are not built in the default test viewport.
+    await tester.scrollUntilVisible(
       find.text('Latest trend'),
-      findsOneWidget,
-      reason: 'DIAGB history=${dbgLatest?.sessionDiagnosticsReportHistory.length} '
-          'scene=${dbgLatest?.sceneDiagnostics.sessionDiagnosticsReportHistory.length} '
-          'diff=${dbgLatest?.sessionDiagnosticsReportDiff}',
+      120,
+      scrollable: find.byType(Scrollable).last,
     );
+    await tester.pumpAndSettle();
+    expect(find.text('Latest trend'), findsOneWidget);
     expect(find.text('1 new AR warning'), findsOneWidget);
     final recentBundlesHeader = find.text('Recent bundles');
     await tester.scrollUntilVisible(
