@@ -54,6 +54,25 @@ Future<void> _scrollIntoTapZone(
   }
 }
 
+/// The search filter chips live in a horizontal list that only builds the chips
+/// near the viewport, so drag the row until the requested chip exists.
+Future<void> _revealFilterChip(WidgetTester tester, String label) async {
+  final chip = find.widgetWithText(ChoiceChip, label);
+  for (var i = 0; i < 10 && chip.evaluate().isEmpty; i++) {
+    await tester.drag(find.byType(ChoiceChip).first, const Offset(-300, 0));
+    await tester.pumpAndSettle();
+  }
+  await tester.ensureVisible(chip);
+  await tester.pumpAndSettle();
+}
+
+String _allTexts(WidgetTester tester) => find
+    .byType(Text)
+    .evaluate()
+    .map((e) => (e.widget as Text).data ?? '')
+    .where((t) => t.isNotEmpty)
+    .join(' | ');
+
 void main() {
   testWidgets('main tabs render consolidated feature screens', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
@@ -4113,15 +4132,7 @@ void main() {
 
     expect(find.text('Fresh anchor from test'), findsWidgets);
 
-    await tester.scrollUntilVisible(
-      find.widgetWithText(ChoiceChip, 'Walls'),
-      100,
-      scrollable: find
-          .byWidgetPredicate(
-            (widget) => widget is Scrollable && widget.axis == Axis.horizontal,
-          )
-          .first,
-    );
+    await _revealFilterChip(tester, 'Walls');
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ChoiceChip, 'Walls'));
     await tester.pumpAndSettle();
@@ -5065,7 +5076,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Applied 1 suggested correction.'), findsOneWidget);
-    expect(find.text('No GPS issues'), findsOneWidget);
+    expect(
+      find.text('No GPS issues'),
+      findsOneWidget,
+      reason: 'DIAGTEXTS ${_allTexts(tester)}',
+    );
     expect(find.text('No GPS suggestions'), findsOneWidget);
 
     final partiallyUpdated = container.read(nearbyAnchorsProvider);
@@ -5988,15 +6003,7 @@ void main() {
     await tester.tap(find.byTooltip('Search'));
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.widgetWithText(ChoiceChip, 'Walls'),
-      100,
-      scrollable: find
-          .byWidgetPredicate(
-            (widget) => widget is Scrollable && widget.axis == Axis.horizontal,
-          )
-          .first,
-    );
+    await _revealFilterChip(tester, 'Walls');
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ChoiceChip, 'Walls'));
     await tester.pumpAndSettle();

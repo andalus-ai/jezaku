@@ -729,7 +729,11 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Latest trend'), findsOneWidget);
+    expect(
+      find.text('Latest trend'),
+      findsOneWidget,
+      reason: 'DIAGTEXTS ${find.byType(Text).evaluate().map((e) => (e.widget as Text).data ?? '').where((t) => t.isNotEmpty).join(' | ')}',
+    );
     expect(find.text('1 new AR warning'), findsOneWidget);
     final recentBundlesHeader = find.text('Recent bundles');
     await tester.scrollUntilVisible(

@@ -1033,10 +1033,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Config'), findsOneWidget);
+      // Geospatial is also downgraded (see the keys asserted above).
       expect(
-        find.text(
-          '2 native features disabled: Light estimation, Plane detection',
-        ),
+        find.textContaining('3 native features disabled:'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Light estimation, Plane detection'),
         findsOneWidget,
       );
     } finally {
