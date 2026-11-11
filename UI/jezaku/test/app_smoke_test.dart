@@ -17,8 +17,18 @@ import 'package:jejaku/main.dart';
 /// Those are timers, not frames, so plain `pumpAndSettle` can return before
 /// they fire; advance fake time explicitly.
 Future<void> _settleCapture(WidgetTester tester) async {
-  await tester.pumpAndSettle();
-  await tester.pump(const Duration(seconds: 3));
+  // Rendering the fallback preview uses Picture.toImage, which completes on
+  // real time, so fake-time pumping alone can never finish the capture.
+  for (var i = 0; i < 20; i++) {
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    if (find.text('Publish Memory').evaluate().isNotEmpty) {
+      break;
+    }
+  }
   await tester.pumpAndSettle();
 }
 
