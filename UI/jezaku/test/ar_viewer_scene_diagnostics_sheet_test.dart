@@ -1039,7 +1039,9 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.textContaining('Light estimation, Plane detection'),
+        find.textContaining(
+          'Light estimation, Native geospatial, Plane detection',
+        ),
         findsOneWidget,
       );
     } finally {

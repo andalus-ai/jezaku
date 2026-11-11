@@ -66,13 +66,6 @@ Future<void> _revealFilterChip(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
-String _allTexts(WidgetTester tester) => find
-    .byType(Text)
-    .evaluate()
-    .map((e) => (e.widget as Text).data ?? '')
-    .where((t) => t.isNotEmpty)
-    .join(' | ');
-
 void main() {
   testWidgets('main tabs render consolidated feature screens', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
@@ -5076,11 +5069,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Applied 1 suggested correction.'), findsOneWidget);
-    expect(
-      find.text('No GPS issues'),
-      findsOneWidget,
-      reason: 'DIAGTEXTS ${_allTexts(tester)}',
-    );
+    expect(find.text('No GPS issues'), findsOneWidget);
     expect(find.text('No GPS suggestions'), findsOneWidget);
 
     final partiallyUpdated = container.read(nearbyAnchorsProvider);
