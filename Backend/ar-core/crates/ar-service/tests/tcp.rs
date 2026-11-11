@@ -235,3 +235,67 @@ async fn named_sessions_persist_resume_and_are_exclusive() {
     srv2.shutdown().await;
     let _ = std::fs::remove_dir_all(dir);
 }
+
+// ---------------------------------------------------------------- executor responsiveness
+
+use ar_core::{Intrinsics, TrackingState, VisualFrontend, VisualPose};
+
+/// Frontend that burns CPU for a while, like a heavy VO frame.
+struct Slow;
+impl VisualFrontend for Slow {
+    fn track(&mut self, _t: f64, _g: &[u8], _i: &Intrinsics) -> Option<VisualPose> { std::thread::sleep(Duration::from_millis(400)); None }
+    fn state(&self) -> TrackingState { TrackingState::Initializing }
+    fn reset(&mut self) {}
+}
+
+#[tokio::test]
+async fn heavy_frame_processing_does_not_stall_other_connections() {
+    // The server gets its OWN single-threaded runtime on its own thread, so any blocking it does is
+    // visible to clients instead of freezing the test's own timers.
+    let std_l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    std_l.set_nonblocking(true).unwrap();
+    let addr = std_l.local_addr().unwrap();
+    let (tx, rx) = oneshot::channel::<()>();
+    let server = std::thread::spawn(move || {
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        rt.block_on(async move {
+            let l = TcpListener::from_std(std_l).unwrap();
+            serve(l, ServerConfig::default(), Arc::new(|| Some(Box::new(Slow) as Box<dyn VisualFrontend>)), async { let _ = rx.await; }).await.unwrap()
+        });
+    });
+    let mut a = Client::connect(addr).await;
+    let mut b = Client::connect(addr).await;
+    a.call(1, json!({"type":"hello","intrinsics":{"fx":10,"fy":10,"cx":1,"cy":1,"width":2,"height":2}})).await;
+    a.send(json!({"id":2,"type":"frame","t":0.0,"width":2,"height":2,"data":"AAECAw=="})).await; // ~400 ms of CPU work
+    tokio::time::sleep(Duration::from_millis(60)).await; // let the server pick it up
+    let t0 = std::time::Instant::now();
+    let st = b.call(1, json!({"type":"stats"})).await;
+    let waited = t0.elapsed();
+    assert_eq!(st["type"], "stats");
+    assert!(waited < Duration::from_millis(150), "another client waited {waited:?} behind a heavy frame");
+    assert_eq!(a.recv().await.unwrap()["id"], 2, "the slow frame still completes");
+    let _ = tx.send(());
+    server.join().unwrap();
+}
+
+#[tokio::test]
+async fn flooding_client_is_throttled_then_dropped_while_others_are_unaffected() {
+    let srv = Srv::start(ServerConfig { max_msgs_per_sec: 100.0, rate_burst: 20.0, ..Default::default() }).await;
+    let mut good = Client::connect(srv.addr).await;
+    let mut bad = Client::connect(srv.addr).await;
+    // Pipeline 1000 messages without reading: far beyond rate + burst.
+    let flood: String = (0..1000).map(|i| format!("{{\"type\":\"imu\",\"t\":{},\"gyro\":[0,0,0],\"accel\":[0,0,9.8]}}\n", i as f64 * 0.001)).collect();
+    bad.w.write_all(flood.as_bytes()).await.unwrap();
+    let mut busy = 0;
+    let closed = loop {
+        match bad.recv().await {
+            Some(v) => if v["code"] == "busy" { busy += 1 },
+            None => break true,
+        }
+    };
+    // (An RST from closing a socket with unread input can discard some error lines, so don't assert an exact count.)
+    assert!(busy >= 1 && closed, "busy errors {busy}, closed {closed}");
+    // A polite client on the same server is fine.
+    for i in 0..5 { assert_eq!(good.call(i + 1, json!({"type":"stats"})).await["type"], "stats"); }
+    srv.shutdown().await;
+}
