@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:jejaku/app/app.dart';
+import 'package:jejaku/main.dart';
 import 'package:jejaku/features/camera/states/capture_session_provider.dart';
 
 void main() {
