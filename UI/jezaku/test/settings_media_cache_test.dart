@@ -453,7 +453,9 @@ void main() {
   });
 
   testWidgets('settings shows and clears AR diagnostics cache', (tester) async {
-    final store = InMemoryARCaptureDiagnosticsCacheStore();
+    final store = InMemoryARCaptureDiagnosticsCacheStore(
+      now: () => DateTime.utc(2026, 6, 2, 12),
+    );
     final cache = ARCaptureDiagnosticsMemoryCache(capacity: 8);
     cache.put(
       ARCaptureDiagnostics(

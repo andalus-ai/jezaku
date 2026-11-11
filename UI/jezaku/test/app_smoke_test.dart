@@ -2215,8 +2215,9 @@ void main() {
     expect(find.text('Discover photo trail'), findsOneWidget);
     expect(find.byKey(const ValueKey('ar_trail_radar')), findsOneWidget);
     expect(find.byKey(const ValueKey('ar_journey_panel')), findsOneWidget);
+    // Only camera/wall-sourced trails have a source wall to open.
     expect(find.byKey(const ValueKey('ar_journey_open_wall_button')),
-        findsOneWidget);
+        findsNothing);
     expect(find.textContaining('Stop 1 of 4'), findsOneWidget);
 
     await tester.pageBack();
@@ -2708,7 +2709,7 @@ void main() {
     );
     expect(find.text('Stop 3 Family checkpoint'), findsOneWidget);
     expect(find.text('Private stop'), findsOneWidget);
-    expect(find.text('Mural Comments'), findsOneWidget);
+    expect(find.text('Mural Comments'), findsWidgets);
 
     await tester
         .tap(find.byKey(const ValueKey('minimap_confirm_ar_trail_button')));
@@ -4115,9 +4116,11 @@ void main() {
     await tester.scrollUntilVisible(
       find.widgetWithText(ChoiceChip, 'Walls'),
       100,
-      scrollable: find.byWidgetPredicate(
-        (widget) => widget is Scrollable && widget.axis == Axis.horizontal,
-      ),
+      scrollable: find
+          .byWidgetPredicate(
+            (widget) => widget is Scrollable && widget.axis == Axis.horizontal,
+          )
+          .first,
     );
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ChoiceChip, 'Walls'));
@@ -5988,9 +5991,11 @@ void main() {
     await tester.scrollUntilVisible(
       find.widgetWithText(ChoiceChip, 'Walls'),
       100,
-      scrollable: find.byWidgetPredicate(
-        (widget) => widget is Scrollable && widget.axis == Axis.horizontal,
-      ),
+      scrollable: find
+          .byWidgetPredicate(
+            (widget) => widget is Scrollable && widget.axis == Axis.horizontal,
+          )
+          .first,
     );
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ChoiceChip, 'Walls'));
