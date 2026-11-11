@@ -1,50 +1,45 @@
-// TEMPORARY diagnostic for CI; remove once the publish-flow failures are fixed.
+// TEMPORARY diagnostic for CI; remove before merge.
 import 'package:flutter/material.dart';
-import 'package:flutter_compass/flutter_compass.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:jejaku/features/camera/states/capture_session_provider.dart';
-import 'package:sensors_plus/sensors_plus.dart';
+import 'package:jejaku/main.dart';
+
+void _dump(WidgetTester tester, String label) {
+  debugPrint('DIAG [$label] snackbars=${find.byType(SnackBar).evaluate().length} '
+      'banners=${find.byType(MaterialBanner).evaluate().length}');
+  for (final e in find.byType(IconButton).evaluate()) {
+    final w = e.widget as IconButton;
+    final box = e.renderObject as RenderBox?;
+    if (box == null || !box.attached) continue;
+    final p = box.localToGlobal(Offset.zero);
+    debugPrint('DIAG [$label] IconButton tooltip=${w.tooltip} '
+        'enabled=${w.onPressed != null} at=${p.dx.round()},${p.dy.round()}');
+  }
+}
 
 void main() {
-  testWidgets('DIAG sensors', (tester) async {
-    debugPrint('DIAG compass events null? ${FlutterCompass.events == null}');
-    var compassDone = false;
-    FlutterCompass.events?.first.then((e) {
-      compassDone = true;
-      debugPrint('DIAG compass event ${e.heading}');
-    }, onError: (Object e) => debugPrint('DIAG compass error $e'));
-    var accDone = false;
-    accelerometerEventStream().first.then((e) {
-      accDone = true;
-      debugPrint('DIAG acc event ${e.x} ${e.y} ${e.z}');
-    }, onError: (Object e) => debugPrint('DIAG acc error $e'));
-    var geoDone = false;
-    Geolocator.isLocationServiceEnabled().then((v) {
-      geoDone = true;
-      debugPrint('DIAG geo enabled=$v');
-    }, onError: (Object e) {
-      geoDone = true;
-      debugPrint('DIAG geo error $e');
+  testWidgets('DIAG wall tap', (tester) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
     });
-    await tester.pump();
-    debugPrint('DIAG after pump0 compass=$compassDone acc=$accDone geo=$geoDone');
-    await tester.pump(const Duration(seconds: 1));
-    debugPrint('DIAG after pump1s compass=$compassDone acc=$accDone geo=$geoDone');
-  });
-
-  testWidgets('DIAG refresh', (tester) async {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    final notifier = container.read(captureSessionProvider.notifier);
-    var done = false;
-    notifier.refreshPreviewFromDeviceSensors().then((_) => done = true);
-    await tester.pump();
-    debugPrint('DIAG refresh done after pump0: $done');
-    await tester.pump(const Duration(seconds: 3));
-    debugPrint('DIAG refresh done after 3s: $done');
-    await tester.pump(const Duration(seconds: 10));
-    debugPrint('DIAG refresh done after 13s: $done');
+    await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Courtyard sketch'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Virtual walls'), 300);
+    _dump(tester, 'wall');
+    final key = find.byKey(const ValueKey('memory_wall_open_wall_reunion'));
+    debugPrint('DIAG target at ${tester.getCenter(key)}');
+    final hits = <String>[];
+    final hit = tester.binding.hitTestDispatcher;
+    debugPrint('DIAG dispatcher ${hit.runtimeType}');
+    for (final e in find.byType(Scaffold).evaluate()) {
+      final box = e.renderObject as RenderBox;
+      debugPrint('DIAG scaffold size=${box.size} at=${box.localToGlobal(Offset.zero)}');
+    }
+    debugPrint('DIAG hits=$hits');
   });
 }
