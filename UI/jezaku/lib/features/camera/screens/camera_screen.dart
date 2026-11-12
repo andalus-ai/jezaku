@@ -223,6 +223,12 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
         return LiveCameraPreview(
           key: _liveCameraPreviewKey,
           fallback: _buildPreviewFallback(message: 'Preparing camera'),
+          errorBuilder: (context, error, retry) => _buildPreviewFallback(
+            message: 'Camera unavailable. You can still place a memory '
+                'without the live preview.',
+            actionLabel: 'Try again',
+            onAction: retry,
+          ),
           onError: (_) {
             if (!mounted) {
               return;
