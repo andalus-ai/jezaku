@@ -7,13 +7,15 @@ void main() {
   const channel = MethodChannel('plugins.flutter.io/camera');
 
   tearDown(() {
-    TestDefaultBinaryMessenger.instance.setMockMethodCallHandler(channel, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null);
   });
 
   testWidgets('shows the error state when no camera is available and retries',
       (tester) async {
     var availableCalls = 0;
-    TestDefaultBinaryMessenger.instance.setMockMethodCallHandler(channel,
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel,
         (call) async {
       if (call.method == 'availableCameras') {
         availableCalls += 1;
@@ -46,7 +48,8 @@ void main() {
   });
 
   testWidgets('without an errorBuilder the fallback is kept', (tester) async {
-    TestDefaultBinaryMessenger.instance.setMockMethodCallHandler(channel,
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel,
         (call) async {
       return call.method == 'availableCameras' ? <Object?>[] : null;
     });
