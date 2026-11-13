@@ -64,6 +64,10 @@ class AuthPolicyTest {
         assertEquals(AuthPolicy.Outcome.ALLOWED_ANONYMOUS,
                 policy.decide("POST", "/identity/accounts", null, NOW).outcome());
         assertEquals(AuthPolicy.Outcome.ALLOWED_ANONYMOUS,
+                policy.decide("POST", "/identity/sessions/refresh", null, NOW).outcome());
+        assertEquals(AuthPolicy.Outcome.ALLOWED_ANONYMOUS,
+                policy.decide("GET", "/identity/sessions/validate", null, NOW).outcome());
+        assertEquals(AuthPolicy.Outcome.ALLOWED_ANONYMOUS,
                 policy.decide("GET", "/q/health/live", null, NOW).outcome());
         assertEquals(AuthPolicy.Outcome.ALLOWED_ANONYMOUS,
                 policy.decide("OPTIONS", "/memories", null, NOW).outcome());

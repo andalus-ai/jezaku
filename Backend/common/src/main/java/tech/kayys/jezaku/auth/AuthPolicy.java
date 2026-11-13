@@ -14,7 +14,10 @@ public final class AuthPolicy {
     public static final List<String> DEFAULT_PUBLIC = List.of(
             "GET /q/",
             "POST /identity/accounts",
-            "POST /identity/sessions");
+            "POST /identity/sessions",
+            // An expired access token is exactly when a client needs to refresh, and validate checks the token it is given.
+            "POST /identity/sessions/refresh",
+            "GET /identity/sessions/validate");
 
     public enum Outcome { ALLOWED_ANONYMOUS, AUTHENTICATED, UNAUTHENTICATED }
 
