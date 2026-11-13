@@ -12,6 +12,7 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 @QuarkusTest
 class IdentityResourceTest {
@@ -47,7 +48,7 @@ class IdentityResourceTest {
         String username = "session_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
         String userId = createAccount(username);
 
-        String accessToken = given()
+        var login = given()
                 .contentType(ContentType.JSON)
                 .body("""
                         {
@@ -64,7 +65,10 @@ class IdentityResourceTest {
                 .body("accessToken", notNullValue())
                 .body("refreshToken", notNullValue())
                 .extract()
-                .path("accessToken");
+                .jsonPath();
+        String accessToken = login.getString("accessToken");
+        // Refresh tokens are only returned when a session is created, never in session listings.
+        String refreshToken = login.getString("refreshToken");
 
         given()
                 .when()
@@ -74,14 +78,14 @@ class IdentityResourceTest {
                 .body("valid", equalTo(true))
                 .body("userId", equalTo(userId));
 
-        String refreshToken = given()
+        given()
                 .when()
                 .get("/identity/sessions/{userId}", userId)
                 .then()
                 .statusCode(200)
                 .body("userId", hasItem(userId))
-                .extract()
-                .path("[0].refreshToken");
+                .body("[0].refreshToken", nullValue())
+                .body("[0].accessToken", nullValue());
 
         String newSessionId = given()
                 .contentType(ContentType.JSON)
