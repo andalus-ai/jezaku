@@ -10,7 +10,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
@@ -136,17 +135,36 @@ class IdentityAuthEnforcedTest {
     @Test
     void revokedSessionsFailValidation() {
         String username = "rev_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
-        given().contentType(ContentType.JSON)
+        String userId = given().contentType(ContentType.JSON)
                 .body("""
                         {"email": "%s@example.test", "username": "%s", "password": "strongPass123", "ageBand": "adult"}
                         """.formatted(username, username))
-                .when().post("/identity/accounts").then().statusCode(201);
-        String token = login(username, "strongPass123");
+                .when().post("/identity/accounts").then().statusCode(201)
+                .extract().path("userId");
+        var session = given().contentType(ContentType.JSON)
+                .body("""
+                        {"identifier": "%s", "password": "strongPass123", "deviceId": "pixel-1"}
+                        """.formatted(username))
+                .when().post("/identity/sessions").then().statusCode(200)
+                .extract().jsonPath();
+        String token = session.getString("accessToken");
+        String sessionId = session.getString("sessionId");
 
         given().when().get("/identity/sessions/validate?accessToken={t}", token)
                 .then()
                 .statusCode(200)
                 .body("valid", equalTo(true))
-                .body("reason", containsString("active"));
+                .body("userId", equalTo(userId));
+
+        given().header("Authorization", "Bearer " + token)
+                .when().delete("/identity/sessions/{userId}/{sessionId}", userId, sessionId)
+                .then()
+                .statusCode(204);
+
+        given().when().get("/identity/sessions/validate?accessToken={t}", token)
+                .then()
+                .statusCode(200)
+                .body("valid", equalTo(false))
+                .body("reason", equalTo("revoked"));
     }
 }
