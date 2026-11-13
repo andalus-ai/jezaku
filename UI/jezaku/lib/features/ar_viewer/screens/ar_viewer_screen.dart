@@ -49,41 +49,8 @@ part 'ar_viewer_parts/ar_viewer_geo_helpers.dart';
 part 'ar_viewer_parts/ar_viewer_journey_panel.dart';
 part 'ar_viewer_parts/ar_viewer_next_stop_cue.dart';
 part 'ar_viewer_parts/ar_viewer_radar.dart';
+part 'ar_viewer_parts/ar_viewer_screen_widget.dart';
 part 'ar_viewer_parts/ar_viewer_trail_progress.dart';
-
-enum _TrailLaunchConflictChoice {
-  resumeCurrent,
-  replace,
-  cancel,
-}
-
-enum _ARHudPreset {
-  defaultView,
-  minimal,
-  manual,
-}
-
-class ARViewerScreen extends ConsumerStatefulWidget {
-  const ARViewerScreen({
-    super.key,
-    this.focusedMemoryId,
-    this.journeyMemoryIds = const [],
-    this.journeyTitle,
-    this.sourceWallId,
-    this.trailSession,
-    this.resumeExistingProgress = false,
-  });
-
-  final String? focusedMemoryId;
-  final List<String> journeyMemoryIds;
-  final String? journeyTitle;
-  final String? sourceWallId;
-  final ARTrailSession? trailSession;
-  final bool resumeExistingProgress;
-
-  @override
-  ConsumerState<ARViewerScreen> createState() => _ARViewerScreenState();
-}
 
 class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
   static const _viewerOrigin = JejakuGeoOrigin(
