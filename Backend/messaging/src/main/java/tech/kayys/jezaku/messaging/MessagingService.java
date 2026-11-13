@@ -154,8 +154,17 @@ public class MessagingService {
     }
 
     public Uni<MessageListResponse> messages(String threadId) {
+        return messages(threadId, null);
+    }
+
+    /** A blank viewer keeps the legacy open read; a named viewer must be a participant of the thread. */
+    public Uni<MessageListResponse> messages(String threadId, String viewerId) {
         return Uni.createFrom().item(() -> {
             ThreadRecord thread = requireThread(threadId);
+            String viewer = optionalTrim(viewerId, "");
+            if (!viewer.isEmpty()) {
+                requireParticipant(thread, viewer);
+            }
             List<MessageResponse> result = repository.findAllMessages().stream()
                     .filter(message -> message.threadId().equals(thread.threadId()))
                     .filter(message -> MessagingSchema.STATUS_ACTIVE.equals(message.status()))
