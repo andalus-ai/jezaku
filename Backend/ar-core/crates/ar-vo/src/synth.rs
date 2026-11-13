@@ -1,5 +1,6 @@
 //! Deterministic synthetic scenes for tests: procedural textures rendered by ray casting.
 //! Public so other crates' tests can drive the frontend with ground truth.
+use crate::undistort::Distortion;
 use ar_core::Intrinsics;
 use nalgebra::{Isometry3, Matrix3, Rotation3, Translation3, UnitQuaternion, Vector3};
 
@@ -43,13 +44,18 @@ impl Default for Room { fn default() -> Self { Self { half_x: 3.0, back_y: 9.0, 
 
 impl Room {
     /// Render an 8-bit grayscale image seen by a camera with OpenCV axes (x right, y down, z forward).
-    pub fn render(&self, k: &Intrinsics, t_wc: &Isometry3<f64>) -> Vec<u8> {
+    pub fn render(&self, k: &Intrinsics, t_wc: &Isometry3<f64>) -> Vec<u8> { self.render_with(k, &Distortion::default(), t_wc) }
+
+    /// As `render`, but through a lens with the given distortion (pixel -> distorted normalised -> ideal ray).
+    pub fn render_with(&self, k: &Intrinsics, dist: &Distortion, t_wc: &Isometry3<f64>) -> Vec<u8> {
         let o = t_wc.translation.vector;
         let r = t_wc.rotation.to_rotation_matrix().into_inner();
         let mut out = vec![0u8; (k.width * k.height) as usize];
         for v in 0..k.height {
             for u in 0..k.width {
-                let dc = Vector3::new((u as f64 - k.cx) / k.fx, (v as f64 - k.cy) / k.fy, 1.0);
+                let (xd, yd) = ((u as f64 - k.cx) / k.fx, (v as f64 - k.cy) / k.fy);
+                let (x, y) = if dist.is_zero() { (xd, yd) } else { dist.undistort(xd, yd) };
+                let dc = Vector3::new(x, y, 1.0);
                 let d = r * dc;
                 let mut best = (f64::MAX, 0u32, 0.0, 0.0);
                 let mut hit = |t: f64, seed: u32, a: f64, b: f64| if t > 1e-6 && t < best.0 { best = (t, seed, a, b); };
@@ -72,13 +78,23 @@ pub fn look_north() -> Rotation3<f64> {
     Rotation3::from_matrix_unchecked(Matrix3::new(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, 0.0))
 }
 
-/// Ground-truth camera pose for frame `k`: lateral swing, steady advance, gentle yaw.
-pub fn trajectory(k: usize) -> Isometry3<f64> {
-    let kf = k as f64;
-    let p = Vector3::new(0.9 * (0.045 * kf).sin(), 0.04 * kf, 1.5 + 0.1 * (0.08 * kf).sin());
-    let yaw = 0.15 * (0.03 * kf).sin();
+/// Ground-truth camera pose at (fractional) frame time `f`: lateral swing, steady advance, gentle yaw.
+pub fn trajectory_at(f: f64) -> Isometry3<f64> {
+    pose_with_yaw(f, 0.15 * (0.03 * f).sin())
+}
+
+/// Same path but with an aggressive pan: yaw peaks at ~0.04 rad/frame (about 12 px/frame at the image centre).
+pub fn trajectory_fast_pan(f: f64) -> Isometry3<f64> {
+    pose_with_yaw(f, 0.35 * (0.12 * f).sin())
+}
+
+fn pose_with_yaw(f: f64, yaw: f64) -> Isometry3<f64> {
+    let p = Vector3::new(0.9 * (0.045 * f).sin(), 0.04 * f, 1.5 + 0.1 * (0.08 * f).sin());
     let r = UnitQuaternion::from_axis_angle(&Vector3::z_axis(), -yaw) * UnitQuaternion::from_rotation_matrix(&look_north());
     Isometry3::from_parts(Translation3::from(p), r)
 }
+
+/// Ground-truth camera pose for frame `k`.
+pub fn trajectory(k: usize) -> Isometry3<f64> { trajectory_at(k as f64) }
 
 pub fn default_intrinsics() -> Intrinsics { Intrinsics { fx: 300.0, fy: 300.0, cx: 160.0, cy: 120.0, width: 320, height: 240 } }

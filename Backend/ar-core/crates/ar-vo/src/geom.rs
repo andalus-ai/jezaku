@@ -189,9 +189,16 @@ fn inlier_mask(t: &Isometry3<f64>, pts: &[Vector3<f64>], obs: &[V2], thresh: f64
 pub fn pnp_ransac(pts: &[Vector3<f64>], obs: &[V2], guess: Option<&Isometry3<f64>>, thresh: f64, rng: &mut Rng) -> Option<(Isometry3<f64>, Vec<bool>)> {
     let n = pts.len();
     if n < 8 { return None; }
-    let polish = |mut t: Isometry3<f64>, mask: Vec<bool>| {
-        let (p, o): (Vec<_>, Vec<_>) = pts.iter().zip(obs).zip(&mask).filter(|(_, &m)| m).map(|((p, o), _)| (*p, *o)).unzip();
-        if p.len() >= 6 { t = refine_pose(t, &p, &o, 10, thresh); }
+    // Two-stage polish: a first refit on a generous inlier set, then a second on the strict (1x) set only, so
+    // points that merely sit near the threshold (e.g. on a moving object) stop pulling the pose.
+    let refit = |t: Isometry3<f64>, mask: &[bool], huber: f64| {
+        let (p, o): (Vec<_>, Vec<_>) = pts.iter().zip(obs).zip(mask).filter(|(_, &m)| m).map(|((p, o), _)| (*p, *o)).unzip();
+        if p.len() >= 6 { refine_pose(t, &p, &o, 10, huber) } else { t }
+    };
+    let polish = |t: Isometry3<f64>, mask: Vec<bool>| {
+        let t = refit(t, &mask, thresh);
+        let strict = inlier_mask(&t, pts, obs, thresh);
+        let t = refit(t, &strict, thresh * 0.5);
         let m = inlier_mask(&t, pts, obs, thresh);
         (t, m)
     };

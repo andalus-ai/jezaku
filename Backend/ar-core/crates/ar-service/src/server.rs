@@ -37,6 +37,11 @@ pub struct ServerConfig {
     pub store_dir: Option<PathBuf>,
     pub fusion: FusionConfig,
     pub drain_timeout: Duration,
+    /// Sustained per-connection message rate (messages/s); 0 disables limiting. A phone streaming
+    /// 500 Hz IMU + 30 fps video + GNSS is ~600/s, so the default leaves generous headroom.
+    pub max_msgs_per_sec: f64,
+    /// Token-bucket capacity (allowed burst).
+    pub rate_burst: f64,
 }
 impl Default for ServerConfig {
     fn default() -> Self {
@@ -48,6 +53,8 @@ impl Default for ServerConfig {
             store_dir: None,
             fusion: FusionConfig::default(),
             drain_timeout: Duration::from_secs(5),
+            max_msgs_per_sec: 3000.0,
+            rate_burst: 600.0,
         }
     }
 }
@@ -103,6 +110,20 @@ pub async fn serve(listener: TcpListener, cfg: ServerConfig, factory: FrontendFa
     Ok(())
 }
 
+/// Per-connection token bucket, checked *before* JSON parsing so floods stay cheap.
+struct Bucket { rate: f64, cap: f64, tokens: f64, last: Instant, strikes: u32 }
+impl Bucket {
+    fn new(rate: f64, cap: f64) -> Self { Self { rate, cap: cap.max(1.0), tokens: cap.max(1.0), last: Instant::now(), strikes: 0 } }
+    /// `Ok(())` if allowed; `Err(true)` if the client has been over the limit for too long (disconnect).
+    fn take(&mut self) -> Result<(), bool> {
+        if self.rate <= 0.0 { return Ok(()); }
+        let now = Instant::now();
+        self.tokens = (self.tokens + now.duration_since(self.last).as_secs_f64() * self.rate).min(self.cap);
+        self.last = now;
+        if self.tokens >= 1.0 { self.tokens -= 1.0; self.strikes = 0; Ok(()) } else { self.strikes += 1; Err(self.strikes >= 200) }
+    }
+}
+
 fn ct_eq(a: &str, b: &str) -> bool {
     a.len() == b.len() && a.bytes().zip(b.bytes()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
@@ -131,6 +152,7 @@ async fn handle_conn(stream: TcpStream, sh: Arc<Shared>, mut stop: watch::Receiv
     let mut name: Option<String> = None;
     let mut ticker: Option<Interval> = None;
     let mut deadline = tokio::time::Instant::now() + sh.cfg.idle_timeout;
+    let mut bucket = Bucket::new(sh.cfg.max_msgs_per_sec, sh.cfg.rate_burst);
 
     loop {
         tokio::select! {
@@ -147,6 +169,10 @@ async fn handle_conn(stream: TcpStream, sh: Arc<Shared>, mut stop: watch::Receiv
                 };
                 deadline = tokio::time::Instant::now() + sh.cfg.idle_timeout;
                 m.requests.fetch_add(1, Relaxed);
+                if let Err(hang_up) = bucket.take() {
+                    if !send(&mut conn, None, &Response::err(ErrorCode::Busy, "rate limit exceeded"), m).await || hang_up { break }
+                    continue;
+                }
                 let env: Envelope = match serde_json::from_str(&line) {
                     Ok(e) => e,
                     Err(e) => { if !send(&mut conn, None, &Response::err(ErrorCode::BadRequest, e.to_string()), m).await { break } continue }
@@ -186,6 +212,19 @@ async fn handle_conn(stream: TcpStream, sh: Arc<Shared>, mut stop: watch::Receiv
                     }
                     Request::Save => save(&sh, session.snapshot(), name.as_deref()).await,
                     Request::Stats => Response::Stats(stats(&sh, &session)),
+                    // CPU-heavy work (visual odometry, plane RANSAC) must not run on the async executor: it would
+                    // stall every other connection. Move the session to the blocking pool and take it back.
+                    other if matches!(other, Request::Frame { .. } | Request::DetectPlanes) => {
+                        let taken = std::mem::replace(&mut session, Session::new(sh.cfg.fusion.clone(), None));
+                        match tokio::task::spawn_blocking(move || { let mut s = taken; let r = s.handle(other); (s, r) }).await {
+                            Ok((s, r)) => { session = s; r }
+                            Err(_) => {
+                                // The worker panicked and took the session with it: tell the client and drop the connection.
+                                send(&mut conn, id, &Response::err(ErrorCode::Internal, "internal error while processing request"), m).await;
+                                break;
+                            }
+                        }
+                    }
                     other => session.handle(other),
                 };
                 // Fire-and-forget: no id => no ack for successes.
