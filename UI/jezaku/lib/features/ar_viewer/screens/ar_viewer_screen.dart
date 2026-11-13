@@ -1102,6 +1102,24 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
                     child: CustomPaint(painter: _ArReticlePainter()),
                   ),
                 ),
+                // Keep the low-level AR engine HUD available during local
+                // device validation without exposing diagnostic overlays in
+                // release builds or changing normal user interactions.
+                if (kDebugMode && _arController != null)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: ARDebugOverlay(
+                        controller: _arController!,
+                        showPlanes: true,
+                        showFPS: true,
+                        showPose: true,
+                        showTrackingState: true,
+                        showEntityCount: true,
+                        showAnchorPositions: true,
+                        showLightEstimate: true,
+                      ),
+                    ),
+                  ),
               ],
             );
           },
