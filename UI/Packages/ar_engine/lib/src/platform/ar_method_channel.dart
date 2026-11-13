@@ -210,7 +210,7 @@ class ArEngineMethodChannel extends ArEnginePlatform {
     int ttlDays = 30,
   }) async {
     try {
-      return _ch.invokeMethod<String>(
+      return await _ch.invokeMethod<String>(
         'hostCloudAnchor',
         <String, Object?>{
           'anchorId': anchorId,

@@ -310,7 +310,9 @@ void main() {
   });
 
   test('capture session restores persisted AR diagnostics cache', () {
-    final store = InMemoryARCaptureDiagnosticsCacheStore();
+    final store = InMemoryARCaptureDiagnosticsCacheStore(
+      now: () => DateTime.utc(2026, 5, 30, 15),
+    );
     final firstContainer = ProviderContainer(
       overrides: [
         arCaptureDiagnosticsCacheStoreProvider.overrideWith((ref) => store),

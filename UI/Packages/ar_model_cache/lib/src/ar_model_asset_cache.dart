@@ -974,7 +974,7 @@ class ARModelAssetCache {
           );
         }
         await _touchCacheEntry(targetFile, resolvedAt);
-        return _cachedResult(
+        return await _cachedResult(
           sourceAsset: asset,
           localPath: targetFile.path,
           status: ARModelAssetCacheStatus.cacheHit,
@@ -998,7 +998,7 @@ class ARModelAssetCache {
       }
 
       await _writeBytesAtomically(targetFile, bytes);
-      return _cachedResult(
+      return await _cachedResult(
         sourceAsset: asset,
         localPath: targetFile.path,
         status: ARModelAssetCacheStatus.cached,

@@ -20,21 +20,21 @@ packages:
   ar_engine:
     dependency: "direct main"
     description:
-      path: "../ar_engine"
+      path: "../Packages/ar_engine"
       relative: true
     source: path
     version: "0.4.0"
   ar_engine_testkit:
     dependency: "direct dev"
     description:
-      path: "../ar_engine_testkit"
+      path: "../Packages/ar_engine_testkit"
       relative: true
     source: path
     version: "0.1.0"
   ar_model_cache:
     dependency: "direct main"
     description:
-      path: "../ar_model_cache"
+      path: "../Packages/ar_model_cache"
       relative: true
     source: path
     version: "0.1.0"
@@ -503,7 +503,7 @@ packages:
   jezaku_ar:
     dependency: "direct main"
     description:
-      path: "../jezaku_ar"
+      path: "../Packages/jezaku_ar"
       relative: true
     source: path
     version: "0.1.0"

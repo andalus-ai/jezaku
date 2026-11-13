@@ -94,7 +94,7 @@ class LiveCameraPreviewState extends State<LiveCameraPreview>
       final file = await controller
           .takePicture()
           .timeout(const Duration(milliseconds: 1600));
-      return file.readAsBytes();
+      return await file.readAsBytes();
     } on Object catch (error) {
       widget.onError?.call(error);
       return null;
