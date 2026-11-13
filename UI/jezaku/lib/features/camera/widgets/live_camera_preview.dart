@@ -8,11 +8,17 @@ class LiveCameraPreview extends StatefulWidget {
   const LiveCameraPreview({
     super.key,
     this.fallback,
+    this.errorBuilder,
     this.onReady,
     this.onError,
   });
 
   final Widget? fallback;
+
+  /// Shown instead of [fallback] when the camera could not be started.
+  /// [retry] tries to start it again.
+  final Widget Function(BuildContext context, Object error, VoidCallback retry)?
+      errorBuilder;
   final ValueChanged<CameraController>? onReady;
   final ValueChanged<Object>? onError;
 
@@ -49,6 +55,20 @@ class LiveCameraPreviewState extends State<LiveCameraPreview>
     }
   }
 
+  /// Tries to start the camera again after a failed start.
+  void retry() {
+    if (!mounted) {
+      return;
+    }
+    final previous = _controller;
+    _controller = null;
+    unawaited(previous?.dispose());
+    setState(() {
+      _error = null;
+      _initializeFuture = _initialize();
+    });
+  }
+
   Future<void> _initialize() async {
     try {
       final cameras = await availableCameras();
@@ -67,7 +87,7 @@ class LiveCameraPreviewState extends State<LiveCameraPreview>
       );
       _controller = controller;
       await controller.initialize();
-      if (!mounted) {
+      if (!mounted || _controller != controller) {
         await controller.dispose();
         return;
       }
@@ -118,6 +138,10 @@ class LiveCameraPreviewState extends State<LiveCameraPreview>
       future: _initializeFuture,
       builder: (context, snapshot) {
         final controller = _controller;
+        final error = _error;
+        if (error != null && widget.errorBuilder != null) {
+          return widget.errorBuilder!(context, error, retry);
+        }
         if (snapshot.connectionState != ConnectionState.done ||
             controller == null ||
             !controller.value.isInitialized ||
