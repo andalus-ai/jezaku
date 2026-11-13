@@ -388,11 +388,55 @@ class _ARWidgetState extends State<ARWidget> with WidgetsBindingObserver {
         _runControllerLifecycleCall((controller) => controller.pause());
         break;
       case AppLifecycleState.resumed:
-        _runControllerLifecycleCall((controller) => controller.resume());
+        unawaited(_resumeOrRecreateSession());
         break;
       default:
         break;
     }
+  }
+
+  /// Resume the active native session. Some AR runtimes cannot recover
+  /// after the camera was reclaimed while the app was backgrounded; in that
+  /// case rebuild the controller instead of leaving the viewer in an error
+  /// state.
+  Future<void> _resumeOrRecreateSession() async {
+    final controller = _controller;
+    if (controller == null || _error != null || _initialising) {
+      return;
+    }
+    try {
+      await controller.resume();
+    } on Object {
+      if (!mounted || controller != _controller) {
+        return;
+      }
+      await _recreateSessionAfterResumeFailure(controller);
+    }
+  }
+
+  Future<void> _recreateSessionAfterResumeFailure(
+    ARController previousController,
+  ) async {
+    if (!mounted || previousController != _controller) {
+      return;
+    }
+    setState(() {
+      _controller = null;
+      _error = null;
+      _initialising = true;
+      _desktopTextureId = null;
+      _platformViewConfig = null;
+    });
+    _disposeSessionHealthMonitor();
+    try {
+      await previousController.dispose();
+    } on Object {
+      // Continue with a fresh controller even if native teardown failed.
+    }
+    if (!mounted) {
+      return;
+    }
+    await _initAR();
   }
 
   void _runControllerLifecycleCall(
