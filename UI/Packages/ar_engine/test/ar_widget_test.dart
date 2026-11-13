@@ -561,6 +561,47 @@ void main() {
     });
 
     testWidgets(
+        'recreates the native session when resume fails after backgrounding',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      final platform = installPlatform()..nextTextureId = 5;
+      final created = <ARController>[];
+
+      await tester.pumpWidget(
+        _host(
+          ar_widget.ARWidget(
+            config: const ARSessionConfig(),
+            onARViewCreated: created.add,
+            loadingWidget: const Text('loading'),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(created, hasLength(1));
+      platform.resumeSessionError = StateError('camera session was reclaimed');
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.runAsync<void>(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      });
+      await tester.pump();
+      await tester.pump();
+
+      expect(platform.resumeCount, 1);
+      expect(platform.initConfigs, hasLength(2));
+      expect(created, hasLength(2));
+      expect(created.last, isNot(same(created.first)));
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets(
         'handles lifecycle pause errors without uncaught async failures',
         (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
