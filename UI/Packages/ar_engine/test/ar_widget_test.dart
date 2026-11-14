@@ -602,6 +602,39 @@ void main() {
     });
 
     testWidgets(
+        'ignores overlapping resumed lifecycle events',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      final platform = installPlatform()..nextTextureId = 6;
+
+      await tester.pumpWidget(
+        _host(
+          const ar_widget.ARWidget(
+            config: ARSessionConfig(),
+            loadingWidget: Text('loading'),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.runAsync<void>(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      });
+      await tester.pump();
+
+      expect(platform.resumeCount, 1);
+      expect(platform.initConfigs, hasLength(1));
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets(
         'handles lifecycle pause errors without uncaught async failures',
         (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
