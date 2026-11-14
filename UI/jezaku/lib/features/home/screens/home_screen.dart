@@ -212,14 +212,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const Expanded(
-                          child: Text(
-                            'Nearby Memories',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Nearby Memories',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Places and moments around you',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ],
                           ),
                         ),
                         _CountBadge(count: visibleAnchors.length),
@@ -1070,7 +1082,12 @@ class _FilterChip extends StatelessWidget {
       padding: const EdgeInsets.only(right: 8),
       child: ChoiceChip(
         label: Text(label),
+        labelStyle: TextStyle(
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        ),
         selected: selected,
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         onSelected: (_) => onSelected(),
       ),
     );

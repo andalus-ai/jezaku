@@ -72,6 +72,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Nearby Memories'), findsOneWidget);
+    expect(find.text('Places and moments around you'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('AR View'), findsOneWidget);
 
     await tester.tap(find.text('Social'));
     await tester.pumpAndSettle();
