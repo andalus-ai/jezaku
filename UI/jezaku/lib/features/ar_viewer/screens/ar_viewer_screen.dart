@@ -2022,11 +2022,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         if (aFocused != bFocused) {
           return aFocused ? -1 : 1;
         }
-        final visibility = b.projection.isVisible
-            .toString()
-            .compareTo(a.projection.isVisible.toString());
-        if (visibility != 0) {
-          return visibility;
+        if (a.projection.isVisible != b.projection.isVisible) {
+          return a.projection.isVisible ? -1 : 1;
         }
         return a.memory.id.compareTo(b.memory.id);
       });
@@ -2045,10 +2042,10 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
           ? [base]
           : [
               base,
-              Alignment(base.x, (base.y - 0.22).clamp(-0.88, 0.88)),
-              Alignment(base.x, (base.y + 0.22).clamp(-0.88, 0.88)),
-              Alignment(base.x, (base.y - 0.44).clamp(-0.88, 0.88)),
-              Alignment(base.x, (base.y + 0.44).clamp(-0.88, 0.88)),
+              Alignment(base.x, (base.y - 0.22).clamp(-0.88, 0.88).toDouble()),
+              Alignment(base.x, (base.y + 0.22).clamp(-0.88, 0.88).toDouble()),
+              Alignment(base.x, (base.y - 0.44).clamp(-0.88, 0.88).toDouble()),
+              Alignment(base.x, (base.y + 0.44).clamp(-0.88, 0.88).toDouble()),
             ];
       var selected = candidates.first;
       for (final candidate in candidates) {
