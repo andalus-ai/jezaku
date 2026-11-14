@@ -52,7 +52,42 @@ part 'ar_viewer_parts/ar_viewer_radar.dart';
 part 'ar_viewer_parts/ar_viewer_screen_widget.dart';
 part 'ar_viewer_parts/ar_viewer_trail_progress.dart';
 
-class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
+enum _TrailLaunchConflictChoice {
+  resumeCurrent,
+  replace,
+  cancel,
+}
+
+enum _ARHudPreset {
+  defaultView,
+  minimal,
+  manual,
+}
+
+class ARViewerScreen extends ConsumerStatefulWidget {
+  const ARViewerScreen({
+    super.key,
+    this.focusedMemoryId,
+    this.journeyMemoryIds = const [],
+    this.journeyTitle,
+    this.sourceWallId,
+    this.trailSession,
+    this.resumeExistingProgress = false,
+  });
+
+  final String? focusedMemoryId;
+  final List<String> journeyMemoryIds;
+  final String? journeyTitle;
+  final String? sourceWallId;
+  final ARTrailSession? trailSession;
+  final bool resumeExistingProgress;
+
+  @override
+  ConsumerState<ARViewerScreen> createState() => _ARViewerScreenState();
+}
+
+class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
+    with WidgetsBindingObserver {
   static const _viewerOrigin = JejakuGeoOrigin(
     latitude: -6.91755,
     longitude: 107.61905,
@@ -152,6 +187,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
         ref.read(arMemorySceneDiagnosticsProvider.notifier);
     _captureController = ref.read(arViewerCaptureProvider.notifier);
     _arPermissionsFuture = _checkARRuntimePermissions();
+    WidgetsBinding.instance.addObserver(this);
     final initialHeading =
         ref.read(captureSessionProvider).previewSnapshot.headingDegrees;
     if (initialHeading.isFinite) {
@@ -382,6 +418,55 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
         );
       },
     );
+  }
+
+  bool _backgrounded = false;
+
+  /// Only `paused` pauses live tracking: `inactive` also fires while a system
+  /// permission dialog is showing, and pausing then would fight the prompt.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _pauseLiveTracking();
+    } else if (state == AppLifecycleState.resumed) {
+      _resumeLiveTracking();
+    }
+  }
+
+  void _pauseLiveTracking() {
+    if (_backgrounded) {
+      return;
+    }
+    _backgrounded = true;
+    // Stop GPS/compass streams and the sensor refresh while the app is not
+    // visible; they only burn battery.
+    _viewerPoseRefreshTimer?.cancel();
+    _viewerPoseRefreshTimer = null;
+    unawaited(_compassSubscription?.cancel());
+    _compassSubscription = null;
+    unawaited(_positionSubscription?.cancel());
+    _positionSubscription = null;
+    final controller = _arController;
+    if (controller != null && !controller.isDisposed) {
+      unawaited(controller.pause().catchError((Object _) {}));
+    }
+  }
+
+  void _resumeLiveTracking() {
+    if (!_backgrounded) {
+      return;
+    }
+    _backgrounded = false;
+    if (!mounted) {
+      return;
+    }
+    final controller = _arController;
+    if (controller != null && !controller.isDisposed) {
+      unawaited(controller.resume().catchError((Object _) {}));
+    }
+    if (ref.read(arViewerLivePoseTrackingProvider)) {
+      _startViewerPoseTracking();
+    }
   }
 
   void _startViewerPoseTracking() {
@@ -799,6 +884,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
     _nativeSceneDiagnosticsResetScheduled = false;
     _cancelCloudAnchorMaintenance();
     _cancelCloudAnchorRetry();
+    WidgetsBinding.instance.removeObserver(this);
     _viewerPoseRefreshTimer?.cancel();
     _viewerPoseRefreshTimer = null;
     for (final timer in _boundedTimers) {
@@ -1069,6 +1155,24 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
                     child: CustomPaint(painter: _ArReticlePainter()),
                   ),
                 ),
+                // Keep the low-level AR engine HUD available during local
+                // device validation without exposing diagnostic overlays in
+                // release builds or changing normal user interactions.
+                if (kDebugMode && _arController != null)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: ARDebugOverlay(
+                        controller: _arController!,
+                        showPlanes: true,
+                        showFPS: true,
+                        showPose: true,
+                        showTrackingState: true,
+                        showEntityCount: true,
+                        showAnchorPositions: true,
+                        showLightEstimate: true,
+                      ),
+                    ),
+                  ),
               ],
             );
           },
