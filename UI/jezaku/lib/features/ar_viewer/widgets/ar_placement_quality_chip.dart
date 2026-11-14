@@ -20,7 +20,9 @@ class ARPlacementQualityChip extends StatelessWidget {
       triggerMode: TooltipTriggerMode.tap,
       showDuration: const Duration(seconds: 5),
       child: Semantics(
+        liveRegion: true,
         label: 'Placement ${assessment.shortLabel}. ${assessment.detailLabel}',
+        hint: 'Tap for placement accuracy details',
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.48),
