@@ -49,6 +49,7 @@ part 'ar_viewer_parts/ar_viewer_geo_helpers.dart';
 part 'ar_viewer_parts/ar_viewer_journey_panel.dart';
 part 'ar_viewer_parts/ar_viewer_next_stop_cue.dart';
 part 'ar_viewer_parts/ar_viewer_radar.dart';
+part 'ar_viewer_parts/ar_viewer_screen_widget.dart';
 part 'ar_viewer_parts/ar_viewer_trail_progress.dart';
 
 enum _TrailLaunchConflictChoice {
@@ -85,7 +86,8 @@ class ARViewerScreen extends ConsumerStatefulWidget {
   ConsumerState<ARViewerScreen> createState() => _ARViewerScreenState();
 }
 
-class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
+class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
+    with WidgetsBindingObserver {
   static const _viewerOrigin = JejakuGeoOrigin(
     latitude: -6.91755,
     longitude: 107.61905,
@@ -155,15 +157,16 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
   late final ARViewerCaptureController _captureController;
   ARController? _arController;
   ARGeospatialQualityMonitor? _geospatialQualityMonitor;
-  final ValueNotifier<JejakuPlacementAssessment> _placementAssessment =
-      ValueNotifier<JejakuPlacementAssessment>(
-    const JejakuPlacementAssessment.initial(),
+  final ValueNotifier<JejakuGeospatialAssessment> _placementAssessment =
+      ValueNotifier<JejakuGeospatialAssessment>(
+    const JejakuGeospatialAssessment.initial(),
   );
   DateTime? _cloudAnchorMaintenanceCheckAt;
   Timer? _cloudAnchorMaintenanceTimer;
   Timer? _viewerPoseRefreshTimer;
   StreamSubscription<CompassEvent>? _compassSubscription;
   StreamSubscription<Position>? _positionSubscription;
+  final Set<Timer> _boundedTimers = <Timer>{};
   StreamSubscription<ARCamera>? _arCameraSubscription;
   ARCamera? _latestARCamera;
   DateTime? _lastARCameraFrameAt;
@@ -184,6 +187,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
         ref.read(arMemorySceneDiagnosticsProvider.notifier);
     _captureController = ref.read(arViewerCaptureProvider.notifier);
     _arPermissionsFuture = _checkARRuntimePermissions();
+    WidgetsBinding.instance.addObserver(this);
     final initialHeading =
         ref.read(captureSessionProvider).previewSnapshot.headingDegrees;
     if (initialHeading.isFinite) {
@@ -416,6 +420,55 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
     );
   }
 
+  bool _backgrounded = false;
+
+  /// Only `paused` pauses live tracking: `inactive` also fires while a system
+  /// permission dialog is showing, and pausing then would fight the prompt.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _pauseLiveTracking();
+    } else if (state == AppLifecycleState.resumed) {
+      _resumeLiveTracking();
+    }
+  }
+
+  void _pauseLiveTracking() {
+    if (_backgrounded) {
+      return;
+    }
+    _backgrounded = true;
+    // Stop GPS/compass streams and the sensor refresh while the app is not
+    // visible; they only burn battery.
+    _viewerPoseRefreshTimer?.cancel();
+    _viewerPoseRefreshTimer = null;
+    unawaited(_compassSubscription?.cancel());
+    _compassSubscription = null;
+    unawaited(_positionSubscription?.cancel());
+    _positionSubscription = null;
+    final controller = _arController;
+    if (controller != null && !controller.isDisposed) {
+      unawaited(controller.pause().catchError((Object _) {}));
+    }
+  }
+
+  void _resumeLiveTracking() {
+    if (!_backgrounded) {
+      return;
+    }
+    _backgrounded = false;
+    if (!mounted) {
+      return;
+    }
+    final controller = _arController;
+    if (controller != null && !controller.isDisposed) {
+      unawaited(controller.resume().catchError((Object _) {}));
+    }
+    if (ref.read(arViewerLivePoseTrackingProvider)) {
+      _startViewerPoseTracking();
+    }
+  }
+
   void _startViewerPoseTracking() {
     _viewerPoseRefreshTimer?.cancel();
     _viewerPoseRefreshTimer = Timer.periodic(
@@ -430,7 +483,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
   void _startGeospatialQualityMonitor(ARController controller) {
     _stopGeospatialQualityMonitor();
     // A new native session starts from scratch; the previous lock is gone.
-    _placementAssessment.value = const JejakuPlacementAssessment.initial();
+    _placementAssessment.value = const JejakuGeospatialAssessment.initial();
     final monitor = ARGeospatialQualityMonitor(
       assessment: _placementAssessment,
       readStatus: controller.getGeospatialStatus,
@@ -499,20 +552,72 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
     );
   }
 
+  /// Like [Future.timeout], but the timer is owned by this state and cancelled
+  /// in [dispose], so a slow platform call can never leave a timer running
+  /// after the screen is gone. After disposal the returned future simply never
+  /// completes.
+  Future<T> _withinBounds<T>(
+    Future<T> operation,
+    Duration limit, {
+    T Function()? onTimeout,
+  }) {
+    final completer = Completer<T>();
+    late final Timer timer;
+    timer = Timer(limit, () {
+      _boundedTimers.remove(timer);
+      if (completer.isCompleted) {
+        return;
+      }
+      if (onTimeout != null) {
+        completer.complete(onTimeout());
+      } else {
+        completer.completeError(TimeoutException('Timed out', limit));
+      }
+    });
+    _boundedTimers.add(timer);
+    operation.then<void>(
+      (value) {
+        timer.cancel();
+        _boundedTimers.remove(timer);
+        if (!completer.isCompleted) {
+          completer.complete(value);
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        timer.cancel();
+        _boundedTimers.remove(timer);
+        if (!completer.isCompleted) {
+          completer.completeError(error, stackTrace);
+        }
+      },
+    );
+    return completer.future;
+  }
+
   Future<void> _startPositionTracking() async {
     await _positionSubscription?.cancel();
     _positionSubscription = null;
+    if (!mounted) {
+      return;
+    }
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled()
-          .timeout(const Duration(milliseconds: 700), onTimeout: () => false);
+      final serviceEnabled = await _withinBounds(
+        Geolocator.isLocationServiceEnabled(),
+        const Duration(milliseconds: 700),
+        onTimeout: () => false,
+      );
       if (!mounted || !serviceEnabled) {
         return;
       }
-      var permission = await Geolocator.checkPermission()
-          .timeout(const Duration(milliseconds: 700));
+      var permission = await _withinBounds(
+        Geolocator.checkPermission(),
+        const Duration(milliseconds: 700),
+      );
       if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission()
-            .timeout(const Duration(seconds: 2));
+        permission = await _withinBounds(
+          Geolocator.requestPermission(),
+          const Duration(seconds: 2),
+        );
       }
       if (!mounted ||
           permission == LocationPermission.denied ||
@@ -779,8 +884,13 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
     _nativeSceneDiagnosticsResetScheduled = false;
     _cancelCloudAnchorMaintenance();
     _cancelCloudAnchorRetry();
+    WidgetsBinding.instance.removeObserver(this);
     _viewerPoseRefreshTimer?.cancel();
     _viewerPoseRefreshTimer = null;
+    for (final timer in _boundedTimers) {
+      timer.cancel();
+    }
+    _boundedTimers.clear();
     unawaited(_compassSubscription?.cancel());
     _compassSubscription = null;
     unawaited(_positionSubscription?.cancel());
@@ -895,7 +1005,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
                             onPressed: () => _showHudSettingsSheet(context),
                           ),
                           const SizedBox(width: 8),
-                          ValueListenableBuilder<JejakuPlacementAssessment>(
+                          ValueListenableBuilder<JejakuGeospatialAssessment>(
                             valueListenable: _placementAssessment,
                             builder: (context, assessment, _) {
                               return ARPlacementQualityChip(
@@ -1045,6 +1155,24 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
                     child: CustomPaint(painter: _ArReticlePainter()),
                   ),
                 ),
+                // Keep the low-level AR engine HUD available during local
+                // device validation without exposing diagnostic overlays in
+                // release builds or changing normal user interactions.
+                if (kDebugMode && _arController != null)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: ARDebugOverlay(
+                        controller: _arController!,
+                        showPlanes: true,
+                        showFPS: true,
+                        showPose: true,
+                        showTrackingState: true,
+                        showEntityCount: true,
+                        showAnchorPositions: true,
+                        showLightEstimate: true,
+                      ),
+                    ),
+                  ),
               ],
             );
           },
@@ -2259,9 +2387,10 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
       return null;
     }
     try {
-      final hits = await controller.hitTest(0.5, 0.5).timeout(
-            const Duration(milliseconds: 700),
-          );
+      final hits = await _withinBounds(
+        controller.hitTest(0.5, 0.5),
+        const Duration(milliseconds: 700),
+      );
       final hit = _bestHangingPhotoHit(hits);
       final cameraPosition = camera.pose.position;
       final cameraForward = camera.pose.rotation.rotateVector(
@@ -2424,7 +2553,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
       if (cameraBytes == null || cameraBytes.isEmpty) {
         return null;
       }
-      return _decodeImage(cameraBytes);
+      return await _decodeImage(cameraBytes);
     } on Object {
       return null;
     }
@@ -2474,7 +2603,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen> {
       );
     final picture = recorder.endRecording();
     try {
-      return picture.toImage(width, height);
+      return await picture.toImage(width, height);
     } finally {
       picture.dispose();
     }

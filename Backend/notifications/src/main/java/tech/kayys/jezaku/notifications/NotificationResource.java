@@ -11,6 +11,8 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import tech.kayys.jezaku.notifications.NotificationDtos.DeviceRegistrationRequest;
@@ -23,6 +25,8 @@ import tech.kayys.jezaku.notifications.NotificationDtos.NotificationInboxRespons
 import tech.kayys.jezaku.notifications.NotificationDtos.NotificationPreferences;
 import tech.kayys.jezaku.notifications.NotificationDtos.NotificationResponse;
 
+import tech.kayys.jezaku.auth.AuthContext;
+
 import java.util.List;
 
 @Path("/notifications")
@@ -30,6 +34,18 @@ import java.util.List;
 public class NotificationResource {
     @Inject
     NotificationService service;
+
+    @Context
+    ContainerRequestContext requestContext;
+
+    /**
+     * Inbox, preferences and device endpoints belong to one user: a verified token for a different user is refused.
+     * {@code POST /notifications} and {@code /intake/messaging} are producer endpoints called by other services and
+     * are intentionally not owner-scoped; they need service credentials before authentication can be enforced here.
+     */
+    private void self(String userId) {
+        AuthContext.requireSelf(requestContext, userId);
+    }
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
@@ -54,6 +70,7 @@ public class NotificationResource {
             @PathParam("userId") String userId,
             @QueryParam("unreadOnly") Boolean unreadOnly,
             @QueryParam("limit") Integer limit) {
+        self(userId);
         return service.inbox(userId, unreadOnly, limit);
     }
 
@@ -63,6 +80,7 @@ public class NotificationResource {
     public Uni<NotificationInboxResponse> markRead(
             @PathParam("userId") String userId,
             MarkReadRequest request) {
+        self(userId);
         return service.markRead(userId, request);
     }
 
@@ -71,6 +89,7 @@ public class NotificationResource {
     public Uni<NotificationDeliveryHistoryResponse> deliveryHistory(
             @PathParam("userId") String userId,
             @PathParam("notificationId") String notificationId) {
+        self(userId);
         return service.deliveryHistory(userId, notificationId);
     }
 
@@ -79,6 +98,7 @@ public class NotificationResource {
     public Uni<Response> delete(
             @PathParam("userId") String userId,
             @PathParam("notificationId") String notificationId) {
+        self(userId);
         return service.delete(userId, notificationId)
                 .replaceWith(Response.noContent().build());
     }
@@ -86,6 +106,7 @@ public class NotificationResource {
     @GET
     @Path("/users/{userId}/preferences")
     public Uni<NotificationPreferences> preferences(@PathParam("userId") String userId) {
+        self(userId);
         return service.preferences(userId);
     }
 
@@ -95,6 +116,7 @@ public class NotificationResource {
     public Uni<NotificationPreferences> updatePreferences(
             @PathParam("userId") String userId,
             NotificationPreferences request) {
+        self(userId);
         return service.updatePreferences(userId, request);
     }
 
@@ -102,12 +124,16 @@ public class NotificationResource {
     @Path("/devices")
     @Consumes(MediaType.APPLICATION_JSON)
     public Uni<DeviceRegistrationResponse> registerDevice(DeviceRegistrationRequest request) {
+        if (request != null) {
+            self(request.userId());
+        }
         return service.registerDevice(request);
     }
 
     @GET
     @Path("/devices/{userId}")
     public Uni<List<DeviceRegistrationResponse>> devices(@PathParam("userId") String userId) {
+        self(userId);
         return service.devices(userId);
     }
 
@@ -116,6 +142,7 @@ public class NotificationResource {
     public Uni<Response> disableDevice(
             @PathParam("userId") String userId,
             @PathParam("deviceId") String deviceId) {
+        self(userId);
         return service.disableDevice(userId, deviceId)
                 .replaceWith(Response.noContent().build());
     }

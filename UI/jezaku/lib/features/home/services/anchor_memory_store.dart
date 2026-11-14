@@ -61,7 +61,7 @@ class SharedPreferencesAnchorMemoryStore implements AnchorMemoryStore {
     try {
       final decoded = jsonDecode(encodedMemories);
       if (decoded is! List) {
-        clear();
+        _quarantine(encodedMemories);
         return const <AnchorMemory>[];
       }
       return List<AnchorMemory>.unmodifiable(
@@ -71,9 +71,18 @@ class SharedPreferencesAnchorMemoryStore implements AnchorMemoryStore {
             .whereType<AnchorMemory>(),
       );
     } on Object {
-      clear();
+      _quarantine(encodedMemories);
       return const <AnchorMemory>[];
     }
+  }
+
+  /// Key under which unreadable data is kept so it can be recovered or
+  /// attached to a support report instead of being silently destroyed.
+  String get corruptBackupKey => '$_key.corrupt';
+
+  void _quarantine(String rawValue) {
+    unawaited(_preferences.setString(corruptBackupKey, rawValue));
+    clear();
   }
 
   @override

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:jejaku/app/utils/bounded_timers.dart';
 import 'package:jejaku/features/camera/models/capture_sensor_snapshot.dart';
 import 'package:jejaku/features/camera/services/ar_capture_diagnostics_cache_store.dart';
 import 'package:jejaku/features/camera/services/capture_metadata_service.dart';
@@ -356,6 +357,8 @@ class CaptureSessionController extends Notifier<CaptureSessionState> {
   final ARCaptureDiagnosticsMemoryCache _arDiagnosticsCache =
       ARCaptureDiagnosticsMemoryCache(capacity: 8);
 
+  final BoundedTimers _boundedTimers = BoundedTimers();
+
   ARCaptureDiagnostics? get latestArDiagnostics => _arDiagnosticsCache.latest;
 
   Map<String, Object?> get arDiagnosticsCacheSnapshot {
@@ -367,6 +370,7 @@ class CaptureSessionController extends Notifier<CaptureSessionState> {
   @override
   CaptureSessionState build() {
     final snapshot = ref.read(captureMetadataServiceProvider).previewSnapshot();
+    ref.onDispose(_boundedTimers.cancelAll);
     _restoreARDiagnosticsCache();
     return CaptureSessionState(previewSnapshot: snapshot);
   }
@@ -591,27 +595,37 @@ class CaptureSessionController extends Notifier<CaptureSessionState> {
     CaptureSensorSnapshot fallback,
   ) async {
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled()
-          .timeout(const Duration(milliseconds: 500), onTimeout: () => false);
+      final serviceEnabled = await _boundedTimers.run(
+        Geolocator.isLocationServiceEnabled(),
+        const Duration(milliseconds: 500),
+        onTimeout: () => false,
+      );
       if (!serviceEnabled) {
         return null;
       }
 
-      var permission = await Geolocator.checkPermission()
-          .timeout(const Duration(milliseconds: 500));
+      var permission = await _boundedTimers.run(
+        Geolocator.checkPermission(),
+        const Duration(milliseconds: 500),
+      );
       if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission()
-            .timeout(const Duration(seconds: 2));
+        permission = await _boundedTimers.run(
+          Geolocator.requestPermission(),
+          const Duration(seconds: 2),
+        );
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         return null;
       }
 
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.best,
-        timeLimit: const Duration(seconds: 2),
-      ).timeout(const Duration(seconds: 2));
+      final position = await _boundedTimers.run(
+        Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.best,
+          timeLimit: const Duration(seconds: 2),
+        ),
+        const Duration(seconds: 2),
+      );
       return CaptureLocationFix(
         latitude: position.latitude,
         longitude: position.longitude,
@@ -653,15 +667,14 @@ class CaptureSessionController extends Notifier<CaptureSessionState> {
       if (stream == null) {
         return null;
       }
-      final event = await stream
-          .firstWhere(
-            (event) =>
-                event.headingForCameraMode != null || event.heading != null,
-          )
-          .timeout(
-            const Duration(milliseconds: 300),
-            onTimeout: () => CompassEvent.fromList(null),
-          );
+      final event = await _boundedTimers.run(
+        stream.firstWhere(
+          (event) =>
+              event.headingForCameraMode != null || event.heading != null,
+        ),
+        const Duration(milliseconds: 300),
+        onTimeout: () => CompassEvent.fromList(null),
+      );
       final heading = event.headingForCameraMode ?? event.heading;
       if (heading == null || !heading.isFinite) {
         return null;
@@ -677,9 +690,10 @@ class CaptureSessionController extends Notifier<CaptureSessionState> {
   Future<({double pitchDegrees, double rollDegrees})?>
       _readAccelerometerAttitude() async {
     try {
-      final event = await accelerometerEventStream().first.timeout(
-            const Duration(milliseconds: 300),
-          );
+      final event = await _boundedTimers.run(
+        accelerometerEventStream().first,
+        const Duration(milliseconds: 300),
+      );
       final pitchRadians = math.atan2(
         -event.x,
         math.sqrt((event.y * event.y) + (event.z * event.z)),

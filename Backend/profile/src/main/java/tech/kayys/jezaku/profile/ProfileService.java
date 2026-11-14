@@ -88,6 +88,14 @@ public class ProfileService {
         });
     }
 
+    /** The stored controls, or {@code null} when the profile does not exist yet (never throws). */
+    public Uni<ParentalControls> existingParentalControls(String userId) {
+        return Uni.createFrom().item(() -> {
+            ProfileRecord existing = profiles.get(optionalTrim(userId, ""));
+            return existing == null ? null : existing.parentalControls();
+        });
+    }
+
     public Uni<ParentalControls> parentalControls(String userId) {
         return Uni.createFrom().item(() -> requireProfile(userId).parentalControls());
     }

@@ -9,7 +9,7 @@ import 'package:jezaku_ar/jezaku_ar.dart';
 class ARPlacementQualityChip extends StatelessWidget {
   const ARPlacementQualityChip({super.key, required this.assessment});
 
-  final JejakuPlacementAssessment assessment;
+  final JejakuGeospatialAssessment assessment;
 
   @override
   Widget build(BuildContext context) {

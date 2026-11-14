@@ -32,3 +32,9 @@ overview), active trail route in `main_screen`, profile trail routes.
 - The AR viewer keeps its own `viewerOrigin`; unifying it is left alone.
 - Sample memories sit around Bandung, so on a real device away from Bandung a
   live origin makes them look far away (enable sample data only for demos).
+
+## User-facing status
+
+The home map pill reflects the real state through `describeViewerLocation`:
+`GPS ±N m` (good <= 10 m, fair <= 30 m, otherwise poor), `GPS active` when a
+fix has no usable accuracy, and `Location unavailable` on the fallback origin.

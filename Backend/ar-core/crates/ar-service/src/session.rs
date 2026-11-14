@@ -118,6 +118,14 @@ impl Session {
     }
 
     fn frame(&mut self, t: f64, width: u32, height: u32, data: &str) -> Response {
+        let Ok(gray) = base64::engine::general_purpose::STANDARD.decode(data) else {
+            return Response::err(ErrorCode::InvalidValue, "frame data is not valid base64");
+        };
+        self.frame_gray(t, width, height, &gray)
+    }
+
+    /// Process one undistorted 8-bit grayscale frame (also the entry point for in-process replay).
+    pub fn frame_gray(&mut self, t: f64, width: u32, height: u32, gray: &[u8]) -> Response {
         use ErrorCode::*;
         let Some(fe) = self.frontend.as_mut() else {
             return Response::err(Unsupported, "no visual frontend configured; send `visual` poses instead");
@@ -125,9 +133,8 @@ impl Session {
         let Some(intr) = self.intrinsics else { return Response::err(NotReady, "send `hello` with intrinsics before frames") };
         if (width, height) != (intr.width, intr.height) { return Response::err(InvalidValue, "frame size does not match intrinsics"); }
         if !t.is_finite() { return Response::err(InvalidValue, "non-finite timestamp"); }
-        let Ok(gray) = base64::engine::general_purpose::STANDARD.decode(data) else { return Response::err(InvalidValue, "frame data is not valid base64") };
         if gray.len() != (width as usize) * (height as usize) { return Response::err(InvalidValue, "frame byte length != width*height"); }
-        if let Some(vp) = fe.track(t, &gray, &intr) {
+        if let Some(vp) = fe.track(t, gray, &intr) {
             if let Err(e) = validate::visual(&vp) { return Response::err(Internal, format!("frontend produced invalid pose: {e}")); }
             let prev_map = self.fusion.map_id();
             self.fusion.on_visual(&vp);

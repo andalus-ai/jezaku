@@ -2,7 +2,7 @@ use ar_service::server::{serve, ServerConfig};
 use std::{sync::Arc, time::Duration};
 use tokio::net::TcpListener;
 
-const USAGE: &str = "ar-serviced [--bind ADDR] [--store-dir DIR] [--max-conn N] [--idle-secs N] [--frontend none|vo]\n  token: set AR_TOKEN in the environment (kept off the command line)";
+const USAGE: &str = "ar-serviced [--bind ADDR] [--store-dir DIR] [--max-conn N] [--idle-secs N] [--max-msgs-per-sec N] [--frontend none|vo]\n  token: set AR_TOKEN in the environment (kept off the command line)";
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
@@ -17,6 +17,7 @@ async fn main() -> std::io::Result<()> {
             "--store-dir" => cfg.store_dir = Some(val().into()),
             "--max-conn" => cfg.max_connections = val().parse().expect("--max-conn"),
             "--frontend" => use_vo = match val().as_str() { "vo" => true, "none" => false, _ => { eprintln!("{USAGE}"); std::process::exit(2) } },
+            "--max-msgs-per-sec" => cfg.max_msgs_per_sec = val().parse().expect("--max-msgs-per-sec (0 disables)"),
             "--idle-secs" => cfg.idle_timeout = Duration::from_secs(val().parse().expect("--idle-secs")),
             _ => { eprintln!("{USAGE}"); std::process::exit(2) }
         }
