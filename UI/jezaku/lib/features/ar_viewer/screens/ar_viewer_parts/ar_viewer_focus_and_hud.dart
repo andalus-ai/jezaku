@@ -249,7 +249,7 @@ class _FocusedAnchorCalibrationLine extends StatelessWidget {
           icon: const Icon(Icons.tune),
           color: Colors.white,
           visualDensity: VisualDensity.compact,
-          constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+          constraints: const BoxConstraints.tightFor(width: 48, height: 48),
         ),
       ],
     );
@@ -339,6 +339,8 @@ class _HudPill extends StatelessWidget {
     if (handleTap != null) {
       pill = Semantics(
         button: true,
+        onTap: handleTap,
+        hint: 'Activate',
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
@@ -510,6 +512,8 @@ class _DiagnosticsIssueTile extends StatelessWidget {
     }
     tile = Semantics(
       button: true,
+      onTap: handleTap,
+      hint: 'Double tap to focus this diagnostic anchor',
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
