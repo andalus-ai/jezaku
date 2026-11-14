@@ -65,7 +65,7 @@ class SharedPreferencesAnchorMediaUploadQueueStore
     try {
       final decoded = jsonDecode(encodedQueue);
       if (decoded is! List) {
-        clear();
+        _quarantine(encodedQueue);
         return const <String, AnchorMediaUploadEntry>{};
       }
 
@@ -81,7 +81,7 @@ class SharedPreferencesAnchorMediaUploadQueueStore
       }
       return Map<String, AnchorMediaUploadEntry>.unmodifiable(entries);
     } on Object {
-      clear();
+      _quarantine(encodedQueue);
       return const <String, AnchorMediaUploadEntry>{};
     }
   }
@@ -100,6 +100,15 @@ class SharedPreferencesAnchorMediaUploadQueueStore
         ]),
       ),
     );
+  }
+
+  /// Where unreadable queue data is kept so it can be inspected or attached to
+  /// a support report instead of silently dropping queued uploads.
+  String get corruptBackupKey => '$_key.corrupt';
+
+  void _quarantine(String rawValue) {
+    unawaited(_preferences.setString(corruptBackupKey, rawValue));
+    clear();
   }
 
   void clear() {

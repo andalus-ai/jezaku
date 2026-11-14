@@ -69,7 +69,7 @@ class JejakuPlacementPolicy {
   /// never forces [JejakuPlacementMode.precise]: the accuracy estimates in
   /// [status] decide. It is only used to report an authorization or quota
   /// error that the Earth state has not surfaced yet.
-  JejakuPlacementAssessment assess({
+  JejakuGeospatialAssessment assess({
     ARGeospatialStatus? status,
     ARVpsAvailability? vps,
   }) {
@@ -146,8 +146,8 @@ class JejakuPlacementPolicy {
 }
 
 /// Outcome of [JejakuPlacementPolicy.assess].
-class JejakuPlacementAssessment {
-  const JejakuPlacementAssessment._(
+class JejakuGeospatialAssessment {
+  const JejakuGeospatialAssessment._(
     this.quality,
     this.reason, {
     this.pose,
@@ -217,7 +217,7 @@ class JejakuPlacementAssessment {
 
   @override
   bool operator ==(Object other) {
-    return other is JejakuPlacementAssessment &&
+    return other is JejakuGeospatialAssessment &&
         quality == other.quality &&
         reason == other.reason &&
         pose == other.pose;

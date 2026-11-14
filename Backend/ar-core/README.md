@@ -1,4 +1,4 @@
-# rs-ar — an ARCore-style AR service in Rust
+# ar-core — an ARCore-style AR service in Rust
 
 Replacement for the unmaintained C++ `openvslam_gps_fusion` fork. Fusion is an explicit, tested
 estimator; the visual frontend is a swappable trait; the service exposes an ARCore-like session API.
@@ -10,7 +10,8 @@ estimator; the visual frontend is a swappable trait; the service exposes an ARCo
 | `ar-fusion` | 15-state ESKF (IMU+GNSS+visual), continuous map→ENU alignment, map-epoch resets, GNSS-divergence recovery, geo pose + heading, pose prediction | done |
 | `ar-planes` | sequential RANSAC planes with patch extents + ray hit-test | done |
 | `ar-service` | tokio NDJSON/TCP service: auth, limits, anchors, persistence, push poses, metrics | done |
-| `ar-vo` | pure-Rust monocular visual odometry (`VoFrontend`): Shi-Tomasi + pyramidal KLT, essential-matrix init, PnP tracking, incremental triangulation, point-cloud map | done, tested on rendered scenes |
+| `ar-vo` | pure-Rust monocular visual odometry (`VoFrontend`): Shi-Tomasi + pyramidal KLT, essential-matrix init, PnP tracking, incremental triangulation, point-cloud map; lens undistortion (`Undistorter`) | done, tested on rendered scenes |
+| `ar-replay` | replays recorded datasets (native layout or EuRoC MAV) through the real session and reports tracking, ATE and timing; also generates synthetic datasets | done; parsers tested on synthetic EuRoC-layout data only |
 
     cargo test --workspace
     AR_TOKEN=secret cargo run --release -p ar-service --bin ar-serviced -- --bind 127.0.0.1:7878 --store-dir ./sessions --frontend vo
@@ -57,8 +58,33 @@ makes near-planar walks well-conditioned.
 
 Measured on rendered scenes (320x240, known ground truth, scale-aligned): 0.3% ATE of path / 0.6° max rotation error on clean
 frames; 0.5% under sensor noise + exposure drift; abandons a blacked-out map with a new `map_id` and re-initialises.
-Speed in a release build, single thread: median 26 ms/frame (p95 36 ms) at 320x240. Pose *output* can still run at IMU
+Stress scenarios (all single map, no reset): moving object in view 0.5% ATE (was 5.5% before the strict second PnP polish
+pass), fast pan (~12 px/frame) 0.3%, motion blur 0.4%.
+Speed in a release build, single thread: **median 4.9 ms/frame (p95 7.2 ms, max 10.6 ms) at 320x240** (was 26 ms before
+the KLT rewrite: fixed-weight window sampling + full-resolution-only backward check). Pose *output* can still run at IMU
 rate via `get_pose {predict_ms}` / `subscribe`.
+
+## Replaying recorded data (`ar-replay`)
+    cargo run --release -p ar-replay -- gen /tmp/ds --distortion --imu-noise     # synthetic dataset to try the tool
+    cargo run --release -p ar-replay -- run /tmp/ds --min-baseline 3
+    cargo run --release -p ar-replay -- run /path/to/MH_01_easy --euroc          # EuRoC MAV folder (or its mav0/ parent)
+
+Native layout: `calib.json` (intrinsics, distortion, `t_body_cam`), `imu.csv` (`t_s,gx,gy,gz,ax,ay,az`), `frames.csv`
+(`t_s,file`, PGM or PNG), optional `gnss.csv` (`t_s,lat,lon,alt,h_acc,v_acc`) and `truth.csv` (`t_s,x,y,z`, body position).
+The tool undistorts each frame (OpenCV radial-tangential model), runs the real `Session` (VO + fusion), and reports pose coverage,
+map resets, scale-aligned ATE per map, geo-alignment status and frame-time percentiles (`--json` for machines).
+`--imu-offset-ms` shifts the IMU clock to probe camera-IMU time-offset sensitivity (no offset *estimation* yet).
+Distortion matters: on a synthetic lens (k1=-0.25) skipping undistortion raised ATE from 0.23% to 3.84% of path.
+The EuRoC loader is verified only against synthetic data written in the EuRoC layout (verbatim `sensor.yaml` structure);
+run it on a real sequence before trusting any number. EuRoC has no GNSS, so only VO accuracy (no geo-alignment) is reported there.
+`ar-serviced --frontend vo` expects **already undistorted** frames; undistort on the client or use `ar_vo::Undistorter`.
+
+## Service hardening
+- CPU-heavy requests (`frame`, `detect_planes`) run on the blocking pool, so one client's video cannot stall the others
+  (regression test: another connection's `stats` must return within 150 ms while a 400 ms frame is processing).
+- Per-connection token bucket (`--max-msgs-per-sec`, default 3000, burst 600) checked *before* JSON parsing; sustained
+  floods get `busy` errors and then a disconnect.
+- Plus: token auth, message-size cap, idle timeout, connection cap, input validation, atomic persistence, graceful shutdown.
 
 ## Known limits
 - Geo-alignment needs real motion (default: ~8 m spread of GNSS-paired positions) and decent GNSS (`h_acc` ≤ 30 m); expect alignment error of the order of GNSS noise.
@@ -66,6 +92,6 @@ rate via `get_pose {predict_ms}` / `subscribe`.
 - Visual poses enter the filter loosely coupled; camera–IMU extrinsics are configured, not estimated.
 - **Everything is validated on synthetic data only** (procedural textures, noise-free geometry, ideal IMU). Real cameras bring rolling
   shutter, motion blur, lens distortion, auto-exposure, dynamic objects and IMU/camera time offsets; expect to tune and extend.
-- VO has no optimisation backend, so drift accumulates on long trajectories; frame time grows ~4x at 640x480 (detector and KLT are
-  scalar code: next steps are an integral-image detector, rayon/SIMD KLT).
+- VO has no optimisation backend, so drift accumulates on long trajectories; frame time should grow roughly 4x at 640x480
+  (not measured). The detector (~5 ms full-frame) is scalar code and the next optimisation target.
 - Plane finding is a single RANSAC pass over the point cloud (inlier band scales with point distance), not incremental ARCore-style planes.

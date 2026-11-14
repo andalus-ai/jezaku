@@ -10,8 +10,11 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import tech.kayys.jezaku.auth.AuthContext;
 import tech.kayys.jezaku.engagement.EngagementDtos.BookmarkListResponse;
 import tech.kayys.jezaku.engagement.EngagementDtos.BookmarkRequest;
 import tech.kayys.jezaku.engagement.EngagementDtos.BookmarkResponse;
@@ -29,9 +32,17 @@ public class EngagementResource {
     @Inject
     EngagementService service;
 
+    @Context
+    ContainerRequestContext requestContext;
+
+    private void self(String userId) {
+        AuthContext.requireSelf(requestContext, userId);
+    }
+
     @POST
     @Path("/reactions")
     public Uni<ReactionResponse> react(ReactionRequest request) {
+        self(request == null ? null : request.userId());
         return service.react(request);
     }
 
@@ -41,6 +52,7 @@ public class EngagementResource {
             @QueryParam("userId") String userId,
             @QueryParam("targetType") String targetType,
             @QueryParam("targetId") String targetId) {
+        self(userId);
         return service.removeReaction(userId, targetType, targetId)
                 .replaceWith(Response.noContent().build());
     }
@@ -48,6 +60,7 @@ public class EngagementResource {
     @POST
     @Path("/comments")
     public Uni<Response> comment(CommentCreateRequest request) {
+        self(request == null ? null : request.userId());
         return service.comment(request)
                 .map(comment -> Response.status(Response.Status.CREATED).entity(comment).build());
     }
@@ -65,6 +78,7 @@ public class EngagementResource {
     public Uni<Response> deleteComment(
             @PathParam("commentId") String commentId,
             @QueryParam("userId") String userId) {
+        self(userId);
         return service.deleteComment(commentId, userId)
                 .replaceWith(Response.noContent().build());
     }
@@ -72,6 +86,7 @@ public class EngagementResource {
     @POST
     @Path("/bookmarks")
     public Uni<BookmarkResponse> bookmark(BookmarkRequest request) {
+        self(request == null ? null : request.userId());
         return service.bookmark(request);
     }
 
@@ -81,6 +96,7 @@ public class EngagementResource {
             @QueryParam("userId") String userId,
             @QueryParam("targetType") String targetType,
             @QueryParam("targetId") String targetId) {
+        self(userId);
         return service.removeBookmark(userId, targetType, targetId)
                 .replaceWith(Response.noContent().build());
     }
@@ -88,6 +104,7 @@ public class EngagementResource {
     @GET
     @Path("/users/{userId}/bookmarks")
     public Uni<BookmarkListResponse> bookmarks(@PathParam("userId") String userId) {
+        self(userId);
         return service.bookmarks(userId);
     }
 
@@ -97,6 +114,6 @@ public class EngagementResource {
             @PathParam("targetType") String targetType,
             @PathParam("targetId") String targetId,
             @QueryParam("viewerId") String viewerId) {
-        return service.summary(targetType, targetId, viewerId);
+        return service.summary(targetType, targetId, AuthContext.viewerOrCaller(requestContext, viewerId));
     }
 }

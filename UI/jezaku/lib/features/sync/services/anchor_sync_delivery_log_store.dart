@@ -63,7 +63,7 @@ class SharedPreferencesAnchorSyncDeliveryLogStore
     try {
       final decoded = jsonDecode(encodedLog);
       if (decoded is! List) {
-        clear();
+        _quarantine(encodedLog);
         return const <AnchorSyncDeliveryEntry>[];
       }
 
@@ -79,7 +79,7 @@ class SharedPreferencesAnchorSyncDeliveryLogStore
       }
       return List<AnchorSyncDeliveryEntry>.unmodifiable(entries);
     } on Object {
-      clear();
+      _quarantine(encodedLog);
       return const <AnchorSyncDeliveryEntry>[];
     }
   }
@@ -98,6 +98,14 @@ class SharedPreferencesAnchorSyncDeliveryLogStore
         ]),
       ),
     );
+  }
+
+  /// Where unreadable log data is kept instead of being silently dropped.
+  String get corruptBackupKey => '$_key.corrupt';
+
+  void _quarantine(String rawValue) {
+    unawaited(_preferences.setString(corruptBackupKey, rawValue));
+    clear();
   }
 
   void clear() {
