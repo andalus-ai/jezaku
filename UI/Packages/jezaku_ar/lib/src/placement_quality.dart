@@ -74,20 +74,20 @@ class JejakuPlacementPolicy {
     ARVpsAvailability? vps,
   }) {
     if (status == null || !status.isEnabled) {
-      return const JejakuGeospatialAssessment._(
+      return const JejakuPlacementAssessment._(
         JejakuPlacementMode.approximate,
         JejakuPlacementReason.geospatialUnavailable,
       );
     }
     if (status.isNotAuthorized || vps == ARVpsAvailability.errorNotAuthorized) {
-      return const JejakuGeospatialAssessment._(
+      return const JejakuPlacementAssessment._(
         JejakuPlacementMode.approximate,
         JejakuPlacementReason.notAuthorized,
       );
     }
     if (status.earthState == 'ERROR_RESOURCE_EXHAUSTED' ||
         vps == ARVpsAvailability.errorResourceExhausted) {
-      return const JejakuGeospatialAssessment._(
+      return const JejakuPlacementAssessment._(
         JejakuPlacementMode.approximate,
         JejakuPlacementReason.resourceExhausted,
       );
@@ -95,7 +95,7 @@ class JejakuPlacementPolicy {
 
     final pose = status.pose;
     if (!status.isTracking || pose == null) {
-      return const JejakuGeospatialAssessment._(
+      return const JejakuPlacementAssessment._(
         JejakuPlacementMode.approximate,
         JejakuPlacementReason.localizing,
       );
@@ -104,21 +104,21 @@ class JejakuPlacementPolicy {
     final horizontal = pose.horizontalAccuracyMeters;
     final heading = pose.headingAccuracyDegrees;
     if (!_isUsable(horizontal) || !_isUsable(heading)) {
-      return JejakuGeospatialAssessment._(
+      return JejakuPlacementAssessment._(
         JejakuPlacementMode.approximate,
         JejakuPlacementReason.accuracyUnknown,
         pose: pose,
       );
     }
     if (horizontal! > maxHorizontalAccuracyMeters) {
-      return JejakuGeospatialAssessment._(
+      return JejakuPlacementAssessment._(
         JejakuPlacementMode.approximate,
         JejakuPlacementReason.horizontalAccuracyTooLow,
         pose: pose,
       );
     }
     if (heading! > maxHeadingAccuracyDegrees) {
-      return JejakuGeospatialAssessment._(
+      return JejakuPlacementAssessment._(
         JejakuPlacementMode.approximate,
         JejakuPlacementReason.headingAccuracyTooLow,
         pose: pose,
@@ -128,13 +128,13 @@ class JejakuPlacementPolicy {
     // Altitude accuracy is optional: some devices do not report it, and a
     // missing value should not block placement.
     if (_isUsable(vertical) && vertical! > maxVerticalAccuracyMeters) {
-      return JejakuGeospatialAssessment._(
+      return JejakuPlacementAssessment._(
         JejakuPlacementMode.approximate,
         JejakuPlacementReason.verticalAccuracyTooLow,
         pose: pose,
       );
     }
-    return JejakuGeospatialAssessment._(
+    return JejakuPlacementAssessment._(
       JejakuPlacementMode.precise,
       JejakuPlacementReason.accurate,
       pose: pose,
@@ -154,7 +154,7 @@ class JejakuGeospatialAssessment {
   });
 
   /// Placement before any native status has been read.
-  const JejakuGeospatialAssessment.initial()
+  const JejakuPlacementAssessment.initial()
       : quality = JejakuPlacementMode.approximate,
         reason = JejakuPlacementReason.geospatialUnavailable,
         pose = null;
