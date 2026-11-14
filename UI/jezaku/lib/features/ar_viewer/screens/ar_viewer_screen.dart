@@ -955,6 +955,28 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                         trailStopNumbers: trailStopNumbers,
                         wallTitlesByMemoryId: wallTitlesByMemoryId,
                       ),
+                    // Subtle edge scrims keep controls and status readable
+                    // over bright skies without dimming the center camera view.
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Color(0x66000000),
+                                Color(0x12000000),
+                                Color(0x00000000),
+                                Color(0x18000000),
+                                Color(0x99000000),
+                              ],
+                              stops: [0, 0.18, 0.48, 0.72, 1],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                     Positioned(
                       top: 16,
                       left: 16,
