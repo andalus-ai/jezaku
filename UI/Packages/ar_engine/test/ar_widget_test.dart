@@ -561,6 +561,36 @@ void main() {
     });
 
     testWidgets(
+        'maps camera permission platform errors to ARCameraPermissionException',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      installPlatform()
+        ..nextTextureId = 8
+        ..initSessionError = PlatformException(
+          code: 'CAMERA_PERMISSION_DENIED',
+          message: 'Camera permission was revoked',
+        );
+
+      await tester.pumpWidget(
+        _host(
+          ar_widget.ARWidget(
+            config: const ARSessionConfig(),
+            errorBuilder: (context, error) => Text(error.runtimeType.toString()),
+            loadingWidget: const Text('loading'),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('ARCameraPermissionException'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets(
         'recreates the native session when resume fails after backgrounding',
         (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
