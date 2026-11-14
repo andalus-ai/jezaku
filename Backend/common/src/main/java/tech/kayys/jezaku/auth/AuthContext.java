@@ -16,6 +16,19 @@ public final class AuthContext {
     }
 
     /**
+     * The user a read should be evaluated for. A caller that names a viewer must be that user; a caller that names
+     * none is evaluated as themselves when authenticated, so leaving the parameter out never widens what they see.
+     * Anonymous callers (enforcement off) keep whatever they sent.
+     */
+    public static String viewerOrCaller(ContainerRequestContext context, String claimedViewerId) {
+        if (claimedViewerId != null && !claimedViewerId.isBlank()) {
+            requireSelf(context, claimedViewerId);
+            return claimedViewerId;
+        }
+        return user(context).map(AuthenticatedUser::userId).orElse(claimedViewerId);
+    }
+
+    /**
      * The caller must be {@code userId}. {@link AuthFilter} already rejects anonymous callers whenever authentication
      * is enforced, so an anonymous caller reaching a handler means enforcement is off (dev/test) and existing clients
      * keep working. An authenticated caller can never act as someone else.

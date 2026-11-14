@@ -14,8 +14,11 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import tech.kayys.jezaku.auth.AuthContext;
 import tech.kayys.jezaku.presence.PresenceDtos.MinimapResponse;
 import tech.kayys.jezaku.presence.PresenceDtos.NearbyPresenceResponse;
 import tech.kayys.jezaku.presence.PresenceDtos.PresenceOpsHealthResponse;
@@ -32,9 +35,17 @@ public class PresenceResource {
     @Inject
     PresenceService service;
 
+    @Context
+    ContainerRequestContext requestContext;
+
+    private void self(String userId) {
+        AuthContext.requireSelf(requestContext, userId);
+    }
+
     @POST
     @Path("/check-ins")
     public Uni<Response> checkIn(PresenceUpdateRequest request) {
+        self(request == null ? null : request.userId());
         return service.checkIn(request)
                 .map(presence -> Response.status(Response.Status.CREATED).entity(presence).build());
     }
@@ -53,7 +64,8 @@ public class PresenceResource {
         if (lat == null || lng == null) {
             throw new BadRequestException("lat and lng query parameters are required");
         }
-        return service.nearby(lat, lng, altitudeMeters, headingDegrees, compassDegrees, radiusMeters, limit, viewerId);
+        return service.nearby(lat, lng, altitudeMeters, headingDegrees, compassDegrees, radiusMeters, limit,
+                AuthContext.viewerOrCaller(requestContext, viewerId));
     }
 
     @GET
@@ -62,6 +74,9 @@ public class PresenceResource {
             @PathParam("userId") String userId,
             @QueryParam("lat") Double lat,
             @QueryParam("lng") Double lng) {
+        // A user's exact stored position is only for that user; everyone else goes through /nearby, which applies
+        // the visibility policy.
+        self(userId);
         return service.get(userId, lat, lng);
     }
 
@@ -71,6 +86,7 @@ public class PresenceResource {
             @PathParam("userId") String userId,
             @QueryParam("radiusMeters") @DefaultValue("100") Double radiusMeters,
             @QueryParam("limit") @DefaultValue("50") Integer limit) {
+        self(userId);
         return service.minimap(userId, radiusMeters, limit);
     }
 
@@ -79,6 +95,7 @@ public class PresenceResource {
     public Uni<VisibilityResponse> visibility(
             @PathParam("userId") String userId,
             VisibilityUpdateRequest request) {
+        self(userId);
         return service.visibility(userId, request);
     }
 
@@ -91,6 +108,7 @@ public class PresenceResource {
     @DELETE
     @Path("/users/{userId}")
     public Uni<Response> delete(@PathParam("userId") String userId) {
+        self(userId);
         return service.delete(userId)
                 .replaceWith(Response.noContent().build());
     }

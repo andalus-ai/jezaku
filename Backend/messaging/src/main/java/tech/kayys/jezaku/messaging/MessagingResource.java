@@ -38,7 +38,6 @@ import tech.kayys.jezaku.messaging.MessagingDtos.ThreadActivityHistoryResponse;
 import tech.kayys.jezaku.messaging.MessagingDtos.ThreadListResponse;
 import tech.kayys.jezaku.messaging.MessagingDtos.ThreadResponse;
 import tech.kayys.jezaku.auth.AuthContext;
-import tech.kayys.jezaku.auth.AuthenticatedUser;
 import tech.kayys.jezaku.http.RequestIdFilter;
 
 import java.time.Instant;
@@ -70,16 +69,8 @@ public class MessagingResource {
         AuthContext.requireSelf(requestContext, userId);
     }
 
-    /**
-     * The viewer to check thread membership against. A caller that names a viewer must be that user; a caller that
-     * names none is checked as themselves when authenticated, so omitting the parameter never skips the check.
-     */
     private String viewer(String claimedViewerId) {
-        if (claimedViewerId != null && !claimedViewerId.isBlank()) {
-            self(claimedViewerId);
-            return claimedViewerId;
-        }
-        return AuthContext.user(requestContext).map(AuthenticatedUser::userId).orElse(claimedViewerId);
+        return AuthContext.viewerOrCaller(requestContext, claimedViewerId);
     }
 
     @POST
