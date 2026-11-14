@@ -262,7 +262,20 @@ class JejakuMemoryARScene {
   final ARController _controller;
   final JejakuGeoProjector _projector;
   final JejakuMemoryNodeFactory _nodeFactory;
-  final bool _preferNativeGeospatialAnchors;
+  bool _preferNativeGeospatialAnchors;
+
+  /// Whether new memories are placed with native geospatial (Earth) anchors.
+  ///
+  /// When this changes, the next [syncMemories] re-places memories that were
+  /// positioned from latitude/longitude only, so a scene that started on the
+  /// approximate GPS projection upgrades once native tracking is precise.
+  /// Memories with a stored local or session pose are not affected.
+  bool get preferNativeGeospatialAnchors => _preferNativeGeospatialAnchors;
+
+  set preferNativeGeospatialAnchors(bool value) {
+    _preferNativeGeospatialAnchors = value;
+  }
+
   final Map<String, JejakuPlacedMemory> _placedByMemoryId =
       <String, JejakuPlacedMemory>{};
 
@@ -674,6 +687,8 @@ class JejakuMemoryARScene {
     required JejakuGeoOrigin origin,
     required JejakuGeoAnchor memory,
   }) {
+    final usesStoredPose = memory.metadata['localAnchorPose'] != null ||
+        memory.metadata['sessionAnchorPose'] != null;
     return <Object?>[
       origin.latitude,
       origin.longitude,
@@ -691,6 +706,8 @@ class JejakuMemoryARScene {
       memory.metadata['localAnchorPose'],
       memory.metadata['sessionAnchorPose'],
       memory.metadata['sessionRelativePosition'],
+      // Placement mode only matters when the position comes from lat/lon.
+      if (!usesStoredPose) 'nativeGeo:$_preferNativeGeospatialAnchors',
     ].join('|');
   }
 

@@ -2,7 +2,9 @@ package tech.kayys.jezaku.identity;
 
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
@@ -21,19 +23,19 @@ import tech.kayys.jezaku.identity.IdentityDtos.SessionValidationResponse;
 import tech.kayys.jezaku.identity.IdentityDtos.TrustedDeviceRequest;
 import tech.kayys.jezaku.identity.IdentityDtos.TrustedDeviceResponse;
 
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
-import java.security.MessageDigest;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import tech.kayys.jezaku.auth.JwtTokens;
+
 import java.security.SecureRandom;
-import java.security.spec.InvalidKeySpecException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Base64;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -49,22 +51,37 @@ import static tech.kayys.jezaku.validation.TextParams.requireText;
 @ApplicationScoped
 public class IdentityService {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-    private static final int PASSWORD_ITERATIONS = 16_000;
-    private static final int PASSWORD_KEY_BITS = 256;
-    private static final long ACCESS_TOKEN_MINUTES = 30;
+    private static final long ACCESS_TOKEN_MINUTES = 15;
     private static final long REFRESH_TOKEN_DAYS = 30;
 
     private final Map<String, AccountRecord> accounts = new ConcurrentHashMap<>();
     private final Map<String, String> accountIdByEmail = new ConcurrentHashMap<>();
     private final Map<String, String> accountIdByUsername = new ConcurrentHashMap<>();
     private final Map<String, SessionRecord> sessions = new ConcurrentHashMap<>();
-    private final Map<String, String> sessionIdByAccessToken = new ConcurrentHashMap<>();
     private final Map<String, String> sessionIdByRefreshToken = new ConcurrentHashMap<>();
     private final Map<String, GuardianLinkRecord> guardianLinks = new ConcurrentHashMap<>();
     private final Map<String, TrustedDeviceRecord> trustedDevices = new ConcurrentHashMap<>();
 
-    public IdentityService() {
-        seed();
+    @ConfigProperty(name = "jezaku.auth.jwt-secret")
+    Optional<String> jwtSecret;
+
+    @ConfigProperty(name = "jezaku.identity.seed.enabled", defaultValue = "true")
+    boolean seedEnabled;
+
+    @PostConstruct
+    void init() {
+        byte[] secret = secret();
+        if (secret.length < JwtTokens.MIN_SECRET_BYTES) {
+            throw new IllegalStateException(
+                    "jezaku.auth.jwt-secret must be set to at least " + JwtTokens.MIN_SECRET_BYTES + " bytes");
+        }
+        if (seedEnabled) {
+            seed();
+        }
+    }
+
+    private byte[] secret() {
+        return jwtSecret.orElse("").getBytes(StandardCharsets.UTF_8);
     }
 
     public Uni<AccountResponse> createAccount(AccountCreateRequest request) {
@@ -119,11 +136,20 @@ public class IdentityService {
             }
             String identifier = requireText(request.identifier(), "identifier").toLowerCase(Locale.ROOT);
             AccountRecord account = lookupAccount(identifier);
-            if (account == null || !verifyPassword(request.password(), account.password())) {
+            if (account == null) {
+                // Spend comparable time so unknown identifiers are not distinguishable by latency.
+                PasswordHasher.verifyAgainstDummy(request.password());
+                throw new ForbiddenException("Invalid credentials");
+            }
+            if (!verifyPassword(request.password(), account.password())) {
                 throw new ForbiddenException("Invalid credentials");
             }
             if (!"active".equals(account.status())) {
                 throw new ForbiddenException("Account is " + account.status());
+            }
+            if (passwordNeedsUpgrade(account.password())) {
+                account = account.withPassword(hashPassword(request.password()), Instant.now());
+                accounts.put(account.userId(), account);
             }
             return toResponse(createSession(account.userId(), optionalTrim(request.deviceId(), "")));
         });
@@ -175,7 +201,7 @@ public class IdentityService {
             return sessions.values().stream()
                     .filter(session -> session.userId().equals(normalizedUserId))
                     .sorted(Comparator.comparing(SessionRecord::issuedAt).reversed())
-                    .map(this::toResponse)
+                    .map(this::toListing)
                     .toList();
         });
     }
@@ -320,9 +346,11 @@ public class IdentityService {
     }
 
     private void seed() {
-        AccountRecord current = seedAccount("user_current", "alya@example.test", "alya", "Alya Pathmaker", "adult", null);
-        AccountRecord guardian = seedAccount("guardian_1", "guardian@example.test", "guardian1", "Nara Guardian", "adult", null);
-        AccountRecord teen = seedAccount("teen_explorer", "nara@example.test", "nara", "Nara Explorer", "teen", guardian.userId());
+        // Development and test fixtures only; production sets jezaku.identity.seed.enabled=false.
+        String seedHash = hashPassword("jezakuPass123");
+        AccountRecord current = seedAccount("user_current", "alya@example.test", "alya", "Alya Pathmaker", "adult", null, seedHash);
+        AccountRecord guardian = seedAccount("guardian_1", "guardian@example.test", "guardian1", "Nara Guardian", "adult", null, seedHash);
+        AccountRecord teen = seedAccount("teen_explorer", "nara@example.test", "nara", "Nara Explorer", "teen", guardian.userId(), seedHash);
         accounts.put(current.userId(), current);
         accounts.put(guardian.userId(), guardian);
         accounts.put(teen.userId(), teen);
@@ -340,9 +368,10 @@ public class IdentityService {
             String username,
             String displayName,
             String ageBand,
-            String guardianUserId) {
+            String guardianUserId,
+            String passwordHash) {
         Instant now = Instant.now();
-        return new AccountRecord(userId, email, username, hashPassword("jezakuPass123"), displayName, ageBand,
+        return new AccountRecord(userId, email, username, passwordHash, displayName, ageBand,
                 "active", true, guardianUserId, now.minusSeconds(7_200), now.minusSeconds(600));
     }
 
@@ -352,19 +381,20 @@ public class IdentityService {
     }
 
     private SessionRecord createSession(String userId, String deviceId) {
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        String sessionId = "session_" + UUID.randomUUID();
+        Instant expiresAt = now.plus(ACCESS_TOKEN_MINUTES, ChronoUnit.MINUTES);
         SessionRecord session = new SessionRecord(
-                "session_" + UUID.randomUUID(),
+                sessionId,
                 userId,
-                token("access"),
+                JwtTokens.issue(secret(), new JwtTokens.Claims(userId, sessionId, now, expiresAt)),
                 token("refresh"),
                 deviceId,
                 now,
-                now.plus(ACCESS_TOKEN_MINUTES, ChronoUnit.MINUTES),
+                expiresAt,
                 now.plus(REFRESH_TOKEN_DAYS, ChronoUnit.DAYS),
                 false);
         sessions.put(session.sessionId(), session);
-        sessionIdByAccessToken.put(session.accessToken(), session.sessionId());
         sessionIdByRefreshToken.put(session.refreshToken(), session.sessionId());
         return session;
     }
@@ -372,13 +402,17 @@ public class IdentityService {
     private void revokeSession(SessionRecord session) {
         SessionRecord revoked = session.revoke();
         sessions.put(revoked.sessionId(), revoked);
-        sessionIdByAccessToken.remove(revoked.accessToken());
         sessionIdByRefreshToken.remove(revoked.refreshToken());
     }
 
+    /** Verifies the signed token first, then returns the live session it names (so revocation still applies here). */
     private SessionRecord sessionByAccessToken(String accessToken) {
-        String sessionId = sessionIdByAccessToken.get(accessToken);
-        return sessionId == null ? null : sessions.get(sessionId);
+        Optional<JwtTokens.Claims> claims = JwtTokens.verify(secret(), accessToken, Instant.now());
+        if (claims.isEmpty()) {
+            return null;
+        }
+        SessionRecord session = sessions.get(claims.get().sessionId());
+        return session != null && session.userId().equals(claims.get().userId()) ? session : null;
     }
 
     private SessionRecord sessionByRefreshToken(String refreshToken) {
@@ -433,6 +467,12 @@ public class IdentityService {
                 session.deviceId(), session.issuedAt(), session.expiresAt(), session.revoked());
     }
 
+    /** Session listings never include credentials; those are only returned when the session is created. */
+    private SessionResponse toListing(SessionRecord session) {
+        return new SessionResponse(session.sessionId(), session.userId(), null, null,
+                session.deviceId(), session.issuedAt(), session.expiresAt(), session.revoked());
+    }
+
     private GuardianLinkResponse toResponse(GuardianLinkRecord link) {
         return new GuardianLinkResponse(link.id(), link.childUserId(), link.guardianUserId(), link.guardianEmail(),
                 link.note(), link.status(), link.createdAt(), link.updatedAt());
@@ -444,30 +484,15 @@ public class IdentityService {
     }
 
     private String hashPassword(String password) {
-        byte[] salt = new byte[16];
-        SECURE_RANDOM.nextBytes(salt);
-        byte[] hash = pbkdf2(password, salt);
-        return Base64.getEncoder().encodeToString(salt) + ":" + Base64.getEncoder().encodeToString(hash);
+        return PasswordHasher.hash(password);
     }
 
     private boolean verifyPassword(String password, String encoded) {
-        if (password == null || encoded == null || !encoded.contains(":")) {
-            return false;
-        }
-        String[] parts = encoded.split(":", 2);
-        byte[] salt = Base64.getDecoder().decode(parts[0]);
-        byte[] expected = Base64.getDecoder().decode(parts[1]);
-        byte[] actual = pbkdf2(password, salt);
-        return MessageDigest.isEqual(expected, actual);
+        return PasswordHasher.verify(password, encoded);
     }
 
-    private byte[] pbkdf2(String password, byte[] salt) {
-        try {
-            PBEKeySpec spec = new PBEKeySpec(password.toCharArray(), salt, PASSWORD_ITERATIONS, PASSWORD_KEY_BITS);
-            return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).getEncoded();
-        } catch (InvalidKeySpecException | java.security.NoSuchAlgorithmException e) {
-            throw new IllegalStateException("Unable to hash password", e);
-        }
+    private boolean passwordNeedsUpgrade(String encoded) {
+        return PasswordHasher.needsUpgrade(encoded);
     }
 
     private String token(String prefix) {
@@ -529,6 +554,11 @@ public class IdentityService {
             Instant createdAt,
             Instant updatedAt) {
         AccountRecord withStatus(String status, Instant updatedAt) {
+            return new AccountRecord(userId, email, username, password, displayName, ageBand, status, emailVerified,
+                    guardianUserId, createdAt, updatedAt);
+        }
+
+        AccountRecord withPassword(String password, Instant updatedAt) {
             return new AccountRecord(userId, email, username, password, displayName, ageBand, status, emailVerified,
                     guardianUserId, createdAt, updatedAt);
         }

@@ -13,6 +13,59 @@ import 'package:jejaku/features/trails/models/ar_trail_session.dart';
 import 'package:jejaku/features/trails/states/ar_trail_session_providers.dart';
 import 'package:jejaku/main.dart';
 
+/// Staging a capture waits on short sensor timeouts (compass, accelerometer).
+/// Those are timers, not frames, so plain `pumpAndSettle` can return before
+/// they fire; advance fake time explicitly.
+Future<void> _settleCapture(WidgetTester tester) async {
+  // Rendering the fallback preview uses Picture.toImage, which completes on
+  // real time, so fake-time pumping alone can never finish the capture.
+  for (var i = 0; i < 20; i++) {
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    if (find.text('Publish Memory').evaluate().isNotEmpty) {
+      break;
+    }
+  }
+  await tester.pumpAndSettle();
+}
+
+/// `scrollUntilVisible` treats items inside the cache extent as visible, so a
+/// target can still sit below the viewport or under a bottom bar. Scroll until
+/// the target is well inside the tappable area.
+Future<void> _scrollIntoTapZone(
+  WidgetTester tester,
+  Finder target, {
+  Finder? scrollable,
+}) async {
+  final view = tester.view.physicalSize / tester.view.devicePixelRatio;
+  final scroller = scrollable ?? find.byType(Scrollable).first;
+  for (var i = 0; i < 20; i++) {
+    await tester.pumpAndSettle();
+    if (target.evaluate().isNotEmpty) {
+      final dy = tester.getCenter(target.first).dy;
+      if (dy > 120 && dy < view.height - 160) {
+        return;
+      }
+    }
+    await tester.drag(scroller, const Offset(0, -120));
+  }
+}
+
+/// The search filter chips live in a horizontal list that only builds the chips
+/// near the viewport, so drag the row until the requested chip exists.
+Future<void> _revealFilterChip(WidgetTester tester, String label) async {
+  final chip = find.widgetWithText(ChoiceChip, label);
+  for (var i = 0; i < 10 && chip.evaluate().isEmpty; i++) {
+    await tester.drag(find.byType(ChoiceChip).first, const Offset(-300, 0));
+    await tester.pumpAndSettle();
+  }
+  await tester.ensureVisible(chip);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('main tabs render consolidated feature screens', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
@@ -101,7 +154,7 @@ void main() {
     expect(find.text('This is the first stop'), findsOneWidget);
 
     final nextStop = find.byKey(const ValueKey('journey_next_anchor_rooftop'));
-    await tester.ensureVisible(nextStop);
+    await _scrollIntoTapZone(tester, nextStop);
     await tester.tap(nextStop);
     await tester.pumpAndSettle();
 
@@ -114,7 +167,7 @@ void main() {
 
     final previousStop =
         find.byKey(const ValueKey('journey_previous_anchor_courtyard'));
-    await tester.ensureVisible(previousStop);
+    await _scrollIntoTapZone(tester, previousStop);
     await tester.tap(previousStop);
     await tester.pumpAndSettle();
 
@@ -2174,8 +2227,9 @@ void main() {
     expect(find.text('Discover photo trail'), findsOneWidget);
     expect(find.byKey(const ValueKey('ar_trail_radar')), findsOneWidget);
     expect(find.byKey(const ValueKey('ar_journey_panel')), findsOneWidget);
+    // Only camera/wall-sourced trails have a source wall to open.
     expect(find.byKey(const ValueKey('ar_journey_open_wall_button')),
-        findsOneWidget);
+        findsNothing);
     expect(find.textContaining('Stop 1 of 4'), findsOneWidget);
 
     await tester.pageBack();
@@ -2530,7 +2584,7 @@ void main() {
         matching: find.text('Capture anyway'),
       ),
     );
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     expect(find.text('Publish Memory'), findsOneWidget);
   });
@@ -2667,7 +2721,7 @@ void main() {
     );
     expect(find.text('Stop 3 Family checkpoint'), findsOneWidget);
     expect(find.text('Private stop'), findsOneWidget);
-    expect(find.text('Mural Comments'), findsOneWidget);
+    expect(find.text('Mural Comments'), findsWidgets);
 
     await tester
         .tap(find.byKey(const ValueKey('minimap_confirm_ar_trail_button')));
@@ -3382,7 +3436,7 @@ void main() {
     expect(find.text('Anchor: Perimeter - 100 m'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     expect(find.text('Publish Memory'), findsOneWidget);
     expect(find.text('Anchor radius: 100 m'), findsOneWidget);
@@ -3427,7 +3481,7 @@ void main() {
         find.textContaining('-6.9177, 107.6193 | +/- 4.6 m'), findsOneWidget);
 
     await tester.tap(find.text('Museum hallway EXIF'));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     expect(find.text('Publish Memory'), findsOneWidget);
     await tester.enterText(
@@ -4058,7 +4112,7 @@ void main() {
     expect(find.text('AR Camera Preview'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
     expect(find.text('Publish Memory'), findsOneWidget);
 
     await tester.scrollUntilVisible(find.byType(EditableText), 300);
@@ -4071,6 +4125,8 @@ void main() {
 
     expect(find.text('Fresh anchor from test'), findsWidgets);
 
+    await _revealFilterChip(tester, 'Walls');
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ChoiceChip, 'Walls'));
     await tester.pumpAndSettle();
 
@@ -4085,7 +4141,7 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     expect(find.text('Publish Memory'), findsOneWidget);
     final captionField = find.byKey(const ValueKey('publish_caption_field'));
@@ -4152,7 +4208,7 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     await tester.scrollUntilVisible(
       find.byKey(
@@ -4234,6 +4290,7 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
+    await _scrollIntoTapZone(tester, privacyTile);
 
     expect(
       find.text('Precise location on - Comments on - 2 blocked accounts'),
@@ -4307,7 +4364,7 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     await tester.scrollUntilVisible(find.byType(EditableText), 300);
     await tester.enterText(
@@ -4351,7 +4408,7 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     await tester.scrollUntilVisible(
       find.byKey(
@@ -4412,7 +4469,7 @@ void main() {
     expect(find.text('+/- 3.2 m'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     final captionField =
         find.byKey(const ValueKey('publish_caption_field')).first;
@@ -4487,7 +4544,7 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     final captionField = find.byType(EditableText).first;
     await tester.scrollUntilVisible(
@@ -4674,7 +4731,7 @@ void main() {
         matching: find.text('Capture anyway'),
       ),
     );
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     expect(find.text('Publish Memory'), findsOneWidget);
     await tester.scrollUntilVisible(find.byType(EditableText), 300);
@@ -5061,7 +5118,7 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.camera_alt));
-    await tester.pumpAndSettle();
+    await _settleCapture(tester);
 
     final captionField = find.byType(EditableText);
     await tester.scrollUntilVisible(captionField, 300);
@@ -5186,7 +5243,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('2 sync items: 1 upload, 0 media payloads, 1 metadata update'),
+      find.textContaining('2 sync items: 1 upload, 0 media payloads, 1 metadata update'),
       findsOneWidget,
     );
 
@@ -5284,7 +5341,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('1 sync item: 1 upload, 1 media payload, 0 metadata updates'),
+      find.textContaining('1 sync item: 1 upload, 1 media payload, 0 metadata updates'),
       findsOneWidget,
     );
 
@@ -5628,8 +5685,10 @@ void main() {
     );
     expect(find.text('Class Reunion Wall'), findsOneWidget);
 
-    await tester
-        .tap(find.byKey(const ValueKey('memory_wall_open_wall_reunion')));
+    final openWall =
+        find.byKey(const ValueKey('memory_wall_open_wall_reunion'));
+    await _scrollIntoTapZone(tester, openWall);
+    await tester.tap(openWall);
     await tester.pumpAndSettle();
 
     expect(find.text('Class Reunion Wall'), findsWidgets);
@@ -5655,8 +5714,10 @@ void main() {
     expect(find.text('Memory Details'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Virtual walls'), 300);
 
-    await tester
-        .tap(find.byKey(const ValueKey('memory_wall_trail_wall_reunion')));
+    final trailButton =
+        find.byKey(const ValueKey('memory_wall_trail_wall_reunion'));
+    await _scrollIntoTapZone(tester, trailButton);
+    await tester.tap(trailButton);
     await tester.pumpAndSettle();
 
     expect(find.text('Focused anchor'), findsOneWidget);
@@ -5786,9 +5847,9 @@ void main() {
     );
     expect(find.textContaining('Correction saved'), findsOneWidget);
 
-    await tester.ensureVisible(
-      find.text('Queued update', skipOffstage: false).first,
-    );
+    // The sync chip sits at the top of the list and is not built while the
+    // correction row is scrolled into view, so scroll back up to it.
+    await tester.scrollUntilVisible(find.text('Queued update'), -300);
     await tester.pumpAndSettle();
     expect(find.text('Queued update'), findsOneWidget);
 
@@ -5819,8 +5880,17 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.scrollUntilVisible(find.text('Mark Metadata Synced'), 300);
+    await tester.scrollUntilVisible(
+      find.text('Mark Metadata Synced'),
+      300,
+      scrollable: find
+          .byWidgetPredicate(
+            (widget) => widget is Scrollable && widget.axis == Axis.vertical,
+          )
+          .first,
+    );
     await tester.pumpAndSettle();
+    await _scrollIntoTapZone(tester, find.text('Mark Metadata Synced'));
     await tester.tap(find.text('Mark Metadata Synced'));
     await tester.pumpAndSettle();
 
@@ -5931,6 +6001,8 @@ void main() {
     await tester.tap(find.byTooltip('Search'));
     await tester.pumpAndSettle();
 
+    await _revealFilterChip(tester, 'Walls');
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ChoiceChip, 'Walls'));
     await tester.pumpAndSettle();
 

@@ -14,6 +14,30 @@ import 'package:jejaku/features/sync/states/anchor_media_upload_queue_provider.d
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('captures taken in the same millisecond get distinct ids', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    final controller = container.read(nearbyAnchorsProvider.notifier);
+    final capturedAt = DateTime(2026, 5, 30, 9);
+    final first = controller.addCapturedMemory(
+      caption: 'First',
+      radiusMeters: 30,
+      isPrivate: false,
+      capturedAt: capturedAt,
+    );
+    final second = controller.addCapturedMemory(
+      caption: 'Second',
+      radiusMeters: 30,
+      isPrivate: false,
+      capturedAt: capturedAt,
+    );
+
+    expect(second.id, isNot(first.id));
+    final ids = container.read(nearbyAnchorsProvider).map((m) => m.id);
+    expect(ids.toSet().length, ids.length);
+  });
+
   test('sample memories expose browseable media attachments', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);

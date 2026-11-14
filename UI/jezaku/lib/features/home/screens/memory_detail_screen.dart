@@ -6,6 +6,7 @@ import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/services/anchor_geo_service.dart';
 import 'package:jejaku/features/home/services/anchor_media_resolver.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
+import 'package:jejaku/features/home/states/viewer_location_provider.dart';
 import 'package:jejaku/features/home/widgets/anchor_media_detail_sheet.dart';
 import 'package:jejaku/features/home/widgets/anchor_media_pill.dart';
 import 'package:jejaku/features/trails/models/ar_trail_session.dart';
@@ -34,6 +35,7 @@ class MemoryDetailScreen extends ConsumerWidget {
       );
     }
     final journeyStep = ref.watch(spatialJourneyStepProvider(memory.id));
+    final viewerOrigin = ref.watch(viewerLocationProvider);
     final linkedWalls = ref.watch(memoryLinkedWallsProvider(memory.id));
     final resolvedMedia = ref.watch(anchorResolvedMediaProvider(memory));
 
@@ -169,8 +171,8 @@ class MemoryDetailScreen extends ConsumerWidget {
                 final linkedMemories = linkedWallMemories(wall, memories);
                 final trailPreview = wallTrailPreviewFor(
                   linkedMemories,
-                  originLatitude: viewerLatitude,
-                  originLongitude: viewerLongitude,
+                  originLatitude: viewerOrigin.latitude,
+                  originLongitude: viewerOrigin.longitude,
                   optimizeFromOrigin: true,
                 );
                 final trailMemoryIds =

@@ -1011,7 +1011,8 @@ void main() {
       expect(find.text('AR limited'), findsOneWidget);
       expect(
         find.byTooltip(
-          'Disabled native features: Plane detection, Light estimation',
+          'Disabled native features: Plane detection, Light estimation, '
+          'Native geospatial',
         ),
         findsOneWidget,
       );
@@ -1024,6 +1025,7 @@ void main() {
         containsAll(<String>{
           'planeDetection',
           'lightEstimation',
+          'geospatial',
         }),
       );
 
@@ -1031,9 +1033,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Config'), findsOneWidget);
+      // Geospatial is also downgraded (see the keys asserted above).
       expect(
-        find.text(
-          '2 native features disabled: Light estimation, Plane detection',
+        find.textContaining('3 native features disabled:'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining(
+          'Light estimation, Native geospatial, Plane detection',
         ),
         findsOneWidget,
       );

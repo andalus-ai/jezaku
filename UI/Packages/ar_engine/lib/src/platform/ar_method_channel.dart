@@ -12,6 +12,7 @@ import '../ar_plane.dart';
 import '../ar_runtime_diagnostics.dart';
 import '../ar_session_config.dart';
 import '../geospatial/ar_geospatial.dart';
+import '../geospatial/ar_geospatial_status.dart';
 import '../models/ar_matrix4.dart';
 import '../models/ar_pose.dart';
 import 'ar_platform_interface.dart';
@@ -209,7 +210,7 @@ class ArEngineMethodChannel extends ArEnginePlatform {
     int ttlDays = 30,
   }) async {
     try {
-      return _ch.invokeMethod<String>(
+      return await _ch.invokeMethod<String>(
         'hostCloudAnchor',
         <String, Object?>{
           'anchorId': anchorId,
@@ -261,6 +262,46 @@ class ArEngineMethodChannel extends ArEnginePlatform {
       rethrow;
     } on MissingPluginException {
       return super.addGeospatialAnchor(anchor, origin: origin);
+    }
+  }
+
+  @override
+  Future<ARVpsAvailability> checkVpsAvailability({
+    required double latitude,
+    required double longitude,
+  }) async {
+    try {
+      final raw = await _ch.invokeMethod<String>(
+        'checkVpsAvailability',
+        <String, Object?>{'latitude': latitude, 'longitude': longitude},
+      );
+      return ARVpsAvailability.fromNative(raw);
+    } on PlatformException catch (error) {
+      if (error.code == 'UNSUPPORTED_GEOSPATIAL') {
+        return ARVpsAvailability.unsupported;
+      }
+      rethrow;
+    } on MissingPluginException {
+      return ARVpsAvailability.unsupported;
+    }
+  }
+
+  @override
+  Future<ARGeospatialStatus> getGeospatialStatus() async {
+    try {
+      final raw = await _ch.invokeMapMethod<dynamic, dynamic>(
+        'getGeospatialStatus',
+      );
+      return raw == null
+          ? const ARGeospatialStatus.unsupported()
+          : ARGeospatialStatus.fromMap(raw);
+    } on PlatformException catch (error) {
+      if (error.code == 'UNSUPPORTED_GEOSPATIAL') {
+        return const ARGeospatialStatus.unsupported();
+      }
+      rethrow;
+    } on MissingPluginException {
+      return const ARGeospatialStatus.unsupported();
     }
   }
 

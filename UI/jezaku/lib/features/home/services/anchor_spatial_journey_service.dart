@@ -19,6 +19,7 @@ class AnchorSpatialJourneyService {
     required double originLongitude,
     double radiusMeters = 100,
     bool preserveAnchorOrder = false,
+    bool useCoordinateDistance = false,
   }) {
     final orderedAnchors = anchors.toList(growable: false);
     final projectedPoints = mapProjectionService.pointsFor(
@@ -26,6 +27,7 @@ class AnchorSpatialJourneyService {
       originLatitude: originLatitude,
       originLongitude: originLongitude,
       radiusMeters: radiusMeters,
+      useCoordinateDistance: useCoordinateDistance,
     );
     final points = preserveAnchorOrder
         ? _restoreAnchorOrder(orderedAnchors, projectedPoints)

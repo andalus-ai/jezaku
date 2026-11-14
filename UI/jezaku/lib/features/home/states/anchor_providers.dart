@@ -5,11 +5,14 @@ import 'package:jejaku/features/home/services/anchor_media_repository.dart';
 import 'package:jejaku/features/home/services/anchor_memory_store.dart';
 import 'package:jejaku/features/home/services/anchor_spatial_journey_service.dart';
 import 'package:jejaku/features/home/services/sample_anchor_service.dart';
+import 'package:jejaku/features/home/services/viewer_location.dart';
+import 'package:jejaku/features/home/states/viewer_location_provider.dart';
+import 'package:jejaku/features/home/states/sample_data_provider.dart';
 import 'package:jejaku/features/sync/models/anchor_media_sync_manifest.dart';
 import 'package:jejaku/features/sync/states/anchor_media_upload_queue_provider.dart';
 
-const viewerLatitude = -6.9175;
-const viewerLongitude = 107.6191;
+const viewerLatitude = fallbackViewerLatitude;
+const viewerLongitude = fallbackViewerLongitude;
 const _journeyRadiusMeters = 100.0;
 final _sampleMemoryIds = const SampleAnchorService()
     .nearbyAnchors()
@@ -22,10 +25,12 @@ final nearbyAnchorsProvider =
 );
 
 final spatialJourneyProvider = Provider<List<AnchorJourneyStep>>((ref) {
+  final origin = ref.watch(viewerLocationProvider);
   return const AnchorSpatialJourneyService().stepsFor(
     anchors: ref.watch(nearbyAnchorsProvider),
-    originLatitude: viewerLatitude,
-    originLongitude: viewerLongitude,
+    originLatitude: origin.latitude,
+    originLongitude: origin.longitude,
+    useCoordinateDistance: origin.isLive,
     radiusMeters: _journeyRadiusMeters,
   );
 });
@@ -111,7 +116,9 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
   List<AnchorMemory> build() {
     final storedMemories =
         ref.watch(anchorMemoryStoreProvider).loadCapturedMemories();
-    final samples = const SampleAnchorService().nearbyAnchors();
+    final samples = ref.watch(sampleDataEnabledProvider)
+        ? const SampleAnchorService().nearbyAnchors()
+        : const <AnchorMemory>[];
     return [
       ...storedMemories,
       for (final sample in samples)
@@ -140,8 +147,14 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
   }) {
     final trimmedCaption = caption.trim();
     final resolvedCapturedAt = capturedAt ?? DateTime.now();
-    final createdAt = resolvedCapturedAt.millisecondsSinceEpoch;
     final radiusLabel = radiusMeters.round();
+    // Ids derive from the capture time. Two captures within the same
+    // millisecond (burst capture, imports, fast devices) must not collide.
+    final takenIds = {for (final existing in state) existing.id};
+    var createdAt = resolvedCapturedAt.millisecondsSinceEpoch;
+    while (takenIds.contains('captured_$createdAt')) {
+      createdAt += 1;
+    }
 
     final memory = AnchorMemory(
       id: 'captured_$createdAt',

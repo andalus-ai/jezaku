@@ -23,7 +23,7 @@ final arViewerSessionPlanProvider =
     detectHorizontalPlanes: true,
     detectVerticalPlanes: true,
     lightingEstimationEnabled: true,
-    preferNativeGeospatial: false,
+    preferNativeGeospatial: true,
     preferCloudAnchors: false,
     preferDepth: false,
     preferOcclusion: false,

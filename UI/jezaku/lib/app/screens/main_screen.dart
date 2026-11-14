@@ -8,7 +8,9 @@ import 'package:jejaku/features/gallery/screens/gallery_screen.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/screens/home_screen.dart';
 import 'package:jejaku/features/home/services/anchor_geo_service.dart';
+import 'package:jejaku/features/home/services/viewer_location.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
+import 'package:jejaku/features/home/states/viewer_location_provider.dart';
 import 'package:jejaku/features/profile/screens/profile_screen.dart';
 import 'package:jejaku/features/social/screens/social_hub_screen.dart';
 import 'package:jejaku/features/trails/models/ar_trail_route.dart';
@@ -54,12 +56,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final wallLinkedMemoryIds = {
       for (final wall in ref.watch(arWallsProvider)) ...wall.linkedMemoryIds,
     };
+    final viewerOrigin = ref.watch(viewerLocationProvider);
     final activeRoute = activeProgress == null
         ? null
         : _routeForProgress(
             activeProgress,
             anchorsById,
             wallLinkedMemoryIds,
+            viewerOrigin,
           );
     final activeLeg = activeRoute?.legAfterPoint(
       activeProgress?.currentMemoryId ?? '',
@@ -561,6 +565,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     ARTrailProgress progress,
     Map<String, AnchorMemory> anchorsById,
     Set<String> wallLinkedMemoryIds,
+    ViewerLocation viewerOrigin,
   ) {
     return _routeService.routeFor(
       points: [
@@ -571,11 +576,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               title: anchorsById[memoryId]!.title,
               latitude: anchorsById[memoryId]!.latitude,
               longitude: anchorsById[memoryId]!.longitude,
-              distanceFromOriginMeters: _geoService
-                  .distanceFromLabel(anchorsById[memoryId]!.distanceLabel),
+              distanceFromOriginMeters: viewerOrigin
+                  .distanceToMemoryMeters(anchorsById[memoryId]!),
               bearingFromOriginDegrees: _geoService.bearingDegrees(
-                viewerLatitude,
-                viewerLongitude,
+                viewerOrigin.latitude,
+                viewerOrigin.longitude,
                 anchorsById[memoryId]!.latitude,
                 anchorsById[memoryId]!.longitude,
               ),

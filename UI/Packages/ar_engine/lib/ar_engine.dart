@@ -71,6 +71,7 @@ export 'src/cloud_anchors/ar_cloud_anchor.dart';
 
 // ── Geospatial anchors ───────────────────────────────────────────────────────
 export 'src/geospatial/ar_geospatial.dart';
+export 'src/geospatial/ar_geospatial_status.dart';
 
 // ── Screen recording ─────────────────────────────────────────────────────────
 export 'src/recording/ar_screen_recorder.dart';
