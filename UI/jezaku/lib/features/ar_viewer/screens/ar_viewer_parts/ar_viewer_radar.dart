@@ -131,16 +131,36 @@ class _ARRadar extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              const Wrap(
+              Wrap(
                 spacing: 8,
                 runSpacing: 4,
                 children: [
-                  _ARRadarLegend(color: Colors.white, label: 'You'),
-                  _ARRadarLegend(
-                    color: Colors.lightBlueAccent,
-                    label: 'Visible',
-                  ),
-                  _ARRadarLegend(color: Colors.white54, label: 'Off-screen'),
+                  const _ARRadarLegend(color: Colors.white, label: 'You'),
+                  if (focusedAnchor != null)
+                    _ARRadarLegend(
+                      color: Colors.cyanAccent.shade100,
+                      label: 'Focused',
+                    ),
+                  if (anchors.any((anchor) => anchor.memory.needsCalibrationReview))
+                    const _ARRadarLegend(
+                      color: Colors.redAccent,
+                      label: 'Calibration',
+                    ),
+                  if (anchors.any((anchor) => anchor.memory.isPrivate))
+                    const _ARRadarLegend(
+                      color: Colors.amberAccent,
+                      label: 'Private',
+                    ),
+                  if (anchors.any((anchor) => anchor.projection.isVisible))
+                    const _ARRadarLegend(
+                      color: Colors.lightBlueAccent,
+                      label: 'Visible',
+                    ),
+                  if (anchors.any((anchor) => !anchor.projection.isVisible))
+                    const _ARRadarLegend(
+                      color: Colors.white70,
+                      label: 'Off-screen',
+                    ),
                 ],
               ),
             ],
@@ -320,16 +340,16 @@ class _ARRadarPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = math.min(size.width, size.height) / 2 - 9;
     final ringPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.22)
+      ..color = Colors.white.withValues(alpha: 0.34)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     final trailPaint = Paint()
-      ..color = Colors.cyanAccent.shade100.withValues(alpha: 0.42)
+      ..color = Colors.cyanAccent.shade100.withValues(alpha: 0.58)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.8
       ..strokeCap = StrokeCap.round;
     final fovPaint = Paint()
-      ..color = Colors.greenAccent.withValues(alpha: 0.12)
+      ..color = Colors.greenAccent.withValues(alpha: 0.18)
       ..style = PaintingStyle.fill;
     final centerPaint = Paint()..color = Colors.white;
 
