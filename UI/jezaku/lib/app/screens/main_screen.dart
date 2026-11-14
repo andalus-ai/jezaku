@@ -139,35 +139,36 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Theme.of(context).colorScheme.primary,
-        items: const [
-          BottomNavigationBarItem(
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) {
+          setState(() => _currentIndex = index);
+        },
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        destinations: const [
+          NavigationDestination(
             icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
+            selectedIcon: Icon(Icons.home),
             label: 'Home',
           ),
-          BottomNavigationBarItem(
+          NavigationDestination(
             icon: Icon(Icons.view_in_ar_outlined),
-            activeIcon: Icon(Icons.view_in_ar),
+            selectedIcon: Icon(Icons.view_in_ar),
             label: 'AR View',
           ),
-          BottomNavigationBarItem(
+          NavigationDestination(
             icon: Icon(Icons.people_outline),
-            activeIcon: Icon(Icons.people),
+            selectedIcon: Icon(Icons.people),
             label: 'Social',
           ),
-          BottomNavigationBarItem(
+          NavigationDestination(
             icon: Icon(Icons.photo_library_outlined),
-            activeIcon: Icon(Icons.photo_library),
+            selectedIcon: Icon(Icons.photo_library),
             label: 'Gallery',
           ),
-          BottomNavigationBarItem(
+          NavigationDestination(
             icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
+            selectedIcon: Icon(Icons.person),
             label: 'Profile',
           ),
         ],
