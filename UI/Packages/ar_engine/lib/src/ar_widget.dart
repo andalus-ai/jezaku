@@ -314,6 +314,22 @@ class _ARWidgetState extends State<ARWidget> with WidgetsBindingObserver {
     } on ARSessionInitException catch (e) {
       _disposeController(controller);
       _setError(e);
+    } on PlatformException catch (e) {
+      _disposeController(controller);
+      if (e.code == 'CAMERA_PERMISSION_DENIED') {
+        _setError(
+          ARCameraPermissionException(
+            e.message ?? 'Camera permission is required for AR.',
+          ),
+        );
+      } else {
+        _setError(
+          ARSessionInitException(
+            e.message ?? 'Native AR session initialisation failed.',
+            e,
+          ),
+        );
+      }
     } on Object catch (e) {
       _disposeController(controller);
       _setError(e);

@@ -4,6 +4,7 @@ import 'package:ar_engine/ar_engine.dart' hide ARWidget;
 import 'package:ar_engine/src/ar_widget.dart' as ar_widget;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/test_ar_engine_platform.dart';
@@ -557,6 +558,36 @@ void main() {
       await tester.pump();
 
       expect(created, isEmpty);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets(
+        'maps camera permission platform errors to ARCameraPermissionException',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      installPlatform()
+        ..nextTextureId = 8
+        ..initSessionError = PlatformException(
+          code: 'CAMERA_PERMISSION_DENIED',
+          message: 'Camera permission was revoked',
+        );
+
+      await tester.pumpWidget(
+        _host(
+          ar_widget.ARWidget(
+            config: const ARSessionConfig(),
+            errorBuilder: (context, error) => Text(error.runtimeType.toString()),
+            loadingWidget: const Text('loading'),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('ARCameraPermissionException'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
       debugDefaultTargetPlatformOverride = null;
     });
 

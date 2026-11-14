@@ -122,10 +122,46 @@ class ArEnginePlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 result.success(null)
             }
             "resumeSession"      -> {
-                arSession?.requestStart()
-                activePlatformView?.resumeRendering()
-                activePlatformView?.resumeSessionWhenReady()
-                result.success(null)
+                val coreSession = arSession
+                    ?: return result.error(
+                        "SESSION_NOT_INITIALISED",
+                        "AR session is not initialised",
+                        null,
+                    )
+                if (context.checkSelfPermission(android.Manifest.permission.CAMERA) !=
+                    PackageManager.PERMISSION_GRANTED
+                ) {
+                    activePlatformView?.pauseRendering()
+                    coreSession.pause()
+                    return result.error(
+                        "CAMERA_PERMISSION_DENIED",
+                        "Camera permission was revoked while the AR session was active",
+                        null,
+                    )
+                }
+                try {
+                    // Resume synchronously so ARCore failures reach Flutter. The
+                    // renderer's startIfRequested() path is best-effort and logs
+                    // failures; it must not be used for this method-channel call.
+                    coreSession.resume()
+                    activePlatformView?.resumeRendering()
+                    activePlatformView?.resumeSessionWhenReady()
+                    result.success(null)
+                } catch (e: SecurityException) {
+                    coreSession.pause()
+                    result.error(
+                        "CAMERA_PERMISSION_DENIED",
+                        "Camera permission is no longer available: ${e.message}",
+                        null,
+                    )
+                } catch (e: Exception) {
+                    coreSession.pause()
+                    result.error(
+                        "RESUME_FAILED",
+                        "ARCore session resume failed: ${e.message}",
+                        null,
+                    )
+                }
             }
             "destroySession"     -> {
                 activePlatformView?.pauseRendering()
@@ -902,9 +938,18 @@ class ArCoreSession(
 
     fun resume() {
         synchronized(sessionLock) {
+            val currentSession = session
+                ?: throw IllegalStateException("Session not initialised")
             startRequested = true
+            try {
+                currentSession.resume()
+                isRunning = true
+            } catch (e: Exception) {
+                startRequested = false
+                isRunning = false
+                throw e
+            }
         }
-        startIfRequested()
     }
 
     fun softDestroy() {
