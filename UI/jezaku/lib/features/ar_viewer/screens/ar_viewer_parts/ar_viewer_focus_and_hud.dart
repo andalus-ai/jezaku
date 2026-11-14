@@ -37,6 +37,9 @@ class _FocusedAnchorPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final memory = anchor.memory;
     final projection = anchor.projection;
+    final healthColor = memory.needsCalibrationReview
+        ? Colors.amberAccent.shade100
+        : Colors.greenAccent.shade100;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -69,13 +72,32 @@ class _FocusedAnchorPanel extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              '${projection.distanceLabel} • ${projection.directionLabel} • '
-              '${memory.anchorHealthLabel}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white70),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _HudPill(
+                  icon: Icons.straighten,
+                  label: projection.distanceLabel,
+                  color: Colors.cyanAccent.shade100,
+                  tooltip: 'Distance to focused anchor',
+                ),
+                _HudPill(
+                  icon: Icons.explore_outlined,
+                  label: projection.directionLabel,
+                  color: Colors.lightBlueAccent.shade100,
+                  tooltip: 'Direction to focused anchor',
+                ),
+                _HudPill(
+                  icon: memory.needsCalibrationReview
+                      ? Icons.warning_amber
+                      : Icons.check_circle_outline,
+                  label: memory.anchorHealthLabel,
+                  color: healthColor,
+                  tooltip: 'Anchor health',
+                ),
+              ],
             ),
             if (memory.needsCalibrationReview ||
                 memory.captureMetadata.hasManualCorrection) ...[
