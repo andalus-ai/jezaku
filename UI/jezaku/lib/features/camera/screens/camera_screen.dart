@@ -503,6 +503,22 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
         _isCapturing = false;
       });
       Navigator.pushReplacementNamed(context, AppRoutes.publish);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: const Text(
+                'Could not prepare this capture. Your camera is still ready.',
+              ),
+              action: SnackBarAction(
+                label: 'Retry',
+                onPressed: _capture,
+              ),
+            ),
+          );
+      }
     } finally {
       if (mounted && _isCapturing) {
         setState(() => _isCapturing = false);
