@@ -2013,26 +2013,68 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     required Map<String, int> trailStopNumbers,
     required Map<String, List<String>> wallTitlesByMemoryId,
   }) {
-    return [
-      for (final anchor in anchors.reversed)
+    // Place the focused and on-screen anchors first so less important labels
+    // move around them instead of covering them.
+    final orderedAnchors = [...anchors]
+      ..sort((a, b) {
+        final aFocused = a.memory.id == focusedMemoryId;
+        final bFocused = b.memory.id == focusedMemoryId;
+        if (aFocused != bFocused) {
+          return aFocused ? -1 : 1;
+        }
+        final visibility = b.projection.isVisible
+            .toString()
+            .compareTo(a.projection.isVisible.toString());
+        if (visibility != 0) {
+          return visibility;
+        }
+        return a.memory.id.compareTo(b.memory.id);
+      });
+
+    final placedAlignments = <Alignment>[];
+    final overlays = <Widget>[];
+    for (final anchor in orderedAnchors) {
+      final isFocused = anchor.memory.id == focusedMemoryId;
+      final base = isFocused
+          ? const Alignment(0, -0.1)
+          : Alignment(
+              anchor.projection.alignmentX,
+              anchor.projection.alignmentY,
+            );
+      final candidates = isFocused
+          ? [base]
+          : [
+              base,
+              Alignment(base.x, (base.y - 0.22).clamp(-0.88, 0.88)),
+              Alignment(base.x, (base.y + 0.22).clamp(-0.88, 0.88)),
+              Alignment(base.x, (base.y - 0.44).clamp(-0.88, 0.88)),
+              Alignment(base.x, (base.y + 0.44).clamp(-0.88, 0.88)),
+            ];
+      var selected = candidates.first;
+      for (final candidate in candidates) {
+        final overlaps = placedAlignments.any((placed) {
+          return (candidate.x - placed.x).abs() < 0.62 &&
+              (candidate.y - placed.y).abs() < 0.34;
+        });
+        if (!overlaps) {
+          selected = candidate;
+          break;
+        }
+      }
+      placedAlignments.add(selected);
+
+      overlays.add(
         Align(
-          alignment: anchor.memory.id == focusedMemoryId
-              ? const Alignment(0, -0.1)
-              : Alignment(
-                  anchor.projection.alignmentX,
-                  anchor.projection.alignmentY,
-                ),
+          alignment: selected,
           child: Opacity(
-            opacity: anchor.memory.id == focusedMemoryId
+            opacity: isFocused
                 ? 1.0
                 : anchor.projection.opacity.clamp(0.48, 1.0),
             child: Transform.scale(
-              scale: anchor.memory.id == focusedMemoryId
-                  ? 1.0
-                  : anchor.projection.scale,
+              scale: isFocused ? 1.0 : anchor.projection.scale,
               child: _AnchorBubble(
                 anchor: anchor,
-                isFocused: anchor.memory.id == focusedMemoryId,
+                isFocused: isFocused,
                 stopNumber: trailStopNumbers[anchor.memory.id],
                 wallTitles:
                     wallTitlesByMemoryId[anchor.memory.id] ?? const <String>[],
@@ -2041,7 +2083,9 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
             ),
           ),
         ),
-    ];
+      );
+    }
+    return overlays;
   }
 
   Widget _buildBottomPanel(
