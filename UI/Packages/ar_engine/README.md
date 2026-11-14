@@ -157,6 +157,27 @@ flutter run -d chrome --web-browser-flag "--enable-features=WebXR,WebXRARModule"
 
 ---
 
+## Session ownership and lifecycle
+
+The native Android backend currently exposes one active ARCore camera session per
+Flutter engine. Treat an `ARWidget` as the exclusive owner of that session:
+
+- Keep only one mounted `ARWidget` for a camera session at a time.
+- Dispose the current widget/controller before mounting another AR viewer.
+- Do not use multiple independent viewers as if they had isolated cameras or
+  scene state; the Android backend rejects a competing initialization with
+  `SESSION_ALREADY_ACTIVE`.
+- Backgrounding pauses the session. On resume, the plugin reports native
+  failures to Flutter so the widget can recreate a reclaimed session.
+- Changing `ARSessionConfig` on the owning widget reconfigures its existing
+  session; it does not create an independent session.
+
+This is an explicit single-session contract, not multi-viewer support. A future
+multi-viewer implementation requires a session broker with ownership tokens,
+reference-counted teardown, and well-defined platform-view attachment rules.
+
+---
+
 ## Quick Start
 
 ```dart
