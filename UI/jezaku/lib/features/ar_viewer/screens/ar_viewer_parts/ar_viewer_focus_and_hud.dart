@@ -146,28 +146,38 @@ class _FocusedAnchorPanel extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onDetails,
-                    icon: const Icon(Icons.open_in_new),
-                    label: const Text('Details'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white38),
-                    ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 360;
+                final detailsButton = OutlinedButton.icon(
+                  onPressed: onDetails,
+                  icon: const Icon(Icons.open_in_new),
+                  label: const Text('Details'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white38),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: onRecenter,
-                    icon: const Icon(Icons.center_focus_strong),
-                    label: const Text('Recenter'),
-                  ),
-                ),
-              ],
+                );
+                final recenterButton = FilledButton.icon(
+                  onPressed: onRecenter,
+                  icon: const Icon(Icons.center_focus_strong),
+                  label: const Text('Recenter'),
+                );
+                if (compact) {
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [detailsButton, recenterButton],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: detailsButton),
+                    const SizedBox(width: 10),
+                    Expanded(child: recenterButton),
+                  ],
+                );
+              },
             ),
           ],
         ),
