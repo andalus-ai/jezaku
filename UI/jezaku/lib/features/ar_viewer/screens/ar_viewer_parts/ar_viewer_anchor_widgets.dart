@@ -27,11 +27,23 @@ class _AnchorBubble extends ConsumerWidget {
     final showMediaPlane =
         memory.mediaAttachment != null || wallTitles.isNotEmpty;
 
+    final semanticDetails = <String>[
+      memory.title,
+      stopNumber == null ? null : 'Trail stop $stopNumber',
+      isFocused ? 'Currently focused' : 'Not focused',
+      projection.isVisible ? 'Visible in camera view' : 'Outside camera view',
+      '${projection.distanceLabel}, ${projection.directionLabel}',
+      'Anchor health: ${memory.anchorHealthLabel}',
+      if (memory.needsCalibrationReview) 'Needs calibration review',
+      if (memory.isPrivate) 'Private anchor',
+    ].whereType<String>().join('. ');
+
     return Semantics(
       button: true,
-      label: stopNumber == null
-          ? 'Focus ${memory.title}'
-          : 'Focus ${memory.title}, stop $stopNumber',
+      excludeSemantics: true,
+      label: semanticDetails,
+      hint: 'Double tap to focus this anchor',
+      onTap: onTap,
       child: GestureDetector(
         key: ValueKey('ar_anchor_bubble_${memory.id}'),
         onTap: onTap,
