@@ -606,6 +606,19 @@ class ArEnginePlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 null
             )
         }
+        // This plugin exposes a single process-wide ARCore session through
+        // one MethodChannel and one PlatformView. Do not let a second widget
+        // silently reconfigure a session that another widget currently owns.
+        val existingSession = arSession
+        if (existingSession != null &&
+            (existingSession.startRequested || existingSession.isRunning)
+        ) {
+            return result.error(
+                "SESSION_ALREADY_ACTIVE",
+                "An AR session is already active. Dispose the existing ARWidget before creating another one.",
+                null,
+            )
+        }
         try {
             if (args?.get("geospatialEnabled") == true && !hasLocationPermission()) {
                 requestMissingRuntimePermissions(includeLocation = true)
