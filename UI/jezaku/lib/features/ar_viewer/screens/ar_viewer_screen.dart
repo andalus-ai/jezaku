@@ -2173,10 +2173,11 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
             runSpacing: 8,
             children: [
               _HudPill(
-                icon: Icons.navigation,
+                key: const ValueKey('ar_pose_source_hud'),
+                icon: _poseSourceIcon(),
                 label:
-                    '${_headingDegrees.round()} deg ${_poseSourceShortLabel()}',
-                color: Colors.cyanAccent.shade100,
+                    '${_headingDegrees.round()} deg · ${_poseSourceShortLabel()}',
+                color: _poseSourceColor(),
                 tooltip: _poseSourceDetailLabel(),
               ),
               _HudPill(
@@ -3422,20 +3423,37 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     return '${anchor.projection.distanceLabel} ${anchor.projection.directionLabel}';
   }
 
-  String _poseSourceShortLabel() {
+  bool _hasFreshARPose() {
     final lastARFrameAt = _lastARCameraFrameAt;
-    if (lastARFrameAt != null &&
+    return lastARFrameAt != null &&
         DateTime.now().toUtc().difference(lastARFrameAt) <
-            const Duration(seconds: 2)) {
-      return 'AR';
+            const Duration(seconds: 2);
+  }
+
+  String _poseSourceShortLabel() {
+    if (_hasFreshARPose()) {
+      return 'AR pose';
     }
-    return 'GPS';
+    return _lastARCameraFrameAt == null ? 'GPS fallback' : 'AR stale · GPS';
+  }
+
+  IconData _poseSourceIcon() {
+    return _hasFreshARPose() ? Icons.view_in_ar : Icons.explore_outlined;
+  }
+
+  Color _poseSourceColor() {
+    if (_hasFreshARPose()) {
+      return Colors.greenAccent.shade100;
+    }
+    return _lastARCameraFrameAt == null
+        ? Colors.amberAccent.shade100
+        : Colors.orangeAccent.shade100;
   }
 
   String _poseSourceDetailLabel() {
     final lastARFrameAt = _lastARCameraFrameAt;
     if (lastARFrameAt == null) {
-      return 'Waiting for AR camera pose; using compass/GPS fallback.';
+      return 'Waiting for ARCore camera pose. Heading currently uses compass/GPS fallback.';
     }
     final ageMs = DateTime.now()
         .toUtc()
@@ -3443,9 +3461,9 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         .inMilliseconds
         .clamp(0, 9999);
     if (ageMs < 2000) {
-      return 'Radar heading follows ARCore camera pose.';
+      return 'Tracking with a recent ARCore camera pose.';
     }
-    return 'AR camera pose stale (${ageMs}ms); using compass/GPS fallback.';
+    return 'ARCore camera pose is stale (${ageMs} ms). Heading currently uses compass/GPS fallback.';
   }
 
   ARMemoryProjection? _focusedAnchor(List<ARMemoryProjection> anchors) {
