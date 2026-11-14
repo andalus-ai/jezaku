@@ -72,8 +72,8 @@ class _ARRadar extends StatelessWidget {
                     onPressed: onToggle,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints.tightFor(
-                      width: 28,
-                      height: 28,
+                      width: 48,
+                      height: 48,
                     ),
                     iconSize: 16,
                     color: Colors.white,
@@ -251,10 +251,12 @@ class _ARRadarDotHitTarget extends StatelessWidget {
     final stopNumber = this.stopNumber;
 
     return Positioned(
-      left: point.dx - 13,
-      top: point.dy - 13,
+      left: point.dx - 22,
+      top: point.dy - 22,
       child: Semantics(
         button: true,
+        onTap: onTap,
+        hint: 'Double tap to focus this anchor',
         label: stopNumber == null
             ? 'Focus ${anchor.memory.title} from radar'
             : 'Focus ${anchor.memory.title}, trail stop $stopNumber',
@@ -263,7 +265,7 @@ class _ARRadarDotHitTarget extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
           child: SizedBox.square(
-            dimension: 26,
+            dimension: 44,
             child: Center(
               child: Container(
                 width: isFocused ? 20 : 16,
