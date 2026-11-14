@@ -111,7 +111,7 @@ class ARRuntimePermissionService {
 
   Future<bool> openSettings() async {
     try {
-      return openAppSettings();
+      return await openAppSettings();
     } on MissingPluginException {
       return false;
     }

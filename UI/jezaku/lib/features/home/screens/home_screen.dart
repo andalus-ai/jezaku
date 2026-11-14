@@ -6,8 +6,11 @@ import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/home/models/anchor_journey_step.dart';
 import 'package:jejaku/features/home/models/anchor_map_point.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
+import 'package:jejaku/features/home/services/viewer_location_status.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
+import 'package:jejaku/features/home/states/viewer_location_provider.dart';
 import 'package:jejaku/features/home/widgets/anchor_list_tile.dart';
+import 'package:jejaku/features/home/widgets/memory_empty_state.dart';
 import 'package:jejaku/features/trails/models/ar_trail_session.dart';
 import 'package:jejaku/features/trails/states/ar_trail_session_providers.dart';
 import 'package:jejaku/features/virtual_wall/models/ar_wall.dart';
@@ -51,6 +54,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final anchors = ref.watch(nearbyAnchorsProvider);
+    final locationStatus = describeViewerLocation(
+      ref.watch(viewerLocationProvider),
+    );
     final activeTrailProgress = ref.watch(activeARTrailProgressProvider);
     final trailSummary = ref.watch(completedARTrailHistorySummaryProvider);
     final savedTrails = ref.watch(savedARTrailsProvider);
@@ -142,9 +148,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     top: 16,
                     left: 16,
                     child: _StatusPill(
-                      icon: Icons.gps_fixed,
-                      label: 'GPS +/- 3.2 m',
-                      color: Colors.green.shade600,
+                      icon: locationStatus.level ==
+                              ViewerLocationStatusLevel.unavailable
+                          ? Icons.location_disabled
+                          : Icons.gps_fixed,
+                      label: locationStatus.label,
+                      color: _statusColor(locationStatus.level),
                     ),
                   ),
                   Positioned(
@@ -287,22 +296,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ],
                   Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                      itemCount: visibleAnchors.length,
-                      itemBuilder: (context, index) {
-                        final anchor = visibleAnchors[index];
-                        final linkedWalls = wallsLinkedToMemory(
-                          anchor.id,
-                          walls,
-                        );
-                        return AnchorListTile(
-                          anchor: anchor,
-                          linkedWallLabel: _linkedWallLabel(linkedWalls),
-                          onTap: () => _openMemoryDetails(anchor),
-                        );
-                      },
-                    ),
+                    child: visibleAnchors.isEmpty
+                        ? MemoryEmptyState(
+                            hasAnyMemories: anchors.isNotEmpty,
+                            onCapture: () => Navigator.pushNamed(
+                              context,
+                              AppRoutes.camera,
+                            ),
+                            onResetFilter: () =>
+                                setState(() => _filter = 'Nearby'),
+                          )
+                        : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                          itemCount: visibleAnchors.length,
+                          itemBuilder: (context, index) {
+                            final anchor = visibleAnchors[index];
+                            final linkedWalls = wallsLinkedToMemory(
+                              anchor.id,
+                              walls,
+                            );
+                            return AnchorListTile(
+                              anchor: anchor,
+                              linkedWallLabel: _linkedWallLabel(linkedWalls),
+                              onTap: () => _openMemoryDetails(anchor),
+                            );
+                          },
+                        ),
                   ),
                 ],
               ),
@@ -311,6 +330,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
     );
+  }
+
+  Color _statusColor(ViewerLocationStatusLevel level) {
+    return switch (level) {
+      ViewerLocationStatusLevel.good => Colors.green.shade600,
+      ViewerLocationStatusLevel.fair => Colors.amber.shade700,
+      ViewerLocationStatusLevel.poor => Colors.red.shade400,
+      ViewerLocationStatusLevel.unavailable => Colors.grey.shade500,
+    };
   }
 
   Set<String> _wallLinkedMemoryIds(List<ARWall> walls) {

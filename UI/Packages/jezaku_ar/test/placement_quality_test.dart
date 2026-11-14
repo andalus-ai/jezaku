@@ -31,7 +31,7 @@ void main() {
     test('is precise when every accuracy is within the thresholds', () {
       final result = policy.assess(status: _tracking());
 
-      expect(result.quality, JejakuPlacementQuality.precise);
+      expect(result.quality, JejakuPlacementMode.precise);
       expect(result.reason, JejakuPlacementReason.accurate);
       expect(result.isPrecise, isTrue);
       expect(result.detailLabel, contains('±1.5 m'));
@@ -52,7 +52,7 @@ void main() {
       );
       expect(
         policy.assess(status: const ARGeospatialStatus.unsupported()).quality,
-        JejakuPlacementQuality.approximate,
+        JejakuPlacementMode.approximate,
       );
     });
 
@@ -73,7 +73,7 @@ void main() {
         ),
       );
 
-      expect(result.quality, JejakuPlacementQuality.approximate);
+      expect(result.quality, JejakuPlacementMode.approximate);
       expect(result.reason, JejakuPlacementReason.localizing);
     });
 
@@ -190,9 +190,9 @@ void main() {
     });
   });
 
-  group('JejakuPlacementAssessment', () {
+  group('JejakuGeospatialAssessment', () {
     test('initial assessment is approximate', () {
-      const initial = JejakuPlacementAssessment.initial();
+      const initial = JejakuGeospatialAssessment.initial();
 
       expect(initial.isPrecise, isFalse);
       expect(initial.shortLabel, 'Approx.');

@@ -12,6 +12,7 @@ import 'package:jejaku/features/home/widgets/anchor_health_chip.dart';
 import 'package:jejaku/features/home/widgets/anchor_media_detail_sheet.dart';
 import 'package:jejaku/features/home/widgets/anchor_media_pill.dart';
 import 'package:jejaku/features/home/widgets/anchor_media_preview.dart';
+import 'package:jejaku/features/home/widgets/memory_empty_state.dart';
 import 'package:jejaku/features/trails/models/ar_trail_session.dart';
 
 class GalleryScreen extends ConsumerStatefulWidget {
@@ -49,7 +50,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
   @override
   Widget build(BuildContext context) {
     final origin = ref.watch(viewerLocationProvider);
-    final items = _items(ref.watch(nearbyAnchorsProvider), origin);
+    final anchors = ref.watch(nearbyAnchorsProvider);
+    final items = _items(anchors, origin);
     final spatialPoints = _mapProjectionService.pointsFor(
       anchors: items,
       originLatitude: origin.latitude,
@@ -155,7 +157,14 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
                   : () => _openArTrail(spatialPoints),
             ),
           Expanded(
-            child: items.isEmpty
+            child: anchors.isEmpty
+                ? MemoryEmptyState(
+                    hasAnyMemories: false,
+                    onCapture: () =>
+                        Navigator.pushNamed(context, AppRoutes.camera),
+                    onResetFilter: () {},
+                  )
+                : items.isEmpty
                 ? _GalleryEmptyState(
                     view: _view,
                     onShowAll: () => setState(() => _view = 'All'),
