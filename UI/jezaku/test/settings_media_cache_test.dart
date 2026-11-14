@@ -453,7 +453,9 @@ void main() {
   });
 
   testWidgets('settings shows and clears AR diagnostics cache', (tester) async {
-    final store = InMemoryARCaptureDiagnosticsCacheStore();
+    final store = InMemoryARCaptureDiagnosticsCacheStore(
+      now: () => DateTime.utc(2026, 6, 2, 12),
+    );
     final cache = ARCaptureDiagnosticsMemoryCache(capacity: 8);
     cache.put(
       ARCaptureDiagnostics(
@@ -727,6 +729,13 @@ void main() {
       ),
       findsOneWidget,
     );
+    // Rows below the fold are not built in the default test viewport.
+    await tester.scrollUntilVisible(
+      find.text('Latest trend'),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
     expect(find.text('Latest trend'), findsOneWidget);
     expect(find.text('1 new AR warning'), findsOneWidget);
     final recentBundlesHeader = find.text('Recent bundles');

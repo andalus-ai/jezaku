@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:jejaku/app/app_error_handling.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
@@ -16,7 +17,21 @@ import 'package:jejaku/features/trails/services/ar_trail_progress_store.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-void main() async {
+void main() {
+  installGlobalErrorHandlers();
+  _start();
+}
+
+Future<void> _start() async {
+  try {
+    await _bootstrapAndRun();
+  } on Object catch (error, stackTrace) {
+    appErrorBuffer.record(error, stackTrace, source: 'startup');
+    runApp(StartupFailureApp(onRetry: _start));
+  }
+}
+
+Future<void> _bootstrapAndRun() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Lock to portrait orientation

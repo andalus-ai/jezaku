@@ -12,6 +12,8 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import tech.kayys.jezaku.messaging.MessagingDtos.MessageCreateRequest;
@@ -35,6 +37,7 @@ import tech.kayys.jezaku.messaging.MessagingDtos.ThreadCreateRequest;
 import tech.kayys.jezaku.messaging.MessagingDtos.ThreadActivityHistoryResponse;
 import tech.kayys.jezaku.messaging.MessagingDtos.ThreadListResponse;
 import tech.kayys.jezaku.messaging.MessagingDtos.ThreadResponse;
+import tech.kayys.jezaku.auth.AuthContext;
 import tech.kayys.jezaku.http.RequestIdFilter;
 
 import java.time.Instant;
@@ -59,9 +62,21 @@ public class MessagingResource {
     @Inject
     MessagingOpsAuditLog opsAudit;
 
+    @Context
+    ContainerRequestContext requestContext;
+
+    private void self(String userId) {
+        AuthContext.requireSelf(requestContext, userId);
+    }
+
+    private String viewer(String claimedViewerId) {
+        return AuthContext.viewerOrCaller(requestContext, claimedViewerId);
+    }
+
     @POST
     @Path("/threads")
     public Uni<Response> createThread(ThreadCreateRequest request) {
+        self(request == null ? null : request.creatorId());
         return service.createThread(request)
                 .map(thread -> Response.status(Response.Status.CREATED).entity(thread).build());
     }
@@ -69,6 +84,7 @@ public class MessagingResource {
     @GET
     @Path("/users/{userId}/threads")
     public Uni<ThreadListResponse> userThreads(@PathParam("userId") String userId) {
+        self(userId);
         return service.userThreads(userId);
     }
 
@@ -77,7 +93,7 @@ public class MessagingResource {
     public Uni<ThreadResponse> thread(
             @PathParam("threadId") String threadId,
             @QueryParam("viewerId") String viewerId) {
-        return service.thread(threadId, viewerId);
+        return service.thread(threadId, viewer(viewerId));
     }
 
     @GET
@@ -86,7 +102,7 @@ public class MessagingResource {
             @PathParam("targetType") String targetType,
             @PathParam("targetId") String targetId,
             @QueryParam("viewerId") String viewerId) {
-        return service.contextThread(targetType, targetId, viewerId);
+        return service.contextThread(targetType, targetId, viewer(viewerId));
     }
 
     @POST
@@ -94,6 +110,7 @@ public class MessagingResource {
     public Uni<Response> sendMessage(
             @PathParam("threadId") String threadId,
             MessageCreateRequest request) {
+        self(request == null ? null : request.senderId());
         return service.sendMessage(threadId, request)
                 .map(message -> Response.status(Response.Status.CREATED).entity(message).build());
     }
@@ -101,7 +118,7 @@ public class MessagingResource {
     @GET
     @Path("/threads/{threadId}/messages")
     public Uni<MessageListResponse> messages(@PathParam("threadId") String threadId) {
-        return service.messages(threadId);
+        return service.messages(threadId, viewer(null));
     }
 
     @GET
@@ -109,7 +126,7 @@ public class MessagingResource {
     public Uni<ThreadActivityHistoryResponse> activity(
             @PathParam("threadId") String threadId,
             @QueryParam("viewerId") String viewerId) {
-        return service.activity(threadId, viewerId);
+        return service.activity(threadId, viewer(viewerId));
     }
 
     @DELETE
@@ -118,6 +135,7 @@ public class MessagingResource {
             @PathParam("threadId") String threadId,
             @PathParam("messageId") String messageId,
             @QueryParam("userId") String userId) {
+        self(userId);
         return service.deleteMessage(threadId, messageId, userId)
                 .replaceWith(Response.noContent().build());
     }
@@ -127,6 +145,7 @@ public class MessagingResource {
     public Uni<ReadReceiptResponse> markRead(
             @PathParam("threadId") String threadId,
             ReadReceiptRequest request) {
+        self(request == null ? null : request.userId());
         return service.markRead(threadId, request);
     }
 
@@ -135,6 +154,7 @@ public class MessagingResource {
     public Uni<MuteResponse> mute(
             @PathParam("threadId") String threadId,
             MuteRequest request) {
+        self(request == null ? null : request.userId());
         return service.mute(threadId, request);
     }
 
@@ -143,6 +163,7 @@ public class MessagingResource {
     public Uni<RealtimeEventListResponse> realtimeEvents(
             @PathParam("userId") String userId,
             @QueryParam("limit") Integer limit) {
+        self(userId);
         return service.realtimeEvents(userId, limit);
     }
 
@@ -151,6 +172,7 @@ public class MessagingResource {
     public Uni<RealtimeAckResponse> acknowledgeRealtimeEvents(
             @PathParam("userId") String userId,
             RealtimeAckRequest request) {
+        self(userId);
         return service.acknowledgeRealtimeEvents(userId, request);
     }
 

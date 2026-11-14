@@ -147,8 +147,14 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
   }) {
     final trimmedCaption = caption.trim();
     final resolvedCapturedAt = capturedAt ?? DateTime.now();
-    final createdAt = resolvedCapturedAt.millisecondsSinceEpoch;
     final radiusLabel = radiusMeters.round();
+    // Ids derive from the capture time. Two captures within the same
+    // millisecond (burst capture, imports, fast devices) must not collide.
+    final takenIds = {for (final existing in state) existing.id};
+    var createdAt = resolvedCapturedAt.millisecondsSinceEpoch;
+    while (takenIds.contains('captured_$createdAt')) {
+      createdAt += 1;
+    }
 
     final memory = AnchorMemory(
       id: 'captured_$createdAt',
