@@ -188,6 +188,7 @@ class _ARWidgetState extends State<ARWidget> with WidgetsBindingObserver {
   ARController? _controller;
   Object? _error;
   bool _initialising = true;
+  bool _resumeInProgress = false;
   int? _desktopTextureId;
   ARSessionConfig? _platformViewConfig;
   ARSessionHealthMonitor? _sessionHealthMonitor;
@@ -401,9 +402,13 @@ class _ARWidgetState extends State<ARWidget> with WidgetsBindingObserver {
   /// state.
   Future<void> _resumeOrRecreateSession() async {
     final controller = _controller;
-    if (controller == null || _error != null || _initialising) {
+    if (controller == null ||
+        _error != null ||
+        _initialising ||
+        _resumeInProgress) {
       return;
     }
+    _resumeInProgress = true;
     try {
       await controller.resume();
     } on Object {
@@ -411,6 +416,8 @@ class _ARWidgetState extends State<ARWidget> with WidgetsBindingObserver {
         return;
       }
       await _recreateSessionAfterResumeFailure(controller);
+    } finally {
+      _resumeInProgress = false;
     }
   }
 
