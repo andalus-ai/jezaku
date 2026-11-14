@@ -4,6 +4,7 @@ import 'package:ar_engine/ar_engine.dart' hide ARWidget;
 import 'package:ar_engine/src/ar_widget.dart' as ar_widget;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/test_ar_engine_platform.dart';
