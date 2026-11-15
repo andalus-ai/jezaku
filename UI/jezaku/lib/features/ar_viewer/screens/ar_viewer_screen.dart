@@ -10,9 +10,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
+import 'package:jejaku/app/utils/bounded_timers.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_memory_scene_diagnostics.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_memory_projection.dart';
 import 'package:jejaku/features/ar_viewer/presentation/ar_capture_readiness_trend.dart';
@@ -26,6 +26,8 @@ import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_retry_
 import 'package:jejaku/features/ar_viewer/services/ar_geospatial_quality_monitor.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
 import 'package:jejaku/features/ar_viewer/services/hanging_frame_hit_selector.dart';
+import 'package:jejaku/features/ar_viewer/services/viewer_geo.dart';
+import 'package:jejaku/features/ar_viewer/services/viewer_pose_tracker.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_scene_sync_service.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_runtime_permission_service.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capture_provider.dart';
@@ -137,9 +139,12 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   DateTime? _cloudAnchorMaintenanceCheckAt;
   Timer? _cloudAnchorMaintenanceTimer;
   Timer? _viewerPoseRefreshTimer;
-  StreamSubscription<CompassEvent>? _compassSubscription;
-  StreamSubscription<Position>? _positionSubscription;
-  final Set<Timer> _boundedTimers = <Timer>{};
+  final BoundedTimers _boundedTimers = BoundedTimers();
+  late final ViewerPoseTracker _poseTracker = ViewerPoseTracker(
+    onHeading: _applyLiveHeading,
+    onPosition: _applyLivePosition,
+    timers: _boundedTimers,
+  );
   StreamSubscription<ARCamera>? _arCameraSubscription;
   ARCamera? _latestARCamera;
   DateTime? _lastARCameraFrameAt;
@@ -164,7 +169,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     final initialHeading =
         ref.read(captureSessionProvider).previewSnapshot.headingDegrees;
     if (initialHeading.isFinite) {
-      _headingDegrees = _normalizeHeading(initialHeading);
+      _headingDegrees = ViewerGeo.normalizeHeading(initialHeading);
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
@@ -415,10 +420,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     // visible; they only burn battery.
     _viewerPoseRefreshTimer?.cancel();
     _viewerPoseRefreshTimer = null;
-    unawaited(_compassSubscription?.cancel());
-    _compassSubscription = null;
-    unawaited(_positionSubscription?.cancel());
-    _positionSubscription = null;
+    _poseTracker.stop();
     final controller = _arController;
     if (controller != null && !controller.isDisposed) {
       unawaited(controller.pause().catchError((Object _) {}));
@@ -449,8 +451,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       (_) => unawaited(_refreshViewerPoseFromDeviceSensors()),
     );
     unawaited(_refreshViewerPoseFromDeviceSensors());
-    _startCompassTracking();
-    unawaited(_startPositionTracking());
+    _poseTracker.startCompass();
+    unawaited(_poseTracker.startPosition(isActive: () => mounted));
   }
 
   void _startGeospatialQualityMonitor(ARController controller) {
@@ -506,112 +508,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _scheduleNativeSceneSync();
   }
 
-  void _startCompassTracking() {
-    _compassSubscription?.cancel();
-    final events = FlutterCompass.events;
-    if (events == null) {
-      return;
-    }
-    _compassSubscription = events.listen(
-      (event) {
-        final heading = event.headingForCameraMode ?? event.heading;
-        if (heading == null || !heading.isFinite) {
-          return;
-        }
-        _applyLiveHeading(_normalizeHeading(heading));
-      },
-      onError: (_) {},
-      cancelOnError: false,
-    );
-  }
-
-  /// Like [Future.timeout], but the timer is owned by this state and cancelled
-  /// in [dispose], so a slow platform call can never leave a timer running
-  /// after the screen is gone. After disposal the returned future simply never
-  /// completes.
-  Future<T> _withinBounds<T>(
-    Future<T> operation,
-    Duration limit, {
-    T Function()? onTimeout,
-  }) {
-    final completer = Completer<T>();
-    late final Timer timer;
-    timer = Timer(limit, () {
-      _boundedTimers.remove(timer);
-      if (completer.isCompleted) {
-        return;
-      }
-      if (onTimeout != null) {
-        completer.complete(onTimeout());
-      } else {
-        completer.completeError(TimeoutException('Timed out', limit));
-      }
-    });
-    _boundedTimers.add(timer);
-    operation.then<void>(
-      (value) {
-        timer.cancel();
-        _boundedTimers.remove(timer);
-        if (!completer.isCompleted) {
-          completer.complete(value);
-        }
-      },
-      onError: (Object error, StackTrace stackTrace) {
-        timer.cancel();
-        _boundedTimers.remove(timer);
-        if (!completer.isCompleted) {
-          completer.completeError(error, stackTrace);
-        }
-      },
-    );
-    return completer.future;
-  }
-
-  Future<void> _startPositionTracking() async {
-    await _positionSubscription?.cancel();
-    _positionSubscription = null;
-    if (!mounted) {
-      return;
-    }
-    try {
-      final serviceEnabled = await _withinBounds(
-        Geolocator.isLocationServiceEnabled(),
-        const Duration(milliseconds: 700),
-        onTimeout: () => false,
-      );
-      if (!mounted || !serviceEnabled) {
-        return;
-      }
-      var permission = await _withinBounds(
-        Geolocator.checkPermission(),
-        const Duration(milliseconds: 700),
-      );
-      if (permission == LocationPermission.denied) {
-        permission = await _withinBounds(
-          Geolocator.requestPermission(),
-          const Duration(seconds: 2),
-        );
-      }
-      if (!mounted ||
-          permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return;
-      }
-      _positionSubscription = Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.best,
-          distanceFilter: 1,
-        ),
-      ).listen(
-        _applyLivePosition,
-        onError: (_) {},
-        cancelOnError: false,
-      );
-    } on Object {
-      // The periodic sensor refresh remains as a slower fallback.
-    }
-  }
-
   void _applyLiveHeading(double headingDegrees) {
     final lastARFrameAt = _lastARCameraFrameAt;
     if (lastARFrameAt != null &&
@@ -620,7 +516,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       return;
     }
     if (!mounted ||
-        _headingDeltaDegrees(_headingDegrees, headingDegrees).abs() < 0.5) {
+        ViewerGeo.headingDelta(_headingDegrees, headingDegrees).abs() < ViewerGeo.headingNoiseDegrees) {
       return;
     }
     ref.read(captureSessionProvider.notifier).updatePreviewPose(
@@ -650,7 +546,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     final afterOrigin = _viewerOriginFor(
       ref.read(captureSessionProvider).previewSnapshot,
     );
-    if (!_sameGeoOrigin(beforeOrigin, afterOrigin)) {
+    if (!ViewerGeo.sameOrigin(beforeOrigin, afterOrigin)) {
       setState(() => _nativeSceneFingerprint = null);
       _scheduleNativeSceneSync();
     }
@@ -673,13 +569,13 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       }
       final afterOrigin = _viewerOriginFor(snapshot);
       final hasDeviceHeading =
-          _usesDeviceOrientation(snapshot) && snapshot.headingDegrees.isFinite;
+          ViewerGeo.usesDeviceOrientation(snapshot) && snapshot.headingDegrees.isFinite;
       final normalizedHeading = hasDeviceHeading
-          ? _normalizeHeading(snapshot.headingDegrees)
+          ? ViewerGeo.normalizeHeading(snapshot.headingDegrees)
           : _headingDegrees;
       final shouldUpdateHeading = hasDeviceHeading &&
-          _headingDeltaDegrees(_headingDegrees, normalizedHeading).abs() > 0.5;
-      final shouldRefreshNativeScene = !_sameGeoOrigin(
+          ViewerGeo.headingDelta(_headingDegrees, normalizedHeading).abs() > ViewerGeo.headingNoiseDegrees;
+      final shouldRefreshNativeScene = !ViewerGeo.sameOrigin(
         beforeOrigin,
         afterOrigin,
       );
@@ -702,26 +598,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   }
 
   JejakuGeoOrigin _viewerOriginFor(CaptureSensorSnapshot snapshot) {
-    if (!_usesDeviceLocation(snapshot)) {
-      return _viewerOrigin;
-    }
-    return JejakuGeoOrigin(
-      latitude: snapshot.latitude,
-      longitude: snapshot.longitude,
-      altitudeMeters: snapshot.altitudeMeters,
-    );
-  }
-
-  bool _usesDeviceLocation(CaptureSensorSnapshot snapshot) {
-    return snapshot.latitude.isFinite &&
-        snapshot.longitude.isFinite &&
-        snapshot.altitudeMeters.isFinite &&
-        snapshot.latitude.abs() <= 90 &&
-        snapshot.longitude.abs() <= 180;
-  }
-
-  bool _usesDeviceOrientation(CaptureSensorSnapshot snapshot) {
-    return snapshot.headingDegrees.isFinite;
+    return ViewerGeo.originFor(snapshot, fallback: _viewerOrigin);
   }
 
   Future<void> _resolveInitialTrailLaunch(ARTrailSession trailSession) async {
@@ -860,14 +737,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     WidgetsBinding.instance.removeObserver(this);
     _viewerPoseRefreshTimer?.cancel();
     _viewerPoseRefreshTimer = null;
-    for (final timer in _boundedTimers) {
-      timer.cancel();
-    }
-    _boundedTimers.clear();
-    unawaited(_compassSubscription?.cancel());
-    _compassSubscription = null;
-    unawaited(_positionSubscription?.cancel());
-    _positionSubscription = null;
+    _boundedTimers.cancelAll();
+    _poseTracker.stop();
     unawaited(_arCameraSubscription?.cancel());
     _arCameraSubscription = null;
     _cloudAnchorHostInFlightMemoryIds.clear();
@@ -1244,7 +1115,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     if (heading == null) {
       return;
     }
-    final headingDelta = _headingDeltaDegrees(_headingDegrees, heading).abs();
+    final headingDelta = ViewerGeo.headingDelta(_headingDegrees, heading).abs();
     if (headingDelta < 0.35) {
       return;
     }
@@ -1271,7 +1142,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       return null;
     }
     final radians = math.atan2(forward.x, -forward.z);
-    return _normalizeHeading(radians * 180 / math.pi);
+    return ViewerGeo.normalizeHeading(radians * 180 / math.pi);
   }
 
   void _handleNativeSessionConfigResolved(
@@ -1469,7 +1340,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _latestNativeSceneProjections = List<ARMemoryProjection>.unmodifiable(
       nativeProjections,
     );
-    if (!_sameGeoOrigin(_latestNativeSceneOrigin, viewerOrigin)) {
+    if (!ViewerGeo.sameOrigin(_latestNativeSceneOrigin, viewerOrigin)) {
       _latestNativeSceneOrigin = viewerOrigin;
       _nativeSessionPlacementCache.clear();
       _nativeSceneFingerprint = null;
@@ -2203,7 +2074,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       return null;
     }
     try {
-      final hits = await _withinBounds(
+      final hits = await _boundedTimers.run(
         controller.hitTest(0.5, 0.5),
         const Duration(milliseconds: 700),
       );
