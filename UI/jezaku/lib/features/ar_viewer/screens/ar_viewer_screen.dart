@@ -1666,7 +1666,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     return hostingResult;
   }
 
-  void _refreshNativeScene() {
+  void _resyncNativeScene() {
     _nativeSceneFingerprint = null;
     _scheduleNativeSceneSync();
   }
@@ -1675,14 +1675,14 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     if (!mounted || _nativeMemoryScene == null) {
       return;
     }
-    _refreshNativeScene();
+    _resyncNativeScene();
   }
 
   void _onCloudAnchorMaintenanceDue() {
     if (!mounted || !_nativeCloudAnchorsEnabled || _nativeMemoryScene == null) {
       return;
     }
-    _refreshNativeScene();
+    _resyncNativeScene();
   }
 
   void _scheduleCloudAnchorMaintenance() {
