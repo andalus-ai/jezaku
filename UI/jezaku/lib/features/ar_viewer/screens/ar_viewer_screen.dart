@@ -21,8 +21,7 @@ import 'package:jejaku/features/ar_viewer/presentation/ar_session_report_compari
 import 'package:jejaku/features/ar_viewer/models/ar_scene_diagnostics_export_bundle.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_hosting_service.dart';
-import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_maintenance_policy.dart';
-import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_retry_policy.dart';
+import 'package:jejaku/features/ar_viewer/services/cloud_anchor_scheduler.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_geospatial_quality_monitor.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
 import 'package:jejaku/features/ar_viewer/services/hanging_frame_hit_selector.dart';
@@ -93,10 +92,10 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   late ARTrailSession? _trailSession;
   final ARMemoryCloudAnchorHostingService _cloudAnchorHostingService =
       const ARMemoryCloudAnchorHostingService();
-  final ARMemoryCloudAnchorMaintenancePolicy _cloudAnchorMaintenancePolicy =
-      const ARMemoryCloudAnchorMaintenancePolicy();
-  final ARMemoryCloudAnchorRetryPolicy _cloudAnchorRetryPolicy =
-      const ARMemoryCloudAnchorRetryPolicy();
+  late final CloudAnchorScheduler _cloudAnchorScheduler = CloudAnchorScheduler(
+    onRetryDue: _onCloudAnchorRetryDue,
+    onMaintenanceDue: _onCloudAnchorMaintenanceDue,
+  );
   final ARMemorySceneSyncService _nativeSceneSyncService =
       const ARMemorySceneSyncService();
   final ARRuntimePermissionService _arPermissionService =
@@ -136,8 +135,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       ValueNotifier<JejakuGeospatialAssessment>(
     const JejakuGeospatialAssessment.initial(),
   );
-  DateTime? _cloudAnchorMaintenanceCheckAt;
-  Timer? _cloudAnchorMaintenanceTimer;
   Timer? _viewerPoseRefreshTimer;
   final BoundedTimers _boundedTimers = BoundedTimers();
   late final ViewerPoseTracker _poseTracker = ViewerPoseTracker(
@@ -149,9 +146,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   ARCamera? _latestARCamera;
   DateTime? _lastARCameraFrameAt;
   DateTime? _lastARHeadingUpdateAt;
-  ARMemoryCloudAnchorRetryState _cloudAnchorRetryState =
-      const ARMemoryCloudAnchorRetryState();
-  Timer? _cloudAnchorRetryTimer;
 
   static String _createDiagnosticsSessionId() {
     final serial = _diagnosticsSessionSerial++;
@@ -732,8 +726,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _scheduleCaptureDetach();
     _nativeSceneRefreshQueued = false;
     _nativeSceneDiagnosticsResetScheduled = false;
-    _cancelCloudAnchorMaintenance();
-    _cancelCloudAnchorRetry();
+    _cloudAnchorScheduler.cancelMaintenance();
+    _cloudAnchorScheduler.cancelRetry();
     WidgetsBinding.instance.removeObserver(this);
     _viewerPoseRefreshTimer?.cancel();
     _viewerPoseRefreshTimer = null;
@@ -1353,16 +1347,16 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
           _nativeSceneFingerprint = null;
         }
         if (!canPersistCloudAnchors) {
-          _cancelCloudAnchorMaintenance();
-          _cancelCloudAnchorRetry();
+          _cloudAnchorScheduler.cancelMaintenance();
+          _cloudAnchorScheduler.cancelRetry();
         }
         _nativeCloudAnchorsEnabled = canPersistCloudAnchors;
         return capabilities.canStartSession;
       },
       error: (_, __) {
         _nativeCloudAnchorsEnabled = false;
-        _cancelCloudAnchorMaintenance();
-        _cancelCloudAnchorRetry();
+        _cloudAnchorScheduler.cancelMaintenance();
+        _cloudAnchorScheduler.cancelRetry();
         return false;
       },
       loading: () => null,
@@ -1379,8 +1373,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         if (hadNativeSession) {
           _scheduleCaptureDetach();
         }
-        _cancelCloudAnchorMaintenance();
-        _cancelCloudAnchorRetry();
+        _cloudAnchorScheduler.cancelMaintenance();
+        _cloudAnchorScheduler.cancelRetry();
         _cloudAnchorHostInFlightMemoryIds.clear();
         _nativeSceneFingerprint = null;
         _scheduleNativeSceneDiagnosticsReset();
@@ -1389,8 +1383,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     }
     if (_latestSessionReadiness == null) {
       _nativeMemoryPlacementAllowed = false;
-      _cancelCloudAnchorMaintenance();
-      _cancelCloudAnchorRetry();
+      _cloudAnchorScheduler.cancelMaintenance();
+      _cloudAnchorScheduler.cancelRetry();
       return;
     }
     final mediaPreviewBytesByMemoryId = _mediaPreviewBytesByMemoryId(
@@ -1410,8 +1404,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     );
     if (_isNativePlacementPaused) {
       _nativeMemoryPlacementAllowed = true;
-      _cancelCloudAnchorMaintenance();
-      _cancelCloudAnchorRetry();
+      _cloudAnchorScheduler.cancelMaintenance();
+      _cloudAnchorScheduler.cancelRetry();
       if (fingerprint != _nativeSceneFingerprint) {
         _scheduleNativeSceneSync();
       }
@@ -1554,12 +1548,12 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         }
         final retryDecision = outcome.scene.isPlacementDeferred
             ? null
-            : _scheduleCloudAnchorRetry({
+            : _cloudAnchorScheduler.scheduleRetry({
                 ...outcome.cloudAnchors.unresolvedMemoryIds,
                 ...hostingResult.failedMemoryIds,
               });
         if (outcome.scene.isPlacementDeferred) {
-          _cancelCloudAnchorRetry();
+          _cloudAnchorScheduler.cancelRetry();
         }
         _publishNativeSceneDiagnostics(
           ARMemorySceneDiagnostics.fromSync(
@@ -1572,8 +1566,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
             cloudAnchorsEnabled: _nativeCloudAnchorsEnabled,
             syncedAt: DateTime.now(),
             nextCloudAnchorRetryDelay: retryDecision?.delay,
-            cloudAnchorRetryAttempt: _cloudAnchorRetryState.attempt,
-            nextCloudAnchorMaintenanceAt: _cloudAnchorMaintenanceCheckAt,
+            cloudAnchorRetryAttempt: _cloudAnchorScheduler.retryState.attempt,
+            nextCloudAnchorMaintenanceAt: _cloudAnchorScheduler.maintenanceCheckAt,
             sessionStartedAt: _diagnosticsSessionStartedAt,
             unsupportedSessionFeatureKeys: _unsupportedNativeSessionFeatureKeys,
           ),
@@ -1672,92 +1666,31 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     return hostingResult;
   }
 
-  ARMemoryCloudAnchorRetryDecision? _scheduleCloudAnchorRetry(
-    Set<String> memoryIds,
-  ) {
-    if (memoryIds.isEmpty) {
-      _cancelCloudAnchorRetry();
-      return null;
-    }
-    if (_cloudAnchorRetryTimer?.isActive == true &&
-        _cloudAnchorRetryState.tracksSameFailures(memoryIds)) {
-      return null;
-    }
-
-    final decision = _cloudAnchorRetryPolicy.next(
-      memoryIds: memoryIds,
-      current: _cloudAnchorRetryState,
-    );
-    if (!decision.shouldRetry) {
-      _cancelCloudAnchorRetry();
-      return decision;
-    }
-    _cloudAnchorRetryState = decision.state;
-    _cloudAnchorRetryTimer?.cancel();
-    _cloudAnchorRetryTimer = Timer(decision.delay!, () {
-      _cloudAnchorRetryTimer = null;
-      if (!mounted || _nativeMemoryScene == null) {
-        return;
-      }
-      _nativeSceneFingerprint = null;
-      _scheduleNativeSceneSync();
-    });
-    return decision;
+  void _refreshNativeScene() {
+    _nativeSceneFingerprint = null;
+    _scheduleNativeSceneSync();
   }
 
-  void _cancelCloudAnchorRetry() {
-    _cloudAnchorRetryTimer?.cancel();
-    _cloudAnchorRetryTimer = null;
-    _cloudAnchorRetryState = const ARMemoryCloudAnchorRetryState();
+  void _onCloudAnchorRetryDue() {
+    if (!mounted || _nativeMemoryScene == null) {
+      return;
+    }
+    _refreshNativeScene();
+  }
+
+  void _onCloudAnchorMaintenanceDue() {
+    if (!mounted || !_nativeCloudAnchorsEnabled || _nativeMemoryScene == null) {
+      return;
+    }
+    _refreshNativeScene();
   }
 
   void _scheduleCloudAnchorMaintenance() {
     if (!_nativeCloudAnchorsEnabled || _nativeMemoryScene == null) {
-      _cancelCloudAnchorMaintenance();
+      _cloudAnchorScheduler.cancelMaintenance();
       return;
     }
-
-    final now = DateTime.now().toUtc();
-    final plan = _cloudAnchorMaintenancePolicy.plan(
-      memories: _latestNativeSceneMemories,
-      now: now,
-    );
-    if (plan.hasDueMemories) {
-      _cancelCloudAnchorMaintenance();
-      _nativeSceneFingerprint = null;
-      _scheduleNativeSceneSync();
-      return;
-    }
-
-    final nextCheckAt = plan.nextCheckAt;
-    if (nextCheckAt == null) {
-      _cancelCloudAnchorMaintenance();
-      return;
-    }
-    if (_cloudAnchorMaintenanceTimer?.isActive == true &&
-        _cloudAnchorMaintenanceCheckAt == nextCheckAt) {
-      return;
-    }
-
-    _cloudAnchorMaintenanceCheckAt = nextCheckAt;
-    _cloudAnchorMaintenanceTimer?.cancel();
-    _cloudAnchorMaintenanceTimer = Timer(plan.delayFrom(now)!, () {
-      _cloudAnchorMaintenanceTimer = null;
-      _cloudAnchorMaintenanceCheckAt = null;
-      if (!mounted ||
-          !_nativeCloudAnchorsEnabled ||
-          _nativeMemoryScene == null) {
-        return;
-      }
-      _nativeSceneFingerprint = null;
-      _scheduleNativeSceneSync();
-    });
-  }
-
-  void _cancelCloudAnchorMaintenance() {
-    _cloudAnchorMaintenanceTimer?.cancel();
-    _cloudAnchorMaintenanceTimer = null;
-    _cloudAnchorMaintenanceCheckAt = null;
+    _cloudAnchorScheduler.scheduleMaintenance(_latestNativeSceneMemories);
   }
 
   void _publishNativeSceneDiagnostics(ARMemorySceneDiagnostics diagnostics) {
@@ -1828,7 +1761,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   void _refreshNativeScene() {
     _nativeSessionPlacementCache.clear();
     _nativeSceneFingerprint = null;
-    _cancelCloudAnchorRetry();
+    _cloudAnchorScheduler.cancelRetry();
     if (_nativeMemoryScene == null) {
       _nativeSceneRefreshQueued = false;
       _resetNativeSceneDiagnostics();
