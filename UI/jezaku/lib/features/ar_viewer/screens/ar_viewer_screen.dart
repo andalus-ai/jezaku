@@ -15,6 +15,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_memory_scene_diagnostics.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_memory_projection.dart';
+import 'package:jejaku/features/ar_viewer/presentation/ar_capture_readiness_trend.dart';
+import 'package:jejaku/features/ar_viewer/presentation/ar_diagnostics_labels.dart';
+import 'package:jejaku/features/ar_viewer/presentation/ar_session_report_comparison.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_scene_diagnostics_export_bundle.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_hosting_service.dart';
@@ -22,6 +25,7 @@ import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_mainte
 import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_retry_policy.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_geospatial_quality_monitor.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
+import 'package:jejaku/features/ar_viewer/services/hanging_frame_hit_selector.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_scene_sync_service.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_runtime_permission_service.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capture_provider.dart';
@@ -2203,7 +2207,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         controller.hitTest(0.5, 0.5),
         const Duration(milliseconds: 700),
       );
-      final hit = _bestHangingPhotoHit(hits);
+      final hit = HangingFrameHitSelector.best(hits);
       final cameraPosition = camera.pose.position;
       final cameraForward = camera.pose.rotation.rotateVector(
         ARVector3.forward,
@@ -2213,7 +2217,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         debugPrint(
           '[AR_HANGING_FRAME] capture_pose skipped: '
           'camera horizontal forward too small '
-          'forward=${_formatARVector(cameraForward)}',
+          'forward=${ARDiagnosticsLabels.vector(cameraForward)}',
         );
         return null;
       }
@@ -2221,7 +2225,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       const fallbackDistance = 1.5;
       final fallbackPosition = cameraPosition + forward * fallbackDistance;
       final useSurfacePosition =
-          hit != null && _isVerticalHangingSurfaceHit(hit);
+          hit != null && HangingFrameHitSelector.isVerticalSurface(hit);
       final position =
           useSurfacePosition ? hit.worldPose.position : fallbackPosition;
       final rotation = _cameraYawRotation(camera);
@@ -2231,12 +2235,12 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       debugPrint(
         '[AR_HANGING_FRAME] capture_pose saved '
         'hits=${hits.length} '
-        'selected=${_formatHangingFrameHit(hit)} '
+        'selected=${HangingFrameHitSelector.describe(hit)} '
         'usedVerticalSurface=$useSurfacePosition '
-        'camera=${_formatARVector(cameraPosition)} '
-        'forward=${_formatARVector(forward)} '
-        'position=${_formatARVector(position)} '
-        'rotation=${_formatARQuaternion(rotation)} '
+        'camera=${ARDiagnosticsLabels.vector(cameraPosition)} '
+        'forward=${ARDiagnosticsLabels.vector(forward)} '
+        'position=${ARDiagnosticsLabels.vector(position)} '
+        'rotation=${ARDiagnosticsLabels.quaternion(rotation)} '
         'distance=${distance.toStringAsFixed(3)}',
       );
       return AnchorLocalPose(
@@ -2259,51 +2263,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       debugPrint('[AR_HANGING_FRAME] capture_pose failed: $error');
       return null;
     }
-  }
-
-  ARHitTestResult? _bestHangingPhotoHit(List<ARHitTestResult> hits) {
-    for (final hit in hits) {
-      if (_isVerticalHangingSurfaceHit(hit)) {
-        return hit;
-      }
-    }
-    return hits.isEmpty ? null : hits.first;
-  }
-
-  bool _isVerticalHangingSurfaceHit(ARHitTestResult hit) {
-    if (hit.type == ARHitTestResultType.estimatedVerticalPlane) {
-      return true;
-    }
-    if (!hit.isOnPlane) {
-      return false;
-    }
-    final normal = hit.worldPose.rotation.rotateVector(ARVector3.up);
-    return normal.dot(ARVector3.up).abs() < 0.45;
-  }
-
-  String _formatHangingFrameHit(ARHitTestResult? hit) {
-    if (hit == null) {
-      return 'none';
-    }
-    final normal = hit.worldPose.rotation.rotateVector(ARVector3.up);
-    return '${hit.type.name}'
-        '/plane=${hit.planeId ?? '-'}'
-        '/dist=${hit.distance.toStringAsFixed(3)}'
-        '/conf=${hit.confidence.toStringAsFixed(2)}'
-        '/normal=${_formatARVector(normal)}';
-  }
-
-  String _formatARVector(ARVector3 value) {
-    return '(${value.x.toStringAsFixed(3)},'
-        '${value.y.toStringAsFixed(3)},'
-        '${value.z.toStringAsFixed(3)})';
-  }
-
-  String _formatARQuaternion(ARQuaternion value) {
-    return '(${value.x.toStringAsFixed(3)},'
-        '${value.y.toStringAsFixed(3)},'
-        '${value.z.toStringAsFixed(3)},'
-        '${value.w.toStringAsFixed(3)})';
   }
 
   Future<Uint8List?> _captureARVisualFrame() async {
@@ -2593,8 +2552,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     final sessionDiagnosticsReport = diagnostics.sessionDiagnosticsReport;
     final captureState = ref.read(arViewerCaptureProvider);
     final captureCapability = captureState.captureCapability;
-    final latestReportDiff = _latestSessionDiagnosticsReportDiff(diagnostics);
-    final captureReadinessTrend = _captureReadinessTrend(
+    final latestReportDiff = ARSessionReportComparison.latestDiff(diagnostics);
+    final captureReadinessTrend = ARCaptureReadinessTrend.evaluate(
       diagnostics,
       captureState,
     );
@@ -2900,147 +2859,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       ..showSnackBar(
         const SnackBar(content: Text('AR session report copied')),
       );
-  }
-
-  String _formatDiagnosticsTime(DateTime timestamp) {
-    final utc = timestamp.toUtc();
-    return '${utc.year}-${_twoDigits(utc.month)}-${_twoDigits(utc.day)} '
-        '${_twoDigits(utc.hour)}:${_twoDigits(utc.minute)} UTC';
-  }
-
-  String _twoDigits(int value) => value.toString().padLeft(2, '0');
-
-  String _sessionDiagnosticsReportEventLabel(ARDiagnosticsReport report) {
-    final timelineCount = report.timelineEventCount;
-    final matchCount = report.matchCount;
-    final timelineLabel = timelineCount == 1 ? 'event' : 'events';
-    if (!report.query.hasFilters || timelineCount == matchCount) {
-      return '$timelineCount timeline $timelineLabel';
-    }
-    final matchLabel = matchCount == 1 ? 'match' : 'matches';
-    return '$matchCount $matchLabel from $timelineCount timeline $timelineLabel';
-  }
-
-  String _sessionDiagnosticsHistoryRowLabel(int index) {
-    return switch (index) {
-      0 => 'Latest',
-      1 => 'Previous',
-      _ => 'Earlier',
-    };
-  }
-
-  String _sessionDiagnosticsHistoryReportLabel(ARDiagnosticsReport report) {
-    final labels = <String>[
-      _formatDiagnosticsTime(report.generatedAt),
-      report.statusLabel,
-      _sessionDiagnosticsReportEventLabel(report),
-    ];
-    final latestWarning = report.latestWarning?.displayLabel;
-    if (latestWarning != null && latestWarning.isNotEmpty) {
-      labels.add(latestWarning);
-    }
-    return labels.join(' - ');
-  }
-
-  String _modelPreflightRevalidationLabel(
-    ARMemorySceneDiagnostics diagnostics,
-  ) {
-    final modelPreflight = diagnostics.modelPreflight;
-    final count = modelPreflight.revalidatedCount;
-    final countLabel = count == 1 ? '1 network model' : '$count network models';
-    final ids = modelPreflight.revalidatedMemoryIds.toList()..sort();
-    if (ids.isEmpty) {
-      return '$countLabel revalidated';
-    }
-    return '$countLabel revalidated: ${ids.join(', ')}';
-  }
-
-  String _modelPreflightStaleCacheFallbackLabel(
-    ARMemorySceneDiagnostics diagnostics,
-  ) {
-    final modelPreflight = diagnostics.modelPreflight;
-    final count = modelPreflight.staleCacheFallbackCount;
-    final countLabel = count == 1 ? '1 network model' : '$count network models';
-    final ids = modelPreflight.staleCacheFallbackMemoryIds.toList()..sort();
-    if (ids.isEmpty) {
-      return '$countLabel used stale cache';
-    }
-    return '$countLabel used stale cache: ${ids.join(', ')}';
-  }
-
-  ARDiagnosticsReportDiff? _latestSessionDiagnosticsReportDiff(
-    ARMemorySceneDiagnostics diagnostics,
-  ) {
-    final history = diagnostics.sessionDiagnosticsReportHistory;
-    if (history.length < 2) {
-      return null;
-    }
-    return history.last.diffFrom(history[history.length - 2]);
-  }
-
-  Color? _sessionDiagnosticsReportWarningColor(ARDiagnosticsReport report) {
-    return switch (report.latestWarning?.severity) {
-      ARSessionHealthSeverity.blocked => Colors.redAccent.shade100,
-      ARSessionHealthSeverity.warning => Colors.amberAccent.shade100,
-      _ => null,
-    };
-  }
-
-  Color? _sessionDiagnosticsReportDiffColor(ARDiagnosticsReportDiff diff) {
-    return switch (diff.direction) {
-      ARDiagnosticsReportDiffDirection.worsened => Colors.redAccent.shade100,
-      ARDiagnosticsReportDiffDirection.mixed => Colors.amberAccent.shade100,
-      ARDiagnosticsReportDiffDirection.improved => Colors.greenAccent.shade100,
-      _ => null,
-    };
-  }
-
-  _CaptureReadinessTrend? _captureReadinessTrend(
-    ARMemorySceneDiagnostics diagnostics,
-    ARViewerCaptureState captureState,
-  ) {
-    if (!captureState.hasController || !captureState.canCaptureSnapshot) {
-      return null;
-    }
-    final diff = _latestSessionDiagnosticsReportDiff(diagnostics);
-    if (diff == null || !diff.hasChanges) {
-      return null;
-    }
-    if (captureState.activeReadiness?.isBlocked == true) {
-      return null;
-    }
-
-    final healthDelta = diff.sessionHealthDelta;
-    if (healthDelta.isBetter && captureState.hasReadinessWarning) {
-      final readinessLabel =
-          healthDelta.current?.readiness.label ?? diff.statusLabel;
-      return _CaptureReadinessTrend(
-        label: 'AR improving: $readinessLabel',
-        color: Colors.greenAccent.shade100,
-      );
-    }
-    if (diff.direction == ARDiagnosticsReportDiffDirection.improved &&
-        captureState.hasReadinessWarning) {
-      return _CaptureReadinessTrend(
-        label: 'AR improving: ${diff.statusLabel}',
-        color: Colors.greenAccent.shade100,
-      );
-    }
-    final shouldWarn =
-        diff.direction == ARDiagnosticsReportDiffDirection.worsened ||
-            (diff.direction == ARDiagnosticsReportDiffDirection.mixed &&
-                diff.hasNewWarnings);
-    if (!shouldWarn) {
-      return null;
-    }
-    final hasBlockedWarning = diff.blockedDelta > 0 ||
-        diff.newWarnings.any((event) => event.isBlocked);
-    return _CaptureReadinessTrend(
-      label: 'Capture caution: ${diff.statusLabel}',
-      color: hasBlockedWarning
-          ? Colors.redAccent.shade100
-          : Colors.amberAccent.shade100,
-    );
   }
 
   String? _captureDiagnosticsExtraString(

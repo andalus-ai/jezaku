@@ -47,7 +47,7 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
 
     final showCaptureControls =
         showRecordingPanel || arCapture.recordingState != ARRecordingState.idle;
-    final captureReadinessTrend = _captureReadinessTrend(
+    final captureReadinessTrend = ARCaptureReadinessTrend.evaluate(
       sceneDiagnostics,
       arCapture,
     );

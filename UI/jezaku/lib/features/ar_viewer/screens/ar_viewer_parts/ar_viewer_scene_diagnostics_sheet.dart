@@ -46,7 +46,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
         .take(3)
         .toList(growable: false);
     final sessionDiagnosticsLatestDiff =
-        _latestSessionDiagnosticsReportDiff(diagnostics);
+        ARSessionReportComparison.latestDiff(diagnostics);
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF0F172A),
@@ -175,13 +175,13 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                       _DiagnosticsRow(
                         icon: Icons.cached_outlined,
                         label: 'Model net',
-                        value: _modelPreflightRevalidationLabel(diagnostics),
+                        value: ARDiagnosticsLabels.modelRevalidation(diagnostics),
                       ),
                     if (diagnostics.modelPreflight.hasStaleCacheFallbacks)
                       _DiagnosticsRow(
                         icon: Icons.cloud_off_outlined,
                         label: 'Model cache',
-                        value: _modelPreflightStaleCacheFallbackLabel(
+                        value: ARDiagnosticsLabels.modelStaleCacheFallback(
                           diagnostics,
                         ),
                         valueColor: Colors.amberAccent.shade100,
@@ -218,7 +218,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         icon: Icons.monitor_heart_outlined,
                         label: 'Report',
                         value: sessionDiagnosticsReport.statusLabel,
-                        valueColor: _sessionDiagnosticsReportWarningColor(
+                        valueColor: ARSessionReportComparison.warningColor(
                           sessionDiagnosticsReport,
                         ),
                       ),
@@ -227,7 +227,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         label: 'Runtime',
                         value: diagnostics.runtimeDiagnosticsStatusLabel,
                         valueColor: diagnostics.hasRuntimeDiagnosticsIssue
-                            ? _sessionDiagnosticsReportWarningColor(
+                            ? ARSessionReportComparison.warningColor(
                                 sessionDiagnosticsReport,
                               )
                             : null,
@@ -237,7 +237,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                           icon: Icons.info_outline,
                           label: 'Runtime detail',
                           value: diagnostics.runtimeDiagnosticsDetailLabel,
-                          valueColor: _sessionDiagnosticsReportWarningColor(
+                          valueColor: ARSessionReportComparison.warningColor(
                             sessionDiagnosticsReport,
                           ),
                         ),
@@ -246,21 +246,21 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                           icon: Icons.tips_and_updates_outlined,
                           label: 'Runtime action',
                           value: diagnostics.runtimeDiagnosticsGuidanceLabel!,
-                          valueColor: _sessionDiagnosticsReportWarningColor(
+                          valueColor: ARSessionReportComparison.warningColor(
                             sessionDiagnosticsReport,
                           ),
                         ),
                       _DiagnosticsRow(
                         icon: Icons.event_note_outlined,
                         label: 'Events',
-                        value: _sessionDiagnosticsReportEventLabel(
+                        value: ARDiagnosticsLabels.reportEvents(
                           sessionDiagnosticsReport,
                         ),
                       ),
                       _DiagnosticsRow(
                         icon: Icons.schedule,
                         label: 'Generated',
-                        value: _formatDiagnosticsTime(
+                        value: ARDiagnosticsLabels.time(
                           sessionDiagnosticsReport.generatedAt,
                         ),
                       ),
@@ -277,7 +277,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                           icon: Icons.compare_arrows,
                           label: 'Trend',
                           value: sessionDiagnosticsLatestDiff.statusLabel,
-                          valueColor: _sessionDiagnosticsReportDiffColor(
+                          valueColor: ARSessionReportComparison.diffColor(
                             sessionDiagnosticsLatestDiff,
                           ),
                         ),
@@ -286,11 +286,11 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                           index += 1)
                         _DiagnosticsRow(
                           icon: Icons.timeline,
-                          label: _sessionDiagnosticsHistoryRowLabel(index),
-                          value: _sessionDiagnosticsHistoryReportLabel(
+                          label: ARDiagnosticsLabels.historyRow(index),
+                          value: ARDiagnosticsLabels.historyReport(
                             sessionDiagnosticsHistoryReports[index],
                           ),
-                          valueColor: _sessionDiagnosticsReportWarningColor(
+                          valueColor: ARSessionReportComparison.warningColor(
                             sessionDiagnosticsHistoryReports[index],
                           ),
                         ),
@@ -299,7 +299,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                           icon: Icons.warning_amber,
                           label: 'Latest warning',
                           value: sessionDiagnosticsLatestWarning.displayLabel,
-                          valueColor: _sessionDiagnosticsReportWarningColor(
+                          valueColor: ARSessionReportComparison.warningColor(
                             sessionDiagnosticsReport,
                           ),
                         ),
@@ -347,7 +347,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                       _DiagnosticsRow(
                         icon: Icons.schedule,
                         label: 'Captured',
-                        value: _formatDiagnosticsTime(
+                        value: ARDiagnosticsLabels.time(
                           latestCaptureDiagnostics.capturedAt,
                         ),
                       ),
@@ -400,21 +400,21 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                           label: 'Report',
                           value:
                               latestCaptureSessionDiagnosticsReport.statusLabel,
-                          valueColor: _sessionDiagnosticsReportWarningColor(
+                          valueColor: ARSessionReportComparison.warningColor(
                             latestCaptureSessionDiagnosticsReport,
                           ),
                         ),
                         _DiagnosticsRow(
                           icon: Icons.event_note_outlined,
                           label: 'Events',
-                          value: _sessionDiagnosticsReportEventLabel(
+                          value: ARDiagnosticsLabels.reportEvents(
                             latestCaptureSessionDiagnosticsReport,
                           ),
                         ),
                         _DiagnosticsRow(
                           icon: Icons.schedule,
                           label: 'Generated',
-                          value: _formatDiagnosticsTime(
+                          value: ARDiagnosticsLabels.time(
                             latestCaptureSessionDiagnosticsReport.generatedAt,
                           ),
                         ),
@@ -425,7 +425,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                             label: 'Latest warning',
                             value: latestCaptureSessionDiagnosticsLatestWarning
                                 .displayLabel,
-                            valueColor: _sessionDiagnosticsReportWarningColor(
+                            valueColor: ARSessionReportComparison.warningColor(
                               latestCaptureSessionDiagnosticsReport,
                             ),
                           ),

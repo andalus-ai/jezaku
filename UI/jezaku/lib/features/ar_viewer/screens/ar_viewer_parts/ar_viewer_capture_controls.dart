@@ -1,15 +1,5 @@
 part of '../ar_viewer_screen.dart';
 
-class _CaptureReadinessTrend {
-  const _CaptureReadinessTrend({
-    required this.label,
-    required this.color,
-  });
-
-  final String label;
-  final Color color;
-}
-
 class _ARCaptureControls extends StatelessWidget {
   const _ARCaptureControls({
     required this.state,
@@ -22,7 +12,7 @@ class _ARCaptureControls extends StatelessWidget {
   });
 
   final ARViewerCaptureState state;
-  final _CaptureReadinessTrend? readinessTrend;
+  final ARCaptureReadinessTrend? readinessTrend;
   final VoidCallback onSnapshot;
   final VoidCallback onRecord;
   final VoidCallback onPause;
