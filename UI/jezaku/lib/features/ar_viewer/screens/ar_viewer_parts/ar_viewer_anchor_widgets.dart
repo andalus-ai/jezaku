@@ -27,7 +27,7 @@ class _AnchorBubble extends ConsumerWidget {
     final showMediaPlane =
         memory.mediaAttachment != null || wallTitles.isNotEmpty;
 
-    final semanticDetails = <String>[
+    final semanticDetails = <String?>[
       memory.title,
       stopNumber == null ? null : 'Trail stop $stopNumber',
       isFocused ? 'Currently focused' : 'Not focused',

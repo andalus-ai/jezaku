@@ -10,18 +10,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
+import 'package:jejaku/app/utils/bounded_timers.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_memory_scene_diagnostics.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_memory_projection.dart';
+import 'package:jejaku/features/ar_viewer/presentation/ar_capture_readiness_trend.dart';
+import 'package:jejaku/features/ar_viewer/presentation/ar_diagnostics_labels.dart';
+import 'package:jejaku/features/ar_viewer/presentation/ar_session_report_comparison.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_scene_diagnostics_export_bundle.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_hosting_service.dart';
-import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_maintenance_policy.dart';
-import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_retry_policy.dart';
+import 'package:jejaku/features/ar_viewer/services/cloud_anchor_scheduler.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_geospatial_quality_monitor.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
+import 'package:jejaku/features/ar_viewer/services/hanging_frame_hit_selector.dart';
+import 'package:jejaku/features/ar_viewer/services/viewer_geo.dart';
+import 'package:jejaku/features/ar_viewer/services/viewer_pose_tracker.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_scene_sync_service.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_runtime_permission_service.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capture_provider.dart';
@@ -44,6 +49,7 @@ import 'package:jejaku/features/virtual_wall/states/wall_providers.dart';
 import 'package:jezaku_ar/jezaku_ar.dart';
 
 part 'ar_viewer_parts/ar_viewer_anchor_widgets.dart';
+part 'ar_viewer_parts/ar_viewer_bottom_panel.dart';
 part 'ar_viewer_parts/ar_viewer_capture_controls.dart';
 part 'ar_viewer_parts/ar_viewer_focus_and_hud.dart';
 part 'ar_viewer_parts/ar_viewer_geo_helpers.dart';
@@ -86,10 +92,10 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   late ARTrailSession? _trailSession;
   final ARMemoryCloudAnchorHostingService _cloudAnchorHostingService =
       const ARMemoryCloudAnchorHostingService();
-  final ARMemoryCloudAnchorMaintenancePolicy _cloudAnchorMaintenancePolicy =
-      const ARMemoryCloudAnchorMaintenancePolicy();
-  final ARMemoryCloudAnchorRetryPolicy _cloudAnchorRetryPolicy =
-      const ARMemoryCloudAnchorRetryPolicy();
+  late final CloudAnchorScheduler _cloudAnchorScheduler = CloudAnchorScheduler(
+    onRetryDue: _onCloudAnchorRetryDue,
+    onMaintenanceDue: _onCloudAnchorMaintenanceDue,
+  );
   final ARMemorySceneSyncService _nativeSceneSyncService =
       const ARMemorySceneSyncService();
   final ARRuntimePermissionService _arPermissionService =
@@ -129,19 +135,17 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       ValueNotifier<JejakuGeospatialAssessment>(
     const JejakuGeospatialAssessment.initial(),
   );
-  DateTime? _cloudAnchorMaintenanceCheckAt;
-  Timer? _cloudAnchorMaintenanceTimer;
   Timer? _viewerPoseRefreshTimer;
-  StreamSubscription<CompassEvent>? _compassSubscription;
-  StreamSubscription<Position>? _positionSubscription;
-  final Set<Timer> _boundedTimers = <Timer>{};
+  final BoundedTimers _boundedTimers = BoundedTimers();
+  late final ViewerPoseTracker _poseTracker = ViewerPoseTracker(
+    onHeading: _applyLiveHeading,
+    onPosition: _applyLivePosition,
+    timers: _boundedTimers,
+  );
   StreamSubscription<ARCamera>? _arCameraSubscription;
   ARCamera? _latestARCamera;
   DateTime? _lastARCameraFrameAt;
   DateTime? _lastARHeadingUpdateAt;
-  ARMemoryCloudAnchorRetryState _cloudAnchorRetryState =
-      const ARMemoryCloudAnchorRetryState();
-  Timer? _cloudAnchorRetryTimer;
 
   static String _createDiagnosticsSessionId() {
     final serial = _diagnosticsSessionSerial++;
@@ -159,7 +163,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     final initialHeading =
         ref.read(captureSessionProvider).previewSnapshot.headingDegrees;
     if (initialHeading.isFinite) {
-      _headingDegrees = _normalizeHeading(initialHeading);
+      _headingDegrees = ViewerGeo.normalizeHeading(initialHeading);
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
@@ -410,10 +414,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     // visible; they only burn battery.
     _viewerPoseRefreshTimer?.cancel();
     _viewerPoseRefreshTimer = null;
-    unawaited(_compassSubscription?.cancel());
-    _compassSubscription = null;
-    unawaited(_positionSubscription?.cancel());
-    _positionSubscription = null;
+    _poseTracker.stop();
     final controller = _arController;
     if (controller != null && !controller.isDisposed) {
       unawaited(controller.pause().catchError((Object _) {}));
@@ -444,8 +445,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       (_) => unawaited(_refreshViewerPoseFromDeviceSensors()),
     );
     unawaited(_refreshViewerPoseFromDeviceSensors());
-    _startCompassTracking();
-    unawaited(_startPositionTracking());
+    _poseTracker.startCompass();
+    unawaited(_poseTracker.startPosition(isActive: () => mounted));
   }
 
   void _startGeospatialQualityMonitor(ARController controller) {
@@ -501,112 +502,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _scheduleNativeSceneSync();
   }
 
-  void _startCompassTracking() {
-    _compassSubscription?.cancel();
-    final events = FlutterCompass.events;
-    if (events == null) {
-      return;
-    }
-    _compassSubscription = events.listen(
-      (event) {
-        final heading = event.headingForCameraMode ?? event.heading;
-        if (heading == null || !heading.isFinite) {
-          return;
-        }
-        _applyLiveHeading(_normalizeHeading(heading));
-      },
-      onError: (_) {},
-      cancelOnError: false,
-    );
-  }
-
-  /// Like [Future.timeout], but the timer is owned by this state and cancelled
-  /// in [dispose], so a slow platform call can never leave a timer running
-  /// after the screen is gone. After disposal the returned future simply never
-  /// completes.
-  Future<T> _withinBounds<T>(
-    Future<T> operation,
-    Duration limit, {
-    T Function()? onTimeout,
-  }) {
-    final completer = Completer<T>();
-    late final Timer timer;
-    timer = Timer(limit, () {
-      _boundedTimers.remove(timer);
-      if (completer.isCompleted) {
-        return;
-      }
-      if (onTimeout != null) {
-        completer.complete(onTimeout());
-      } else {
-        completer.completeError(TimeoutException('Timed out', limit));
-      }
-    });
-    _boundedTimers.add(timer);
-    operation.then<void>(
-      (value) {
-        timer.cancel();
-        _boundedTimers.remove(timer);
-        if (!completer.isCompleted) {
-          completer.complete(value);
-        }
-      },
-      onError: (Object error, StackTrace stackTrace) {
-        timer.cancel();
-        _boundedTimers.remove(timer);
-        if (!completer.isCompleted) {
-          completer.completeError(error, stackTrace);
-        }
-      },
-    );
-    return completer.future;
-  }
-
-  Future<void> _startPositionTracking() async {
-    await _positionSubscription?.cancel();
-    _positionSubscription = null;
-    if (!mounted) {
-      return;
-    }
-    try {
-      final serviceEnabled = await _withinBounds(
-        Geolocator.isLocationServiceEnabled(),
-        const Duration(milliseconds: 700),
-        onTimeout: () => false,
-      );
-      if (!mounted || !serviceEnabled) {
-        return;
-      }
-      var permission = await _withinBounds(
-        Geolocator.checkPermission(),
-        const Duration(milliseconds: 700),
-      );
-      if (permission == LocationPermission.denied) {
-        permission = await _withinBounds(
-          Geolocator.requestPermission(),
-          const Duration(seconds: 2),
-        );
-      }
-      if (!mounted ||
-          permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return;
-      }
-      _positionSubscription = Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.best,
-          distanceFilter: 1,
-        ),
-      ).listen(
-        _applyLivePosition,
-        onError: (_) {},
-        cancelOnError: false,
-      );
-    } on Object {
-      // The periodic sensor refresh remains as a slower fallback.
-    }
-  }
-
   void _applyLiveHeading(double headingDegrees) {
     final lastARFrameAt = _lastARCameraFrameAt;
     if (lastARFrameAt != null &&
@@ -615,7 +510,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       return;
     }
     if (!mounted ||
-        _headingDeltaDegrees(_headingDegrees, headingDegrees).abs() < 0.5) {
+        ViewerGeo.headingDelta(_headingDegrees, headingDegrees).abs() < ViewerGeo.headingNoiseDegrees) {
       return;
     }
     ref.read(captureSessionProvider.notifier).updatePreviewPose(
@@ -645,7 +540,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     final afterOrigin = _viewerOriginFor(
       ref.read(captureSessionProvider).previewSnapshot,
     );
-    if (!_sameGeoOrigin(beforeOrigin, afterOrigin)) {
+    if (!ViewerGeo.sameOrigin(beforeOrigin, afterOrigin)) {
       setState(() => _nativeSceneFingerprint = null);
       _scheduleNativeSceneSync();
     }
@@ -668,13 +563,13 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       }
       final afterOrigin = _viewerOriginFor(snapshot);
       final hasDeviceHeading =
-          _usesDeviceOrientation(snapshot) && snapshot.headingDegrees.isFinite;
+          ViewerGeo.usesDeviceOrientation(snapshot) && snapshot.headingDegrees.isFinite;
       final normalizedHeading = hasDeviceHeading
-          ? _normalizeHeading(snapshot.headingDegrees)
+          ? ViewerGeo.normalizeHeading(snapshot.headingDegrees)
           : _headingDegrees;
       final shouldUpdateHeading = hasDeviceHeading &&
-          _headingDeltaDegrees(_headingDegrees, normalizedHeading).abs() > 0.5;
-      final shouldRefreshNativeScene = !_sameGeoOrigin(
+          ViewerGeo.headingDelta(_headingDegrees, normalizedHeading).abs() > ViewerGeo.headingNoiseDegrees;
+      final shouldRefreshNativeScene = !ViewerGeo.sameOrigin(
         beforeOrigin,
         afterOrigin,
       );
@@ -697,26 +592,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   }
 
   JejakuGeoOrigin _viewerOriginFor(CaptureSensorSnapshot snapshot) {
-    if (!_usesDeviceLocation(snapshot)) {
-      return _viewerOrigin;
-    }
-    return JejakuGeoOrigin(
-      latitude: snapshot.latitude,
-      longitude: snapshot.longitude,
-      altitudeMeters: snapshot.altitudeMeters,
-    );
-  }
-
-  bool _usesDeviceLocation(CaptureSensorSnapshot snapshot) {
-    return snapshot.latitude.isFinite &&
-        snapshot.longitude.isFinite &&
-        snapshot.altitudeMeters.isFinite &&
-        snapshot.latitude.abs() <= 90 &&
-        snapshot.longitude.abs() <= 180;
-  }
-
-  bool _usesDeviceOrientation(CaptureSensorSnapshot snapshot) {
-    return snapshot.headingDegrees.isFinite;
+    return ViewerGeo.originFor(snapshot, fallback: _viewerOrigin);
   }
 
   Future<void> _resolveInitialTrailLaunch(ARTrailSession trailSession) async {
@@ -850,19 +726,13 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _scheduleCaptureDetach();
     _nativeSceneRefreshQueued = false;
     _nativeSceneDiagnosticsResetScheduled = false;
-    _cancelCloudAnchorMaintenance();
-    _cancelCloudAnchorRetry();
+    _cloudAnchorScheduler.cancelMaintenance();
+    _cloudAnchorScheduler.cancelRetry();
     WidgetsBinding.instance.removeObserver(this);
     _viewerPoseRefreshTimer?.cancel();
     _viewerPoseRefreshTimer = null;
-    for (final timer in _boundedTimers) {
-      timer.cancel();
-    }
-    _boundedTimers.clear();
-    unawaited(_compassSubscription?.cancel());
-    _compassSubscription = null;
-    unawaited(_positionSubscription?.cancel());
-    _positionSubscription = null;
+    _boundedTimers.cancelAll();
+    _poseTracker.stop();
     unawaited(_arCameraSubscription?.cancel());
     _arCameraSubscription = null;
     _cloudAnchorHostInFlightMemoryIds.clear();
@@ -1239,7 +1109,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     if (heading == null) {
       return;
     }
-    final headingDelta = _headingDeltaDegrees(_headingDegrees, heading).abs();
+    final headingDelta = ViewerGeo.headingDelta(_headingDegrees, heading).abs();
     if (headingDelta < 0.35) {
       return;
     }
@@ -1266,7 +1136,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       return null;
     }
     final radians = math.atan2(forward.x, -forward.z);
-    return _normalizeHeading(radians * 180 / math.pi);
+    return ViewerGeo.normalizeHeading(radians * 180 / math.pi);
   }
 
   void _handleNativeSessionConfigResolved(
@@ -1464,7 +1334,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _latestNativeSceneProjections = List<ARMemoryProjection>.unmodifiable(
       nativeProjections,
     );
-    if (!_sameGeoOrigin(_latestNativeSceneOrigin, viewerOrigin)) {
+    if (!ViewerGeo.sameOrigin(_latestNativeSceneOrigin, viewerOrigin)) {
       _latestNativeSceneOrigin = viewerOrigin;
       _nativeSessionPlacementCache.clear();
       _nativeSceneFingerprint = null;
@@ -1477,16 +1347,16 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
           _nativeSceneFingerprint = null;
         }
         if (!canPersistCloudAnchors) {
-          _cancelCloudAnchorMaintenance();
-          _cancelCloudAnchorRetry();
+          _cloudAnchorScheduler.cancelMaintenance();
+          _cloudAnchorScheduler.cancelRetry();
         }
         _nativeCloudAnchorsEnabled = canPersistCloudAnchors;
         return capabilities.canStartSession;
       },
       error: (_, __) {
         _nativeCloudAnchorsEnabled = false;
-        _cancelCloudAnchorMaintenance();
-        _cancelCloudAnchorRetry();
+        _cloudAnchorScheduler.cancelMaintenance();
+        _cloudAnchorScheduler.cancelRetry();
         return false;
       },
       loading: () => null,
@@ -1503,8 +1373,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         if (hadNativeSession) {
           _scheduleCaptureDetach();
         }
-        _cancelCloudAnchorMaintenance();
-        _cancelCloudAnchorRetry();
+        _cloudAnchorScheduler.cancelMaintenance();
+        _cloudAnchorScheduler.cancelRetry();
         _cloudAnchorHostInFlightMemoryIds.clear();
         _nativeSceneFingerprint = null;
         _scheduleNativeSceneDiagnosticsReset();
@@ -1513,8 +1383,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     }
     if (_latestSessionReadiness == null) {
       _nativeMemoryPlacementAllowed = false;
-      _cancelCloudAnchorMaintenance();
-      _cancelCloudAnchorRetry();
+      _cloudAnchorScheduler.cancelMaintenance();
+      _cloudAnchorScheduler.cancelRetry();
       return;
     }
     final mediaPreviewBytesByMemoryId = _mediaPreviewBytesByMemoryId(
@@ -1534,8 +1404,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     );
     if (_isNativePlacementPaused) {
       _nativeMemoryPlacementAllowed = true;
-      _cancelCloudAnchorMaintenance();
-      _cancelCloudAnchorRetry();
+      _cloudAnchorScheduler.cancelMaintenance();
+      _cloudAnchorScheduler.cancelRetry();
       if (fingerprint != _nativeSceneFingerprint) {
         _scheduleNativeSceneSync();
       }
@@ -1678,12 +1548,12 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         }
         final retryDecision = outcome.scene.isPlacementDeferred
             ? null
-            : _scheduleCloudAnchorRetry({
+            : _cloudAnchorScheduler.scheduleRetry({
                 ...outcome.cloudAnchors.unresolvedMemoryIds,
                 ...hostingResult.failedMemoryIds,
               });
         if (outcome.scene.isPlacementDeferred) {
-          _cancelCloudAnchorRetry();
+          _cloudAnchorScheduler.cancelRetry();
         }
         _publishNativeSceneDiagnostics(
           ARMemorySceneDiagnostics.fromSync(
@@ -1696,8 +1566,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
             cloudAnchorsEnabled: _nativeCloudAnchorsEnabled,
             syncedAt: DateTime.now(),
             nextCloudAnchorRetryDelay: retryDecision?.delay,
-            cloudAnchorRetryAttempt: _cloudAnchorRetryState.attempt,
-            nextCloudAnchorMaintenanceAt: _cloudAnchorMaintenanceCheckAt,
+            cloudAnchorRetryAttempt: _cloudAnchorScheduler.retryState.attempt,
+            nextCloudAnchorMaintenanceAt: _cloudAnchorScheduler.maintenanceCheckAt,
             sessionStartedAt: _diagnosticsSessionStartedAt,
             unsupportedSessionFeatureKeys: _unsupportedNativeSessionFeatureKeys,
           ),
@@ -1796,92 +1666,31 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     return hostingResult;
   }
 
-  ARMemoryCloudAnchorRetryDecision? _scheduleCloudAnchorRetry(
-    Set<String> memoryIds,
-  ) {
-    if (memoryIds.isEmpty) {
-      _cancelCloudAnchorRetry();
-      return null;
-    }
-    if (_cloudAnchorRetryTimer?.isActive == true &&
-        _cloudAnchorRetryState.tracksSameFailures(memoryIds)) {
-      return null;
-    }
-
-    final decision = _cloudAnchorRetryPolicy.next(
-      memoryIds: memoryIds,
-      current: _cloudAnchorRetryState,
-    );
-    if (!decision.shouldRetry) {
-      _cancelCloudAnchorRetry();
-      return decision;
-    }
-    _cloudAnchorRetryState = decision.state;
-    _cloudAnchorRetryTimer?.cancel();
-    _cloudAnchorRetryTimer = Timer(decision.delay!, () {
-      _cloudAnchorRetryTimer = null;
-      if (!mounted || _nativeMemoryScene == null) {
-        return;
-      }
-      _nativeSceneFingerprint = null;
-      _scheduleNativeSceneSync();
-    });
-    return decision;
+  void _resyncNativeScene() {
+    _nativeSceneFingerprint = null;
+    _scheduleNativeSceneSync();
   }
 
-  void _cancelCloudAnchorRetry() {
-    _cloudAnchorRetryTimer?.cancel();
-    _cloudAnchorRetryTimer = null;
-    _cloudAnchorRetryState = const ARMemoryCloudAnchorRetryState();
+  void _onCloudAnchorRetryDue() {
+    if (!mounted || _nativeMemoryScene == null) {
+      return;
+    }
+    _resyncNativeScene();
+  }
+
+  void _onCloudAnchorMaintenanceDue() {
+    if (!mounted || !_nativeCloudAnchorsEnabled || _nativeMemoryScene == null) {
+      return;
+    }
+    _resyncNativeScene();
   }
 
   void _scheduleCloudAnchorMaintenance() {
     if (!_nativeCloudAnchorsEnabled || _nativeMemoryScene == null) {
-      _cancelCloudAnchorMaintenance();
+      _cloudAnchorScheduler.cancelMaintenance();
       return;
     }
-
-    final now = DateTime.now().toUtc();
-    final plan = _cloudAnchorMaintenancePolicy.plan(
-      memories: _latestNativeSceneMemories,
-      now: now,
-    );
-    if (plan.hasDueMemories) {
-      _cancelCloudAnchorMaintenance();
-      _nativeSceneFingerprint = null;
-      _scheduleNativeSceneSync();
-      return;
-    }
-
-    final nextCheckAt = plan.nextCheckAt;
-    if (nextCheckAt == null) {
-      _cancelCloudAnchorMaintenance();
-      return;
-    }
-    if (_cloudAnchorMaintenanceTimer?.isActive == true &&
-        _cloudAnchorMaintenanceCheckAt == nextCheckAt) {
-      return;
-    }
-
-    _cloudAnchorMaintenanceCheckAt = nextCheckAt;
-    _cloudAnchorMaintenanceTimer?.cancel();
-    _cloudAnchorMaintenanceTimer = Timer(plan.delayFrom(now)!, () {
-      _cloudAnchorMaintenanceTimer = null;
-      _cloudAnchorMaintenanceCheckAt = null;
-      if (!mounted ||
-          !_nativeCloudAnchorsEnabled ||
-          _nativeMemoryScene == null) {
-        return;
-      }
-      _nativeSceneFingerprint = null;
-      _scheduleNativeSceneSync();
-    });
-  }
-
-  void _cancelCloudAnchorMaintenance() {
-    _cloudAnchorMaintenanceTimer?.cancel();
-    _cloudAnchorMaintenanceTimer = null;
-    _cloudAnchorMaintenanceCheckAt = null;
+    _cloudAnchorScheduler.scheduleMaintenance(_latestNativeSceneMemories);
   }
 
   void _publishNativeSceneDiagnostics(ARMemorySceneDiagnostics diagnostics) {
@@ -1952,7 +1761,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   void _refreshNativeScene() {
     _nativeSessionPlacementCache.clear();
     _nativeSceneFingerprint = null;
-    _cancelCloudAnchorRetry();
+    _cloudAnchorScheduler.cancelRetry();
     if (_nativeMemoryScene == null) {
       _nativeSceneRefreshQueued = false;
       _resetNativeSceneDiagnostics();
@@ -2116,236 +1925,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     return overlays;
   }
 
-  Widget _buildBottomPanel(
-    BuildContext context,
-    List<ARMemoryProjection> anchors,
-    int totalAnchors,
-    ARMemoryProjection? focusedAnchor,
-    List<ARWall> linkedWalls,
-    AnchorJourneyStep? journeyStep,
-    String? journeyTitle,
-    ARWall? sourceWall,
-    List<ARWall> extraWalls,
-    Map<String, int> trailStopNumbers,
-    AsyncValue<JejakuARCapabilities> arCapabilities,
-    AsyncValue<JejakuARSessionPlan> arSessionPlan,
-    ARViewerCaptureState arCapture,
-    ARMemorySceneDiagnostics sceneDiagnostics,
-    ARTrailProgress? trailProgress, {
-    required bool showInfoDashboard,
-    required bool showRecordingPanel,
-  }) {
-    final isWallTrail = trailStopNumbers.isNotEmpty;
-    final hudAnchors = isWallTrail
-        ? anchors
-            .where((anchor) => trailStopNumbers.containsKey(anchor.memory.id))
-            .toList()
-        : anchors;
-    final displayTotal = isWallTrail ? hudAnchors.length : totalAnchors;
-    final visibleCount = hudAnchors.where((anchor) {
-      return anchor.projection.isVisible;
-    }).length;
-    final reliableCount = hudAnchors.where((anchor) {
-      return anchor.projection.assessment.isReliable;
-    }).length;
-    final reviewCount = hudAnchors.where((anchor) {
-      return anchor.memory.needsCalibrationReview;
-    }).length;
-    final missingTrailAnchor = _firstMissingTrailAnchor(
-      trailProgress,
-      anchors,
-    );
-    final sourceWallStopCount = sourceWall?.linkedMemoryIds
-        .where((memoryId) => trailStopNumbers.containsKey(memoryId))
-        .length;
-
-    final showCaptureControls =
-        showRecordingPanel || arCapture.recordingState != ARRecordingState.idle;
-    final captureReadinessTrend = _captureReadinessTrend(
-      sceneDiagnostics,
-      arCapture,
-    );
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (showInfoDashboard && focusedAnchor != null) ...[
-          _FocusedAnchorPanel(
-            anchor: focusedAnchor,
-            linkedWalls: linkedWalls,
-            onDetails: () => Navigator.pushNamed(
-              context,
-              AppRoutes.memoryDetails,
-              arguments: focusedAnchor.memory.id,
-            ),
-            onCalibrate: () => Navigator.pushNamed(
-              context,
-              AppRoutes.memoryCalibration,
-              arguments: focusedAnchor.memory.id,
-            ),
-            onOpenWall: (wall) => Navigator.pushNamed(
-              context,
-              AppRoutes.virtualWallDetails,
-              arguments: wall.id,
-            ),
-            onRecenter: () => _recenterOnAnchor(focusedAnchor),
-          ),
-          const SizedBox(height: 12),
-        ],
-        if (showInfoDashboard &&
-            journeyStep != null &&
-            journeyStep.total > 1) ...[
-          _ARJourneyPanel(
-            step: journeyStep,
-            title: journeyTitle,
-            trailProgress: trailProgress,
-            headingDegrees: _headingDegrees,
-            sourceWall: sourceWall,
-            sourceWallStopCount: sourceWallStopCount,
-            extraWalls: extraWalls,
-            missingStopMemory: missingTrailAnchor?.memory,
-            missingStopSpatialLabel: _missingStopSpatialLabel(
-              missingTrailAnchor,
-            ),
-            onOpenSourceWall: sourceWall == null
-                ? null
-                : () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.virtualWallDetails,
-                      arguments: sourceWall.id,
-                    ),
-            onOpenExtraWall: (wall) => Navigator.pushNamed(
-              context,
-              AppRoutes.virtualWallDetails,
-              arguments: wall.id,
-            ),
-            onPrevious: journeyStep.previousMemory == null
-                ? null
-                : () => _recenterOnMemoryId(
-                      anchors,
-                      journeyStep.previousMemory!.id,
-                    ),
-            onNext: journeyStep.nextMemory == null
-                ? null
-                : () => _recenterOnMemoryId(
-                      anchors,
-                      journeyStep.nextMemory!.id,
-                    ),
-            onOpenMissingStop: missingTrailAnchor == null
-                ? null
-                : (memoryId) => _recenterOnMemoryId(anchors, memoryId),
-            onFinish: _finishTrail,
-          ),
-          const SizedBox(height: 12),
-        ],
-        if (showInfoDashboard) ...[
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _HudPill(
-                key: const ValueKey('ar_pose_source_hud'),
-                icon: _poseSourceIcon(),
-                label:
-                    '${_headingDegrees.round()} deg · ${_poseSourceShortLabel()}',
-                color: _poseSourceColor(),
-                tooltip: _poseSourceDetailLabel(),
-              ),
-              _HudPill(
-                icon: Icons.photo_camera,
-                label: isWallTrail
-                    ? '$visibleCount/$displayTotal trail in view'
-                    : '$visibleCount/$displayTotal in view',
-                color: Colors.greenAccent.shade100,
-              ),
-              _HudPill(
-                icon: Icons.verified,
-                label: '$reliableCount reliable',
-                color: Colors.amberAccent.shade100,
-              ),
-              if (sceneDiagnostics.hasSessionHealth)
-                _HudPill(
-                  key: const ValueKey('ar_session_health_hud'),
-                  icon: _sessionHealthIcon(sceneDiagnostics),
-                  label: sceneDiagnostics.sessionHealthHudLabel,
-                  color: _sessionHealthColor(sceneDiagnostics),
-                  tooltip: sceneDiagnostics.sessionHealthDetailLabel,
-                ),
-              if (reviewCount > 0)
-                _HudPill(
-                  icon: Icons.warning_amber,
-                  label: '$reviewCount review',
-                  color: Colors.redAccent.shade100,
-                ),
-              _HudPill(
-                key: const ValueKey('ar_scene_diagnostics_hud'),
-                icon: _sceneDiagnosticsIcon(sceneDiagnostics),
-                label: sceneDiagnostics.hudStatusLabel,
-                color: _sceneDiagnosticsColor(sceneDiagnostics),
-                tooltip: sceneDiagnostics.detailStatusLabel,
-                onTap: () => _showSceneDiagnosticsSheet(
-                  context,
-                  sceneDiagnostics,
-                  anchors,
-                  latestCaptureDiagnostics: ref
-                      .read(captureSessionProvider.notifier)
-                      .latestArDiagnostics,
-                ),
-              ),
-              ..._capabilityHudPills(arSessionPlan, sceneDiagnostics),
-            ],
-          ),
-          if (showCaptureControls) const SizedBox(height: 12),
-        ],
-        if (showCaptureControls) ...[
-          _ARCaptureControls(
-            state: arCapture,
-            readinessTrend: captureReadinessTrend,
-            onSnapshot: _captureARSnapshot,
-            onRecord: _toggleARRecording,
-            onPause: _pauseARRecording,
-            onResume: _resumeARRecording,
-            onCancel: _cancelARRecording,
-          ),
-        ],
-        if (showInfoDashboard) ...[
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _showAnchorSheet(
-                    context,
-                    _sheetAnchors(anchors),
-                    focusedMemoryId: _focusedMemoryId,
-                    isWallTrail: _journeyMemoryIds.isNotEmpty,
-                  ),
-                  icon: const Icon(Icons.list),
-                  label: const Text('List'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white38),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () {
-                    Navigator.pushNamed(context, AppRoutes.camera);
-                  },
-                  icon: const Icon(Icons.add_a_photo),
-                  label: const Text('Capture'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-
   Future<void> _openPublishAndFocusPublishedMemory() async {
     final result = await Navigator.pushNamed<Object?>(
       context,
@@ -2428,11 +2007,11 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       return null;
     }
     try {
-      final hits = await _withinBounds(
+      final hits = await _boundedTimers.run(
         controller.hitTest(0.5, 0.5),
         const Duration(milliseconds: 700),
       );
-      final hit = _bestHangingPhotoHit(hits);
+      final hit = HangingFrameHitSelector.best(hits);
       final cameraPosition = camera.pose.position;
       final cameraForward = camera.pose.rotation.rotateVector(
         ARVector3.forward,
@@ -2442,7 +2021,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         debugPrint(
           '[AR_HANGING_FRAME] capture_pose skipped: '
           'camera horizontal forward too small '
-          'forward=${_formatARVector(cameraForward)}',
+          'forward=${ARDiagnosticsLabels.vector(cameraForward)}',
         );
         return null;
       }
@@ -2450,7 +2029,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       const fallbackDistance = 1.5;
       final fallbackPosition = cameraPosition + forward * fallbackDistance;
       final useSurfacePosition =
-          hit != null && _isVerticalHangingSurfaceHit(hit);
+          hit != null && HangingFrameHitSelector.isVerticalSurface(hit);
       final position =
           useSurfacePosition ? hit.worldPose.position : fallbackPosition;
       final rotation = _cameraYawRotation(camera);
@@ -2460,12 +2039,12 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       debugPrint(
         '[AR_HANGING_FRAME] capture_pose saved '
         'hits=${hits.length} '
-        'selected=${_formatHangingFrameHit(hit)} '
+        'selected=${HangingFrameHitSelector.describe(hit)} '
         'usedVerticalSurface=$useSurfacePosition '
-        'camera=${_formatARVector(cameraPosition)} '
-        'forward=${_formatARVector(forward)} '
-        'position=${_formatARVector(position)} '
-        'rotation=${_formatARQuaternion(rotation)} '
+        'camera=${ARDiagnosticsLabels.vector(cameraPosition)} '
+        'forward=${ARDiagnosticsLabels.vector(forward)} '
+        'position=${ARDiagnosticsLabels.vector(position)} '
+        'rotation=${ARDiagnosticsLabels.quaternion(rotation)} '
         'distance=${distance.toStringAsFixed(3)}',
       );
       return AnchorLocalPose(
@@ -2488,51 +2067,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       debugPrint('[AR_HANGING_FRAME] capture_pose failed: $error');
       return null;
     }
-  }
-
-  ARHitTestResult? _bestHangingPhotoHit(List<ARHitTestResult> hits) {
-    for (final hit in hits) {
-      if (_isVerticalHangingSurfaceHit(hit)) {
-        return hit;
-      }
-    }
-    return hits.isEmpty ? null : hits.first;
-  }
-
-  bool _isVerticalHangingSurfaceHit(ARHitTestResult hit) {
-    if (hit.type == ARHitTestResultType.estimatedVerticalPlane) {
-      return true;
-    }
-    if (!hit.isOnPlane) {
-      return false;
-    }
-    final normal = hit.worldPose.rotation.rotateVector(ARVector3.up);
-    return normal.dot(ARVector3.up).abs() < 0.45;
-  }
-
-  String _formatHangingFrameHit(ARHitTestResult? hit) {
-    if (hit == null) {
-      return 'none';
-    }
-    final normal = hit.worldPose.rotation.rotateVector(ARVector3.up);
-    return '${hit.type.name}'
-        '/plane=${hit.planeId ?? '-'}'
-        '/dist=${hit.distance.toStringAsFixed(3)}'
-        '/conf=${hit.confidence.toStringAsFixed(2)}'
-        '/normal=${_formatARVector(normal)}';
-  }
-
-  String _formatARVector(ARVector3 value) {
-    return '(${value.x.toStringAsFixed(3)},'
-        '${value.y.toStringAsFixed(3)},'
-        '${value.z.toStringAsFixed(3)})';
-  }
-
-  String _formatARQuaternion(ARQuaternion value) {
-    return '(${value.x.toStringAsFixed(3)},'
-        '${value.y.toStringAsFixed(3)},'
-        '${value.z.toStringAsFixed(3)},'
-        '${value.w.toStringAsFixed(3)})';
   }
 
   Future<Uint8List?> _captureARVisualFrame() async {
@@ -2822,8 +2356,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     final sessionDiagnosticsReport = diagnostics.sessionDiagnosticsReport;
     final captureState = ref.read(arViewerCaptureProvider);
     final captureCapability = captureState.captureCapability;
-    final latestReportDiff = _latestSessionDiagnosticsReportDiff(diagnostics);
-    final captureReadinessTrend = _captureReadinessTrend(
+    final latestReportDiff = ARSessionReportComparison.latestDiff(diagnostics);
+    final captureReadinessTrend = ARCaptureReadinessTrend.evaluate(
       diagnostics,
       captureState,
     );
@@ -3129,147 +2663,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       ..showSnackBar(
         const SnackBar(content: Text('AR session report copied')),
       );
-  }
-
-  String _formatDiagnosticsTime(DateTime timestamp) {
-    final utc = timestamp.toUtc();
-    return '${utc.year}-${_twoDigits(utc.month)}-${_twoDigits(utc.day)} '
-        '${_twoDigits(utc.hour)}:${_twoDigits(utc.minute)} UTC';
-  }
-
-  String _twoDigits(int value) => value.toString().padLeft(2, '0');
-
-  String _sessionDiagnosticsReportEventLabel(ARDiagnosticsReport report) {
-    final timelineCount = report.timelineEventCount;
-    final matchCount = report.matchCount;
-    final timelineLabel = timelineCount == 1 ? 'event' : 'events';
-    if (!report.query.hasFilters || timelineCount == matchCount) {
-      return '$timelineCount timeline $timelineLabel';
-    }
-    final matchLabel = matchCount == 1 ? 'match' : 'matches';
-    return '$matchCount $matchLabel from $timelineCount timeline $timelineLabel';
-  }
-
-  String _sessionDiagnosticsHistoryRowLabel(int index) {
-    return switch (index) {
-      0 => 'Latest',
-      1 => 'Previous',
-      _ => 'Earlier',
-    };
-  }
-
-  String _sessionDiagnosticsHistoryReportLabel(ARDiagnosticsReport report) {
-    final labels = <String>[
-      _formatDiagnosticsTime(report.generatedAt),
-      report.statusLabel,
-      _sessionDiagnosticsReportEventLabel(report),
-    ];
-    final latestWarning = report.latestWarning?.displayLabel;
-    if (latestWarning != null && latestWarning.isNotEmpty) {
-      labels.add(latestWarning);
-    }
-    return labels.join(' - ');
-  }
-
-  String _modelPreflightRevalidationLabel(
-    ARMemorySceneDiagnostics diagnostics,
-  ) {
-    final modelPreflight = diagnostics.modelPreflight;
-    final count = modelPreflight.revalidatedCount;
-    final countLabel = count == 1 ? '1 network model' : '$count network models';
-    final ids = modelPreflight.revalidatedMemoryIds.toList()..sort();
-    if (ids.isEmpty) {
-      return '$countLabel revalidated';
-    }
-    return '$countLabel revalidated: ${ids.join(', ')}';
-  }
-
-  String _modelPreflightStaleCacheFallbackLabel(
-    ARMemorySceneDiagnostics diagnostics,
-  ) {
-    final modelPreflight = diagnostics.modelPreflight;
-    final count = modelPreflight.staleCacheFallbackCount;
-    final countLabel = count == 1 ? '1 network model' : '$count network models';
-    final ids = modelPreflight.staleCacheFallbackMemoryIds.toList()..sort();
-    if (ids.isEmpty) {
-      return '$countLabel used stale cache';
-    }
-    return '$countLabel used stale cache: ${ids.join(', ')}';
-  }
-
-  ARDiagnosticsReportDiff? _latestSessionDiagnosticsReportDiff(
-    ARMemorySceneDiagnostics diagnostics,
-  ) {
-    final history = diagnostics.sessionDiagnosticsReportHistory;
-    if (history.length < 2) {
-      return null;
-    }
-    return history.last.diffFrom(history[history.length - 2]);
-  }
-
-  Color? _sessionDiagnosticsReportWarningColor(ARDiagnosticsReport report) {
-    return switch (report.latestWarning?.severity) {
-      ARSessionHealthSeverity.blocked => Colors.redAccent.shade100,
-      ARSessionHealthSeverity.warning => Colors.amberAccent.shade100,
-      _ => null,
-    };
-  }
-
-  Color? _sessionDiagnosticsReportDiffColor(ARDiagnosticsReportDiff diff) {
-    return switch (diff.direction) {
-      ARDiagnosticsReportDiffDirection.worsened => Colors.redAccent.shade100,
-      ARDiagnosticsReportDiffDirection.mixed => Colors.amberAccent.shade100,
-      ARDiagnosticsReportDiffDirection.improved => Colors.greenAccent.shade100,
-      _ => null,
-    };
-  }
-
-  _CaptureReadinessTrend? _captureReadinessTrend(
-    ARMemorySceneDiagnostics diagnostics,
-    ARViewerCaptureState captureState,
-  ) {
-    if (!captureState.hasController || !captureState.canCaptureSnapshot) {
-      return null;
-    }
-    final diff = _latestSessionDiagnosticsReportDiff(diagnostics);
-    if (diff == null || !diff.hasChanges) {
-      return null;
-    }
-    if (captureState.activeReadiness?.isBlocked == true) {
-      return null;
-    }
-
-    final healthDelta = diff.sessionHealthDelta;
-    if (healthDelta.isBetter && captureState.hasReadinessWarning) {
-      final readinessLabel =
-          healthDelta.current?.readiness.label ?? diff.statusLabel;
-      return _CaptureReadinessTrend(
-        label: 'AR improving: $readinessLabel',
-        color: Colors.greenAccent.shade100,
-      );
-    }
-    if (diff.direction == ARDiagnosticsReportDiffDirection.improved &&
-        captureState.hasReadinessWarning) {
-      return _CaptureReadinessTrend(
-        label: 'AR improving: ${diff.statusLabel}',
-        color: Colors.greenAccent.shade100,
-      );
-    }
-    final shouldWarn =
-        diff.direction == ARDiagnosticsReportDiffDirection.worsened ||
-            (diff.direction == ARDiagnosticsReportDiffDirection.mixed &&
-                diff.hasNewWarnings);
-    if (!shouldWarn) {
-      return null;
-    }
-    final hasBlockedWarning = diff.blockedDelta > 0 ||
-        diff.newWarnings.any((event) => event.isBlocked);
-    return _CaptureReadinessTrend(
-      label: 'Capture caution: ${diff.statusLabel}',
-      color: hasBlockedWarning
-          ? Colors.redAccent.shade100
-          : Colors.amberAccent.shade100,
-    );
   }
 
   String? _captureDiagnosticsExtraString(
