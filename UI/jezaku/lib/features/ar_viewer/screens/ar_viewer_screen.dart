@@ -2227,7 +2227,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       'candidates=$candidateCount visible=$visibleCount '
       'rendered=$renderedCount '
       'projection=${projectionDuration.inMicroseconds}us '
-      'overlayBuild=${overlayDuration.inMicroseconds}us',
+      'overlayCompose=${overlayDuration.inMicroseconds}us',
     );
   }
 
