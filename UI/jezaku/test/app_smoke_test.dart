@@ -66,6 +66,16 @@ Future<void> _revealFilterChip(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _diagnoseTap(WidgetTester tester, Finder target, String label) async {
+  final center = tester.getCenter(target.first);
+  final hit = tester.hitTestOnBinding(center);
+  final path = hit.path
+      .map((entry) => entry.target.runtimeType.toString())
+      .take(10)
+      .join(' > ');
+  fail('DIAG $label: view=${tester.view.physicalSize} center=$center hit=[$path]');
+}
+
 void main() {
   testWidgets('main tabs render consolidated feature screens', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
@@ -75,7 +85,14 @@ void main() {
     expect(find.text('Places and moments around you'), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('AR View'), findsOneWidget);
+    // The map's quick action also says "AR View", so scope to the nav bar.
+    expect(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('AR View'),
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('Social'));
     await tester.pumpAndSettle();
@@ -4131,6 +4148,7 @@ void main() {
 
     await _revealFilterChip(tester, 'Walls');
     await tester.pumpAndSettle();
+    await _diagnoseTap(tester, find.widgetWithText(ChoiceChip, 'Walls'), 'walls chip');
     await tester.tap(find.widgetWithText(ChoiceChip, 'Walls'));
     await tester.pumpAndSettle();
 
@@ -4238,6 +4256,7 @@ void main() {
     await tester.tap(find.text('Publish'));
     await tester.pumpAndSettle();
 
+    await _diagnoseTap(tester, find.text('Private default capture').first, 'private tile');
     await tester.tap(find.text('Private default capture').first);
     await tester.pumpAndSettle();
 
@@ -4874,6 +4893,7 @@ void main() {
     expect(find.text('GPS drift high'), findsOneWidget);
     expect(find.text('Move near open sky for better GPS.'), findsOneWidget);
 
+    await _diagnoseTap(tester, find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')), 'calibration button');
     await tester.tap(
       find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')),
     );

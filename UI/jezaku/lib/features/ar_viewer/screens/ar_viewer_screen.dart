@@ -25,6 +25,8 @@ import 'package:jejaku/features/ar_viewer/services/cloud_anchor_scheduler.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_geospatial_quality_monitor.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
 import 'package:jejaku/features/ar_viewer/services/hanging_frame_hit_selector.dart';
+import 'package:jejaku/features/ar_viewer/services/hanging_frame_pose.dart';
+import 'package:jejaku/features/ar_viewer/services/native_session_placement_planner.dart';
 import 'package:jejaku/features/ar_viewer/services/viewer_geo.dart';
 import 'package:jejaku/features/ar_viewer/services/viewer_pose_tracker.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_scene_sync_service.dart';
@@ -110,8 +112,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   List<AnchorMemory> _latestNativeSceneMemories = const <AnchorMemory>[];
   List<ARMemoryProjection> _latestNativeSceneProjections =
       const <ARMemoryProjection>[];
-  final Map<String, ARMemorySessionPlacement> _nativeSessionPlacementCache =
-      <String, ARMemorySessionPlacement>{};
+  final NativeSessionPlacementPlanner _placementPlanner =
+      NativeSessionPlacementPlanner();
   String? _nativeSceneFingerprint;
   bool _nativeSceneSyncScheduled = false;
   bool _nativeSceneSyncing = false;
@@ -722,7 +724,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _nativeCloudAnchorManager = null;
     _latestARCamera = null;
     _lastARHeadingUpdateAt = null;
-    _nativeSessionPlacementCache.clear();
+    _placementPlanner.clear();
     _scheduleCaptureDetach();
     _nativeSceneRefreshQueued = false;
     _nativeSceneDiagnosticsResetScheduled = false;
@@ -868,9 +870,22 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                           ValueListenableBuilder<JejakuGeospatialAssessment>(
                             valueListenable: _placementAssessment,
                             builder: (context, assessment, _) {
-                              return ARPlacementQualityChip(
-                                key: const ValueKey('ar_placement_quality_chip'),
-                                assessment: assessment,
+                              return Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ARPlacementQualityChip(
+                                    key: const ValueKey('ar_placement_quality_chip'),
+                                    assessment: assessment,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  _HudPill(
+                                    key: const ValueKey('ar_pose_source_status'),
+                                    icon: _poseSourceIcon(),
+                                    label: _poseSourceShortLabel(),
+                                    color: _poseSourceColor(),
+                                    tooltip: _poseSourceDetailLabel(),
+                                  ),
+                                ],
                               );
                             },
                           ),
@@ -1087,7 +1102,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       _latestSessionReadiness = null;
       _nativeSceneFingerprint = null;
     });
-    _nativeSessionPlacementCache.clear();
+    _placementPlanner.clear();
     _lastARHeadingUpdateAt = null;
     _startGeospatialQualityMonitor(controller);
     _scheduleNativeSceneSync();
@@ -1098,7 +1113,15 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _lastARCameraFrameAt = now;
     final hadTrackingCamera = _latestARCamera?.isTracking == true;
     _latestARCamera = camera;
-    if (!mounted || !camera.isTracking) {
+    if (!mounted) {
+      return;
+    }
+    if (hadTrackingCamera != camera.isTracking) {
+      // Surface tracking loss and recovery immediately without rebuilding on
+      // every camera frame.
+      setState(() {});
+    }
+    if (!camera.isTracking) {
       return;
     }
     if (!hadTrackingCamera && _nativeMemoryScene != null) {
@@ -1215,101 +1238,24 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   Map<String, ARMemorySessionPlacement> _nativeSessionPlacementsByMemoryId(
     Iterable<ARMemoryProjection> projections,
   ) {
-    final projectionList = List<ARMemoryProjection>.unmodifiable(projections);
-    final activeMemoryIds = {
-      for (final projected in projectionList) projected.memory.id,
-    };
-    _nativeSessionPlacementCache.removeWhere(
-      (memoryId, _) => !activeMemoryIds.contains(memoryId),
+    return _placementPlanner.plan(
+      [
+        for (final projected in projections)
+          PlacementCandidate(
+            memoryId: projected.memory.id,
+            isInFront: projected.projection.isInFront,
+            relativeHeadingDegrees: projected.projection.relativeHeadingDegrees,
+            relativePitchDegrees: projected.projection.relativePitchDegrees,
+            distanceMeters: projected.projection.distanceMeters,
+            horizontalDistanceMeters:
+                projected.projection.horizontalDistanceMeters,
+            capturedThisSession: _hasSameSessionLocalPose(projected.memory),
+          ),
+      ],
+      camera: _latestARCamera,
+      lastFrameAt: _lastARCameraFrameAt,
+      focusedMemoryId: _focusedMemoryId,
     );
-
-    final camera = _latestARCamera;
-    final frameAt = _lastARCameraFrameAt;
-    if (camera == null ||
-        !camera.isTracking ||
-        frameAt == null ||
-        DateTime.now().toUtc().difference(frameAt) >
-            const Duration(seconds: 2)) {
-      return Map<String, ARMemorySessionPlacement>.unmodifiable(
-        _nativeSessionPlacementCache,
-      );
-    }
-
-    for (final projected in projectionList) {
-      final memory = projected.memory;
-      if (_hasSameSessionLocalPose(memory)) {
-        _nativeSessionPlacementCache.remove(memory.id);
-        continue;
-      }
-      if (_nativeSessionPlacementCache.containsKey(memory.id)) {
-        continue;
-      }
-      final projection = projected.projection;
-      final isFocused = memory.id == _focusedMemoryId;
-      if (!projection.isInFront && !isFocused) {
-        continue;
-      }
-
-      final headingDegrees = (isFocused && !projection.isInFront)
-          ? 0.0
-          : projection.relativeHeadingDegrees.clamp(-72.0, 72.0).toDouble();
-      final pitchDegrees =
-          projection.relativePitchDegrees.clamp(-22.0, 22.0).toDouble();
-      final distanceMeters = projection.distanceMeters.isFinite
-          ? projection.distanceMeters
-          : projection.horizontalDistanceMeters;
-      final renderDistance = distanceMeters.isFinite
-          ? distanceMeters.clamp(1.35, 8.0).toDouble()
-          : 1.8;
-      final yaw = headingDegrees * math.pi / 180;
-      final pitch = pitchDegrees * math.pi / 180;
-      final cosPitch = math.cos(pitch);
-      final nodePosition = ARVector3(
-        math.sin(yaw) * renderDistance * cosPitch,
-        math.sin(pitch) * renderDistance,
-        -math.cos(yaw) * renderDistance * cosPitch,
-      );
-
-      _nativeSessionPlacementCache[memory.id] = ARMemorySessionPlacement(
-        anchorPose: _hangingFrameAnchorPose(camera, nodePosition),
-        nodePosition: const ARVector3.zero(),
-        mode: 'hanging_photo_frame',
-      );
-    }
-    return Map<String, ARMemorySessionPlacement>.unmodifiable(
-      _nativeSessionPlacementCache,
-    );
-  }
-
-  ARPoseInput _hangingFrameAnchorPose(
-    ARCamera camera,
-    ARVector3 cameraRelativePosition,
-  ) {
-    final yawRotation = _cameraYawRotation(camera);
-    final position = camera.pose.position;
-    final framePosition =
-        position + yawRotation.rotateVector(cameraRelativePosition);
-    return ARPoseInput(
-      x: framePosition.x,
-      y: framePosition.y,
-      z: framePosition.z,
-      qx: yawRotation.x,
-      qy: yawRotation.y,
-      qz: yawRotation.z,
-      qw: yawRotation.w,
-    );
-  }
-
-  ARQuaternion _cameraYawRotation(ARCamera camera) {
-    final forward = camera.pose.rotation.rotateVector(ARVector3.forward);
-    final horizontalForward = ARVector3(forward.x, 0, forward.z);
-    if (horizontalForward.lengthSquared < 0.000001) {
-      return const ARQuaternion.identity();
-    }
-    return ARQuaternion.fromToRotation(
-      ARVector3.forward,
-      horizontalForward.normalized,
-    ).normalized;
   }
 
   bool _hasSameSessionLocalPose(AnchorMemory memory) {
@@ -1336,7 +1282,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     );
     if (!ViewerGeo.sameOrigin(_latestNativeSceneOrigin, viewerOrigin)) {
       _latestNativeSceneOrigin = viewerOrigin;
-      _nativeSessionPlacementCache.clear();
+      _placementPlanner.clear();
       _nativeSceneFingerprint = null;
     }
     final bool? canStartSession = arCapabilities.when(
@@ -1369,7 +1315,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         _arController = null;
         _nativeMemoryScene = null;
         _nativeCloudAnchorManager = null;
-        _nativeSessionPlacementCache.clear();
+        _placementPlanner.clear();
         if (hadNativeSession) {
           _scheduleCaptureDetach();
         }
@@ -1427,31 +1373,12 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   List<ARMemoryProjection> _nativeSceneVisualProjections(
     List<ARMemoryProjection> anchors,
   ) {
-    if (anchors.isEmpty) {
-      return const <ARMemoryProjection>[];
-    }
-    final selected = <ARMemoryProjection>[];
-    final focusedMemoryId = _focusedMemoryId;
-    if (focusedMemoryId != null) {
-      for (final anchor in anchors) {
-        if (anchor.memory.id == focusedMemoryId) {
-          selected.add(anchor);
-          break;
-        }
-      }
-    }
-    for (final anchor in anchors) {
-      if (selected.length >= 3) {
-        break;
-      }
-      if (selected.any((item) => item.memory.id == anchor.memory.id)) {
-        continue;
-      }
-      if (anchor.projection.isInFront || selected.isEmpty) {
-        selected.add(anchor);
-      }
-    }
-    return List<ARMemoryProjection>.unmodifiable(selected);
+    return selectNativeSceneItems<ARMemoryProjection>(
+      anchors,
+      idOf: (anchor) => anchor.memory.id,
+      isInFront: (anchor) => anchor.projection.isInFront,
+      focusedId: _focusedMemoryId,
+    );
   }
 
   void _scheduleCaptureDetach() {
@@ -1759,7 +1686,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   }
 
   void _refreshNativeScene() {
-    _nativeSessionPlacementCache.clear();
+    _placementPlanner.clear();
     _nativeSceneFingerprint = null;
     _cloudAnchorScheduler.cancelRetry();
     if (_nativeMemoryScene == null) {
@@ -2032,7 +1959,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
           hit != null && HangingFrameHitSelector.isVerticalSurface(hit);
       final position =
           useSurfacePosition ? hit.worldPose.position : fallbackPosition;
-      final rotation = _cameraYawRotation(camera);
+      final rotation = HangingFramePose.cameraYawRotation(camera);
       final distance = useSurfacePosition
           ? hit.distance
           : ARVector3.distance(cameraPosition, position);
@@ -2702,7 +2629,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       _focusedMemoryId = anchor.memory.id;
       _headingDegrees = anchor.projection.bearingDegrees;
     });
-    _nativeSessionPlacementCache.remove(anchor.memory.id);
+    _placementPlanner.forget(anchor.memory.id);
     _nativeSceneFingerprint = null;
     _scheduleNativeSceneSync();
     _trackTrailFocus(anchor.memory.id);
@@ -2890,20 +2817,38 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
 
   bool _hasFreshARPose() {
     final lastARFrameAt = _lastARCameraFrameAt;
-    return lastARFrameAt != null &&
+    return _latestARCamera?.isTracking == true &&
+        lastARFrameAt != null &&
+        DateTime.now().toUtc().difference(lastARFrameAt) <
+            const Duration(seconds: 2);
+  }
+
+  bool _isRelocalizing() {
+    final lastARFrameAt = _lastARCameraFrameAt;
+    return _latestARCamera?.isTracking == false &&
+        lastARFrameAt != null &&
         DateTime.now().toUtc().difference(lastARFrameAt) <
             const Duration(seconds: 2);
   }
 
   String _poseSourceShortLabel() {
     if (_hasFreshARPose()) {
-      return 'AR pose';
+      return 'AR tracking';
+    }
+    if (_isRelocalizing()) {
+      return 'Relocalizing · GPS';
     }
     return _lastARCameraFrameAt == null ? 'GPS fallback' : 'AR stale · GPS';
   }
 
   IconData _poseSourceIcon() {
-    return _hasFreshARPose() ? Icons.view_in_ar : Icons.explore_outlined;
+    if (_hasFreshARPose()) {
+      return Icons.view_in_ar;
+    }
+    if (_isRelocalizing()) {
+      return Icons.center_focus_weak;
+    }
+    return Icons.explore_outlined;
   }
 
   Color _poseSourceColor() {
@@ -2925,8 +2870,11 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         .difference(lastARFrameAt)
         .inMilliseconds
         .clamp(0, 9999);
-    if (ageMs < 2000) {
-      return 'Tracking with a recent ARCore camera pose.';
+    if (_hasFreshARPose()) {
+      return 'ARCore tracking is active. Heading uses the live camera pose.';
+    }
+    if (_isRelocalizing()) {
+      return 'ARCore is trying to relocalize. Heading temporarily uses compass/GPS fallback; keep the camera pointed at a well-lit area with recognizable features.';
     }
     return 'ARCore camera pose is stale (${ageMs} ms). Heading currently uses compass/GPS fallback.';
   }
