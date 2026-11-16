@@ -49,10 +49,11 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
         ARSessionReportComparison.latestDiff(diagnostics);
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (context) {
+        final colors = Theme.of(context).colorScheme;
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
@@ -81,7 +82,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                           tooltip: 'Close diagnostics',
                           onPressed: () => Navigator.pop(context),
                           icon: const Icon(Icons.close),
-                          color: Colors.white70,
+                          color: colors.onSurfaceVariant,
                         ),
                       ],
                     ),
@@ -92,7 +93,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         size: 16,
                       ),
                       label: Text(diagnostics.hudStatusLabel),
-                      backgroundColor: _sceneDiagnosticsColor(diagnostics),
+                      backgroundColor: _sceneDiagnosticsColor(diagnostics, colors),
                     ),
                     const SizedBox(height: 8),
                     _DiagnosticsRow(
@@ -105,7 +106,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                       label: 'Tracking',
                       value: diagnostics.sessionHealthStatusLabel,
                       valueColor: diagnostics.hasSessionHealthIssue
-                          ? _sessionHealthColor(diagnostics)
+                          ? _sessionHealthColor(diagnostics, colors)
                           : null,
                     ),
                     if (diagnostics.sessionReadiness != null)
@@ -138,7 +139,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                       label: 'Config',
                       value: diagnostics.sessionConfigStatusLabel,
                       valueColor: diagnostics.hasSessionConfigDowngrades
-                          ? Colors.amberAccent.shade100
+                          ? colors.tertiary
                           : null,
                     ),
                     _DiagnosticsRow(
@@ -146,7 +147,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                       label: 'Sync',
                       value: diagnostics.syncStatusLabel,
                       valueColor: diagnostics.hasNativeSceneFailure
-                          ? Colors.redAccent.shade100
+                          ? colors.error
                           : null,
                     ),
                     if (diagnostics.hasNativeSceneFailure)
@@ -477,7 +478,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         Text(
                           '+${cloudAnchorIssues.length - 6} more affected',
                           style: const TextStyle(
-                            color: Colors.white60,
+                            color: colors.onSurfaceVariant,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
