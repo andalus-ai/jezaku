@@ -144,6 +144,11 @@ public class CameraLiveSessionService {
         });
     }
 
+    /** The viewer that owns the session; throws not-found for an unknown session. */
+    String viewerIdOf(String sessionId) {
+        return requireSession(sessionId).viewerId();
+    }
+
     CameraSessionRecord activeSession(String sessionId, Instant now) {
         CameraSessionRecord session = requireSession(sessionId);
         if (!session.activeAt(now)) {
