@@ -2023,10 +2023,29 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     required Map<String, int> trailStopNumbers,
     required Map<String, List<String>> wallTitlesByMemoryId,
   }) {
-    // Place the focused and on-screen anchors first so less important labels
-    // move around them instead of covering them.
-    final orderedAnchors = [...anchors]
-      ..sort((a, b) {
+    // Keep every on-screen anchor and the focused anchor, but bound
+    // off-screen bubbles to the eight nearest memories. The radar and list
+    // still expose the complete collection; this only limits expensive
+    // floating widgets and the collision-avoidance work on a dense map.
+    final visibleAnchors = <ARMemoryProjection>[];
+    final offScreenAnchors = <ARMemoryProjection>[];
+    for (final anchor in anchors) {
+      if (anchor.projection.isVisible ||
+          anchor.memory.id == focusedMemoryId) {
+        visibleAnchors.add(anchor);
+      } else {
+        offScreenAnchors.add(anchor);
+      }
+    }
+    offScreenAnchors.sort(
+      (a, b) => a.projection.distanceMeters.compareTo(
+        b.projection.distanceMeters,
+      ),
+    );
+    final orderedAnchors = <ARMemoryProjection>[
+      ...visibleAnchors,
+      ...offScreenAnchors.take(8),
+    ]..sort((a, b) {
         final aFocused = a.memory.id == focusedMemoryId;
         final bFocused = b.memory.id == focusedMemoryId;
         if (aFocused != bFocused) {
@@ -2035,7 +2054,12 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         if (a.projection.isVisible != b.projection.isVisible) {
           return a.projection.isVisible ? -1 : 1;
         }
-        return a.memory.id.compareTo(b.memory.id);
+        final distanceOrder = a.projection.distanceMeters.compareTo(
+          b.projection.distanceMeters,
+        );
+        return distanceOrder != 0
+            ? distanceOrder
+            : a.memory.id.compareTo(b.memory.id);
       });
 
     final placedAlignments = <Alignment>[];
