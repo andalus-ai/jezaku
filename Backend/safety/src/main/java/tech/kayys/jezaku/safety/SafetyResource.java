@@ -1,5 +1,6 @@
 package tech.kayys.jezaku.safety;
 
+import tech.kayys.jezaku.auth.CallerAwareResource;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.inject.Inject;
@@ -30,13 +31,14 @@ import tech.kayys.jezaku.safety.SafetyDtos.SafetyZoneResponse;
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 @Blocking
-public class SafetyResource {
+public class SafetyResource extends CallerAwareResource {
     @Inject
     SafetyService service;
 
     @POST
     @Path("/reports")
     public Uni<Response> createReport(ReportCreateRequest request) {
+        self(request == null ? null : request.reporterId());
         return service.createReport(request)
                 .map(report -> Response.status(Response.Status.CREATED).entity(report).build());
     }
@@ -82,6 +84,7 @@ public class SafetyResource {
     @POST
     @Path("/zones")
     public Uni<Response> createZone(SafetyZoneCreateRequest request) {
+        self(request == null ? null : request.guardianId());
         return service.createZone(request)
                 .map(zone -> Response.status(Response.Status.CREATED).entity(zone).build());
     }
@@ -89,12 +92,14 @@ public class SafetyResource {
     @GET
     @Path("/zones/users/{userId}")
     public Uni<SafetyZoneListResponse> userZones(@PathParam("userId") String userId) {
+        self(userId);
         return service.userZones(userId);
     }
 
     @POST
     @Path("/zones/check")
     public Uni<SafetyZoneCheckResponse> checkZone(SafetyZoneCheckRequest request) {
+        self(request == null ? null : request.userId());
         return service.checkZone(request);
     }
 
@@ -103,6 +108,7 @@ public class SafetyResource {
     public Uni<Response> deleteZone(
             @PathParam("zoneId") String zoneId,
             @QueryParam("guardianId") String guardianId) {
+        self(guardianId);
         return service.deleteZone(zoneId, guardianId)
                 .replaceWith(Response.noContent().build());
     }

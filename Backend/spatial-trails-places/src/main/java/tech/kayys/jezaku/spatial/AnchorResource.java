@@ -1,5 +1,6 @@
 package tech.kayys.jezaku.spatial;
 
+import tech.kayys.jezaku.auth.CallerAwareResource;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.inject.Inject;
@@ -22,7 +23,7 @@ import java.util.List;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Blocking
-public class AnchorResource {
+public class AnchorResource extends CallerAwareResource {
     @Inject
     SpatialService service;
 
@@ -37,6 +38,7 @@ public class AnchorResource {
 
     @POST
     public Uni<Response> createAnchor(AnchorCreateRequest request) {
+        self(request == null ? null : request.ownerId());
         return service.createAnchor(request)
                 .map(anchor -> Response
                         .created(URI.create("/spatial/anchors/" + anchor.id()))

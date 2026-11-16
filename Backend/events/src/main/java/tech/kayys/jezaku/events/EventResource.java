@@ -1,5 +1,6 @@
 package tech.kayys.jezaku.events;
 
+import tech.kayys.jezaku.auth.CallerAwareResource;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -26,13 +27,14 @@ import java.util.List;
 
 @Path("/events")
 @Produces(MediaType.APPLICATION_JSON)
-public class EventResource {
+public class EventResource extends CallerAwareResource {
     @Inject
     EventService service;
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     public Uni<Response> create(EventCreateRequest request) {
+        self(request == null ? null : request.organizerId());
         return service.create(request)
                 .map(created -> Response.status(Response.Status.CREATED).entity(created).build());
     }
@@ -67,6 +69,7 @@ public class EventResource {
     public Uni<EventActivityHistoryResponse> activity(
             @PathParam("eventId") String eventId,
             @QueryParam("viewerUserId") String viewerUserId) {
+        viewerUserId = viewer(viewerUserId);
         return service.activity(eventId, viewerUserId);
     }
 
@@ -76,6 +79,7 @@ public class EventResource {
     public Uni<RsvpResponse> rsvp(
             @PathParam("eventId") String eventId,
             RsvpRequest request) {
+        self(request == null ? null : request.userId());
         return service.rsvp(eventId, request);
     }
 
@@ -85,6 +89,7 @@ public class EventResource {
     public Uni<CheckInResponse> checkIn(
             @PathParam("eventId") String eventId,
             CheckInRequest request) {
+        self(request == null ? null : request.userId());
         return service.checkIn(eventId, request);
     }
 
@@ -94,12 +99,14 @@ public class EventResource {
     public Uni<List<InviteResponse>> invite(
             @PathParam("eventId") String eventId,
             InviteRequest request) {
+        self(request == null ? null : request.inviterId());
         return service.invite(eventId, request);
     }
 
     @GET
     @Path("/invitations/{userId}")
     public Uni<List<InviteResponse>> invitations(@PathParam("userId") String userId) {
+        self(userId);
         return service.invitations(userId);
     }
 
@@ -108,6 +115,7 @@ public class EventResource {
     public Uni<EventResponse> cancel(
             @PathParam("eventId") String eventId,
             @QueryParam("actorUserId") String actorUserId) {
+        self(actorUserId);
         return service.cancel(eventId, actorUserId);
     }
 }

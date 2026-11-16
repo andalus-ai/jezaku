@@ -1,5 +1,6 @@
 package tech.kayys.jezaku.social;
 
+import tech.kayys.jezaku.auth.CallerAwareResource;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.DefaultValue;
@@ -15,7 +16,7 @@ import tech.kayys.jezaku.social.SocialDtos.SocialSearchResponse;
  */
 @Path("/social")
 @Produces(MediaType.APPLICATION_JSON)
-public class SocialSearchResource extends SocialResourceSupport {
+public class SocialSearchResource extends CallerAwareResource {
     @Inject
     SocialService service;
 

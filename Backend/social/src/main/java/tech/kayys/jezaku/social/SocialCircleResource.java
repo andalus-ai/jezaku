@@ -1,5 +1,6 @@
 package tech.kayys.jezaku.social;
 
+import tech.kayys.jezaku.auth.CallerAwareResource;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -39,7 +40,7 @@ import tech.kayys.jezaku.social.SocialDtos.SocialGroupResponse;
 
 @Path("/social")
 @Produces(MediaType.APPLICATION_JSON)
-public class SocialCircleResource extends SocialResourceSupport {
+public class SocialCircleResource extends CallerAwareResource {
     @Inject
     SocialService service;
 
