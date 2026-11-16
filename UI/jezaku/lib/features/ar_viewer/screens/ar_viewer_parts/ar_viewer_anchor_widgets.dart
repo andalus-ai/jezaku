@@ -51,12 +51,15 @@ class _AnchorBubble extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (showMediaPlane) ...[
-              _AnchorMediaPlane(
-                anchor: anchor,
-                resolvedMedia: resolvedMedia,
-                wallTitles: wallTitles,
-                isFocused: isFocused,
-                qualityColor: qualityColor,
+              RepaintBoundary(
+                key: ValueKey('ar_anchor_media_boundary_${memory.id}'),
+                child: _AnchorMediaPlane(
+                  anchor: anchor,
+                  resolvedMedia: resolvedMedia,
+                  wallTitles: wallTitles,
+                  isFocused: isFocused,
+                  qualityColor: qualityColor,
+                ),
               ),
               const SizedBox(height: 6),
             ],

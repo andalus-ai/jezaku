@@ -164,6 +164,7 @@ class _ARCaptureControls extends StatelessWidget {
               color: isActiveRecording || isPaused
                   ? Colors.redAccent.shade100
                   : Colors.greenAccent.shade100,
+              emphasized: isActiveRecording,
               onPressed: canToggleRecord ? onRecord : null,
             ),
             const SizedBox(width: 4),
@@ -198,12 +199,14 @@ class _ARCaptureIconButton extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.onPressed,
+    this.emphasized = false,
   });
 
   final String tooltip;
   final IconData icon;
   final Color color;
   final VoidCallback? onPressed;
+  final bool emphasized;
 
   @override
   Widget build(BuildContext context) {
@@ -216,7 +219,9 @@ class _ARCaptureIconButton extends StatelessWidget {
       color: color,
       disabledColor: Colors.white.withValues(alpha: 0.26),
       style: IconButton.styleFrom(
-        backgroundColor: Colors.white.withValues(alpha: 0.08),
+        backgroundColor: emphasized
+            ? Colors.red.withValues(alpha: 0.22)
+            : Colors.white.withValues(alpha: 0.08),
         disabledBackgroundColor: Colors.white.withValues(alpha: 0.05),
       ),
       icon: Icon(icon),

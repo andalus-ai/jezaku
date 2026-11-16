@@ -97,7 +97,46 @@ class _FocusedAnchorPanel extends StatelessWidget {
                   color: healthColor,
                   tooltip: 'Anchor health',
                 ),
+                _HudPill(
+                  icon: switch (projection.quality) {
+                    JejakuPlacementQuality.stable => Icons.verified_outlined,
+                    JejakuPlacementQuality.usable => Icons.gps_not_fixed,
+                    JejakuPlacementQuality.needsCalibration =>
+                      Icons.tune_outlined,
+                    JejakuPlacementQuality.unreliable => Icons.warning_amber,
+                  },
+                  label: projection.assessment.label,
+                  color: _qualityColor(projection.quality),
+                  tooltip: 'Current projection assessment. This describes '
+                      'the current placement estimate, not absolute '
+                      'geospatial accuracy.',
+                ),
               ],
+            ),
+            const SizedBox(height: 8),
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                switch (projection.quality) {
+                  JejakuPlacementQuality.stable =>
+                    'Projection is currently stable. Visually verify alignment '
+                        'before relying on the anchor.',
+                  JejakuPlacementQuality.usable =>
+                    'Projection is usable but approximate. Treat its position '
+                        'as a guide, not a precise alignment.',
+                  JejakuPlacementQuality.needsCalibration =>
+                    'Placement needs calibration. Adjust this anchor before '
+                        'relying on its alignment.',
+                  JejakuPlacementQuality.unreliable =>
+                    'Placement is unreliable. Recenter or improve tracking '
+                        'before using this anchor.',
+                },
+                style: TextStyle(
+                  color: _qualityColor(projection.quality),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
             if (memory.needsCalibrationReview ||
                 memory.captureMetadata.hasManualCorrection) ...[

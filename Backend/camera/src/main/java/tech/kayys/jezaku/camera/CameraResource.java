@@ -15,8 +15,11 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import tech.kayys.jezaku.auth.AuthContext;
 import tech.kayys.jezaku.camera.CameraDtos.CameraContextDeltaResponse;
 import tech.kayys.jezaku.camera.CameraDtos.CameraContextResponse;
 import tech.kayys.jezaku.camera.CameraDtos.CameraMinimap;
@@ -57,6 +60,14 @@ public class CameraResource {
 
     @Inject
     CameraSessionSyncService sessionSyncs;
+
+    @Context
+    ContainerRequestContext requestContext;
+
+    /** The caller must own the camera session; sessions are private to the viewer who created them. */
+    private void ownSession(String sessionId) {
+        AuthContext.requireSelf(requestContext, liveSessions.viewerIdOf(sessionId));
+    }
 
     @GET
     @Path("/capabilities")
@@ -477,11 +488,12 @@ public class CameraResource {
             Double radiusMeters,
             Integer limitPerLayer,
             String layers) {
+        String effectiveViewerId = AuthContext.viewerOrCaller(requestContext, viewerId);
         if (lat == null || lng == null) {
             throw new BadRequestException("lat and lng query parameters are required");
         }
         return service.context(
-                viewerId,
+                effectiveViewerId,
                 lat,
                 lng,
                 altitudeMeters,
@@ -501,6 +513,7 @@ public class CameraResource {
     @POST
     @Path("/sessions")
     public Uni<Response> createSession(CameraSessionCreateRequest request) {
+        AuthContext.requireSelf(requestContext, request == null ? null : request.viewerId());
         return liveSessions.create(request)
                 .map(session -> Response.status(Response.Status.CREATED).entity(session).build());
     }
@@ -508,6 +521,7 @@ public class CameraResource {
     @GET
     @Path("/sessions/{sessionId}")
     public Uni<CameraSessionResponse> getSession(@PathParam("sessionId") String sessionId) {
+        ownSession(sessionId);
         return liveSessions.get(sessionId);
     }
 
@@ -519,6 +533,7 @@ public class CameraResource {
             @QueryParam("limitPerLayer") @DefaultValue(CameraSyncContract.DEFAULT_LIMIT_PER_LAYER_QUERY)
                     Integer limitPerLayer,
             @QueryParam("layers") String layers) {
+        ownSession(sessionId);
         CameraSessionRecord session = liveSessions.activeSession(sessionId, Instant.now());
         return sessionContexts.forSession(session, radiusMeters, limitPerLayer, layers);
     }
@@ -534,6 +549,7 @@ public class CameraResource {
             @DefaultValue(CameraSyncContract.DEFAULT_MINIMAP_PIN_LIMIT_PER_LAYER_QUERY)
                     Integer minimapPinLimitPerLayer,
             @QueryParam("layers") String layers) {
+        ownSession(sessionId);
         CameraSessionRecord session = liveSessions.activeSession(sessionId, Instant.now());
         return sessionContexts.forSession(session, radiusMeters, limitPerLayer, layers)
                 .map(context -> minimapFromContext(context, minimapPinLimitPerLayer));
@@ -551,6 +567,7 @@ public class CameraResource {
                     Integer minimapPinLimitPerLayer,
             @QueryParam("layers") String layers,
             @QueryParam("layer") String layer) {
+        ownSession(sessionId);
         CameraSessionRecord session = liveSessions.activeSession(sessionId, Instant.now());
         return sessionContexts.forSession(session, radiusMeters, limitPerLayer, layers)
                 .map(context -> minimapExpansionFromContext(context, minimapPinLimitPerLayer, layer));
@@ -571,6 +588,7 @@ public class CameraResource {
             @QueryParam("pageCursor") String pageCursor,
             @QueryParam("sortBy") String sortBy,
             @QueryParam("sortDirection") String sortDirection) {
+        ownSession(sessionId);
         CameraSessionRecord session = liveSessions.activeSession(sessionId, Instant.now());
         CameraNearbyMemoryPaging.Request paging = CameraNearbyMemoryPaging.fromRaw(pageSize, pageCursor);
         CameraDtos.CameraNearbyMemoryFilter filter = CameraNearbyMemoryFilters.fromRaw(
@@ -619,6 +637,7 @@ public class CameraResource {
             @QueryParam("capabilitiesEtag") String capabilitiesEtag,
             @QueryParam("sections") @DefaultValue(CameraSyncContract.DEFAULT_SYNC_RESPONSE_SECTIONS_QUERY)
                     String sections) {
+        ownSession(sessionId);
         return sessionSyncs.sync(CameraSessionSyncRequest.fromRaw(
                 sessionId,
                 radiusMeters,
@@ -640,6 +659,7 @@ public class CameraResource {
             @QueryParam("limit") @DefaultValue(CameraSyncContract.DEFAULT_EVENT_LIMIT_QUERY) Integer limit,
             @QueryParam("afterSequence") @DefaultValue(CameraSyncContract.DEFAULT_CURSOR_QUERY)
                     Long afterSequence) {
+        ownSession(sessionId);
         return liveSessions.events(sessionId, limit, afterSequence);
     }
 
@@ -652,6 +672,7 @@ public class CameraResource {
                     Integer maxEvents,
             @QueryParam("afterSequence") @DefaultValue(CameraSyncContract.DEFAULT_CURSOR_QUERY)
                     Long afterSequence) {
+        ownSession(sessionId);
         return liveSessions.streamEvents(sessionId, maxEvents, afterSequence);
     }
 
@@ -660,6 +681,7 @@ public class CameraResource {
     public Uni<CameraSessionResponse> heartbeatSession(
             @PathParam("sessionId") String sessionId,
             CameraSessionHeartbeatRequest request) {
+        ownSession(sessionId);
         return liveSessions.heartbeat(sessionId, request);
     }
 
@@ -668,6 +690,7 @@ public class CameraResource {
     public Uni<CameraSessionResponse> pauseSession(
             @PathParam("sessionId") String sessionId,
             CameraSessionPauseRequest request) {
+        ownSession(sessionId);
         return liveSessions.pause(sessionId, request)
                 .invoke(response -> contextDeltas.clear(sessionId));
     }
@@ -677,6 +700,7 @@ public class CameraResource {
     public Uni<CameraSessionResponse> resumeSession(
             @PathParam("sessionId") String sessionId,
             CameraSessionResumeRequest request) {
+        ownSession(sessionId);
         return liveSessions.resume(sessionId, request);
     }
 
@@ -685,6 +709,7 @@ public class CameraResource {
     public Uni<CameraSessionResponse> endSession(
             @PathParam("sessionId") String sessionId,
             CameraSessionEndRequest request) {
+        ownSession(sessionId);
         return liveSessions.end(sessionId, request)
                 .invoke(response -> contextDeltas.clear(sessionId));
     }
@@ -694,6 +719,7 @@ public class CameraResource {
     public Uni<CameraSessionResponse> updateSession(
             @PathParam("sessionId") String sessionId,
             CameraSessionUpdateRequest request) {
+        ownSession(sessionId);
         return liveSessions.update(sessionId, request)
                 .invoke(response -> {
                     if (!response.active()) {

@@ -11,6 +11,7 @@ Usage:
   ./scripts/run_android_device.sh [--host ORIGIN] [--realm REALM] [--install-start] [FLUTTER_ARGS...]
 
   ./scripts/run_android_device.sh --host https://api.jezaku.com --realm jezaku
+  ./scripts/run_android_device.sh --ar-offline
 
 Notes:
   - If --host is provided, the app will use gateway-style routes:
@@ -21,18 +22,25 @@ Notes:
     forwarded to flutter run by default.
   - --install-start builds, installs, and launches the APK without attaching
     the Flutter VM-service websocket. Use this when profile flutter run flakes.
+  - --ar-offline starts the AR viewer directly, disables FCM, and avoids requiring
+    any backend services. Local AR capture and device capabilities remain active.
 EOF
 }
 
 HOST_ORIGIN=""
 TENANT_REALM="${TENANT_REALM:-jezaku}"
 INSTALL_START=false
+AR_OFFLINE_MODE=false
 USER_DART_DEFINES=()
 FLUTTER_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --install-start)
       INSTALL_START=true
+      shift
+      ;;
+    --ar-offline)
+      AR_OFFLINE_MODE=true
       shift
       ;;
     --host)
@@ -156,6 +164,10 @@ DEFAULT_BACKEND_HOST="${DEFAULT_BACKEND_HOST:-192.168.8.184}"
 # block strict E2EE sending when peer keys are published under UUID.
 CHAT_USER_ID_SOURCE="${CHAT_USER_ID_SOURCE:-auto}"
 ENABLE_FCM_PUSH="${ENABLE_FCM_PUSH:-true}"
+if [[ "$AR_OFFLINE_MODE" == "true" ]]; then
+  ENABLE_FCM_PUSH=false
+  USER_DART_DEFINES+=(--dart-define=JEZAKU_AR_TEST_MODE=true)
+fi
 
 firebase_android_define_keys=(
   FIREBASE_ANDROID_API_KEY

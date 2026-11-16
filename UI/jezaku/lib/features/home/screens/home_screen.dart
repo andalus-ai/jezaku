@@ -153,7 +153,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ? Icons.location_disabled
                           : Icons.gps_fixed,
                       label: locationStatus.label,
-                      color: _statusColor(locationStatus.level),
+                      color: _statusColor(locationStatus.level, colorScheme),
                     ),
                   ),
                   Positioned(
@@ -201,7 +201,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 boxShadow: [
                   BoxShadow(
                     blurRadius: 16,
-                    color: Colors.black.withValues(alpha: 0.08),
+                    color: colorScheme.shadow.withValues(alpha: 0.08),
                     offset: const Offset(0, -4),
                   ),
                 ],
@@ -362,12 +362,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Color _statusColor(ViewerLocationStatusLevel level) {
+  Color _statusColor(
+    ViewerLocationStatusLevel level,
+    ColorScheme colorScheme,
+  ) {
     return switch (level) {
-      ViewerLocationStatusLevel.good => Colors.green.shade600,
-      ViewerLocationStatusLevel.fair => Colors.amber.shade700,
-      ViewerLocationStatusLevel.poor => Colors.red.shade400,
-      ViewerLocationStatusLevel.unavailable => Colors.grey.shade500,
+      ViewerLocationStatusLevel.good => colorScheme.primary,
+      ViewerLocationStatusLevel.fair => colorScheme.tertiary,
+      ViewerLocationStatusLevel.poor => colorScheme.error,
+      ViewerLocationStatusLevel.unavailable => colorScheme.outline,
     };
   }
 

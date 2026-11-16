@@ -12,8 +12,11 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import tech.kayys.jezaku.auth.AuthContext;
 import tech.kayys.jezaku.journeys.JourneyDtos.CheckpointCompleteRequest;
 import tech.kayys.jezaku.journeys.JourneyDtos.JourneyListResponse;
 import tech.kayys.jezaku.journeys.JourneyDtos.JourneyProgressResponse;
@@ -30,6 +33,13 @@ public class JourneyResource {
     @Inject
     JourneyService service;
 
+    @Context
+    ContainerRequestContext requestContext;
+
+    private void self(String userId) {
+        AuthContext.requireSelf(requestContext, userId);
+    }
+
     @GET
     public Uni<JourneyListResponse> list(
             @QueryParam("lat") Double lat,
@@ -38,7 +48,7 @@ public class JourneyResource {
             @QueryParam("viewerId") String viewerId,
             @QueryParam("category") String category) {
         requireCoordinates(lat, lng);
-        return service.list(lat, lng, radiusMeters, viewerId, category);
+        return service.list(lat, lng, radiusMeters, AuthContext.viewerOrCaller(requestContext, viewerId), category);
     }
 
     @GET
@@ -55,6 +65,7 @@ public class JourneyResource {
     public Uni<Response> start(
             @PathParam("journeyId") String journeyId,
             JourneyStartRequest request) {
+        self(request == null ? null : request.userId());
         return service.start(journeyId, request)
                 .map(progress -> Response.status(Response.Status.CREATED).entity(progress).build());
     }
@@ -65,6 +76,7 @@ public class JourneyResource {
             @PathParam("sessionId") String sessionId,
             @PathParam("checkpointId") String checkpointId,
             CheckpointCompleteRequest request) {
+        self(request == null ? null : request.userId());
         return service.completeCheckpoint(sessionId, checkpointId, request);
     }
 
@@ -73,12 +85,14 @@ public class JourneyResource {
     public Uni<JourneyProgressResponse> abandon(
             @PathParam("sessionId") String sessionId,
             @QueryParam("userId") String userId) {
+        self(userId);
         return service.abandon(sessionId, userId);
     }
 
     @GET
     @Path("/users/{userId}")
     public Uni<UserJourneysResponse> userJourneys(@PathParam("userId") String userId) {
+        self(userId);
         return service.userJourneys(userId);
     }
 

@@ -49,10 +49,35 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
         ARSessionReportComparison.latestDiff(diagnostics);
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (context) {
+        final colors = Theme.of(context).colorScheme;
+
+        Widget sectionHeading(String title) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 16, bottom: 8),
+            child: Row(
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: colors.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Divider(color: colors.outlineVariant, height: 1),
+                ),
+              ],
+            ),
+          );
+        }
+
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
@@ -67,11 +92,11 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                   children: [
                     Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Native scene diagnostics',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: colors.onSurface,
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
                             ),
@@ -81,7 +106,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                           tooltip: 'Close diagnostics',
                           onPressed: () => Navigator.pop(context),
                           icon: const Icon(Icons.close),
-                          color: Colors.white70,
+                          color: colors.onSurfaceVariant,
                         ),
                       ],
                     ),
@@ -92,9 +117,9 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         size: 16,
                       ),
                       label: Text(diagnostics.hudStatusLabel),
-                      backgroundColor: _sceneDiagnosticsColor(diagnostics),
+                      backgroundColor: _sceneDiagnosticsColor(diagnostics, colors),
                     ),
-                    const SizedBox(height: 8),
+                    sectionHeading('OVERVIEW'),
                     _DiagnosticsRow(
                       icon: Icons.timeline,
                       label: 'Session',
@@ -105,7 +130,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                       label: 'Tracking',
                       value: diagnostics.sessionHealthStatusLabel,
                       valueColor: diagnostics.hasSessionHealthIssue
-                          ? _sessionHealthColor(diagnostics)
+                          ? _sessionHealthColor(diagnostics, colors)
                           : null,
                     ),
                     if (diagnostics.sessionReadiness != null)
@@ -115,14 +140,14 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         value: diagnostics.sessionReadinessLabel,
                         valueColor: diagnostics.isSessionReadyForPlacement
                             ? null
-                            : _sessionHealthColor(diagnostics),
+                            : _sessionHealthColor(diagnostics, colors),
                       ),
                     _DiagnosticsRow(
                       icon: Icons.add_location_alt_outlined,
                       label: 'Placement',
                       value: diagnostics.nativePlacementStatusLabel,
                       valueColor: diagnostics.isNativePlacementDeferred
-                          ? _sessionHealthColor(diagnostics)
+                          ? _sessionHealthColor(diagnostics, colors)
                           : null,
                     ),
                     if (diagnostics.hasSessionHealthIssue &&
@@ -131,14 +156,15 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         icon: Icons.tips_and_updates_outlined,
                         label: 'Guidance',
                         value: diagnostics.sessionHealthGuidanceLabel,
-                        valueColor: _sessionHealthColor(diagnostics),
+                        valueColor: _sessionHealthColor(diagnostics, colors),
                       ),
+                    sectionHeading('RUNTIME & SYNCHRONIZATION'),
                     _DiagnosticsRow(
                       icon: Icons.tune,
                       label: 'Config',
                       value: diagnostics.sessionConfigStatusLabel,
                       valueColor: diagnostics.hasSessionConfigDowngrades
-                          ? Colors.amberAccent.shade100
+                          ? colors.tertiary
                           : null,
                     ),
                     _DiagnosticsRow(
@@ -146,7 +172,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                       label: 'Sync',
                       value: diagnostics.syncStatusLabel,
                       valueColor: diagnostics.hasNativeSceneFailure
-                          ? Colors.redAccent.shade100
+                          ? colors.error
                           : null,
                     ),
                     if (diagnostics.hasNativeSceneFailure)
@@ -155,20 +181,21 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         label: 'Native error',
                         value: diagnostics.nativeSceneFailureMessage ??
                             'Unknown native scene sync error',
-                        valueColor: Colors.redAccent.shade100,
+                        valueColor: colors.error,
                       ),
                     _DiagnosticsRow(
                       icon: Icons.view_in_ar,
                       label: 'Scene',
                       value: diagnostics.sceneChangeLabel,
                     ),
+                    sectionHeading('ASSETS & CACHE'),
                     if (diagnostics.hasModelPreflight)
                       _DiagnosticsRow(
                         icon: Icons.view_in_ar_outlined,
                         label: 'Models',
                         value: diagnostics.modelPreflightStatusLabel,
                         valueColor: diagnostics.hasModelPreflightIssues
-                            ? Colors.amberAccent.shade100
+                            ? colors.tertiary
                             : null,
                       ),
                     if (diagnostics.modelPreflight.hasRevalidatedModels)
@@ -184,14 +211,14 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         value: ARDiagnosticsLabels.modelStaleCacheFallback(
                           diagnostics,
                         ),
-                        valueColor: Colors.amberAccent.shade100,
+                        valueColor: colors.tertiary,
                       ),
                     _DiagnosticsRow(
                       icon: Icons.cloud_queue,
                       label: 'Cloud',
                       value: diagnostics.cloudAnchorStatusLabel,
                       valueColor: diagnostics.hasCloudAnchorFailures
-                          ? Colors.redAccent.shade100
+                          ? colors.error
                           : null,
                     ),
                     _DiagnosticsRow(
@@ -205,11 +232,11 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                       value: diagnostics.maintenanceStatusLabel,
                     ),
                     if (sessionDiagnosticsReport != null) ...[
-                      const SizedBox(height: 14),
-                      const Text(
+                      sectionHeading('REPORTS & HISTORY'),
+                      Text(
                         'Live session report',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: colors.onSurfaceVariant,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -325,11 +352,11 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                       ),
                     ],
                     if (latestCaptureDiagnostics != null) ...[
-                      const SizedBox(height: 14),
-                      const Text(
+                      sectionHeading('LAST CAPTURE'),
+                      Text(
                         'Last capture diagnostics',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: colors.onSurfaceVariant,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -341,7 +368,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         valueColor: latestCaptureDiagnostics
                                     .hasNativeSceneFailure ||
                                 latestCaptureDiagnostics.hasCloudAnchorFailures
-                            ? Colors.redAccent.shade100
+                            ? colors.error
                             : null,
                       ),
                       _DiagnosticsRow(
@@ -387,10 +414,10 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         ),
                       if (latestCaptureSessionDiagnosticsReport != null) ...[
                         const SizedBox(height: 10),
-                        const Text(
+                        Text(
                           'Captured session report',
                           style: TextStyle(
-                            color: Colors.white70,
+                            color: colors.onSurfaceVariant,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -446,11 +473,11 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                       ),
                     ],
                     if (cloudAnchorIssues.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      const Text(
+                      sectionHeading('AFFECTED ANCHORS'),
+                      Text(
                         'Affected anchors',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: colors.onSurfaceVariant,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -476,14 +503,14 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         const SizedBox(height: 8),
                         Text(
                           '+${cloudAnchorIssues.length - 6} more affected',
-                          style: const TextStyle(
-                            color: Colors.white60,
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
                     ],
-                    const SizedBox(height: 14),
+                    sectionHeading('ACTIONS & EXPORT'),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
