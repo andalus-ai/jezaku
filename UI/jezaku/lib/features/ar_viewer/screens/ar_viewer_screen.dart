@@ -21,12 +21,16 @@ import 'package:jejaku/features/ar_viewer/presentation/ar_session_report_compari
 import 'package:jejaku/features/ar_viewer/models/ar_scene_diagnostics_export_bundle.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_hosting_service.dart';
+import 'package:jejaku/features/ar_viewer/services/ar_recording_coordinator.dart';
+import 'package:jejaku/features/ar_viewer/services/ar_visual_frame_capturer.dart';
 import 'package:jejaku/features/ar_viewer/services/cloud_anchor_scheduler.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_geospatial_quality_monitor.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
 import 'package:jejaku/features/ar_viewer/services/hanging_frame_hit_selector.dart';
 import 'package:jejaku/features/ar_viewer/services/hanging_frame_pose.dart';
+import 'package:jejaku/features/ar_viewer/services/native_scene_sync_loop.dart';
 import 'package:jejaku/features/ar_viewer/services/native_session_placement_planner.dart';
+import 'package:jejaku/features/ar_viewer/services/post_frame_coalescer.dart';
 import 'package:jejaku/features/ar_viewer/services/viewer_geo.dart';
 import 'package:jejaku/features/ar_viewer/services/viewer_pose_tracker.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_scene_sync_service.dart';
@@ -35,6 +39,7 @@ import 'package:jejaku/features/ar_viewer/states/ar_capture_provider.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capability_providers.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_scene_diagnostics_provider.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_placement_quality_chip.dart';
+import 'package:jejaku/features/ar_viewer/widgets/ar_trail_launch_conflict_dialog.dart';
 import 'package:jejaku/features/camera/models/capture_sensor_snapshot.dart';
 import 'package:jejaku/features/camera/states/capture_session_provider.dart';
 import 'package:jejaku/features/home/models/anchor_journey_step.dart';
@@ -44,6 +49,7 @@ import 'package:jejaku/features/home/services/anchor_spatial_journey_service.dar
 import 'package:jejaku/features/home/states/anchor_providers.dart';
 import 'package:jejaku/features/home/widgets/anchor_media_pill.dart';
 import 'package:jejaku/features/trails/models/ar_trail_session.dart';
+import 'package:jejaku/features/trails/services/trail_launch_planner.dart';
 import 'package:jejaku/features/trails/states/ar_trail_session_providers.dart';
 import 'package:jejaku/features/trails/widgets/ar_trail_snackbars.dart';
 import 'package:jejaku/features/virtual_wall/models/ar_wall.dart';
@@ -116,11 +122,20 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       ARMemoryProjectionCache();
   final NativeSessionPlacementPlanner _placementPlanner =
       NativeSessionPlacementPlanner();
-  String? _nativeSceneFingerprint;
-  bool _nativeSceneSyncScheduled = false;
-  bool _nativeSceneSyncing = false;
-  bool _nativeSceneRefreshQueued = false;
-  bool _nativeSceneDiagnosticsResetScheduled = false;
+  late final NativeSceneSyncLoop _sceneSync = NativeSceneSyncLoop(
+    isActive: () => mounted,
+    canSync: () => _nativeMemoryPlacementAllowed,
+    hasScene: () => _nativeMemoryScene != null,
+    prepare: _prepareNativeSceneSync,
+    onFailure: _publishNativeSceneFailure,
+  );
+  late final PostFrameCoalescer _diagnosticsReset = PostFrameCoalescer(
+    action: () {
+      if (mounted) {
+        _resetNativeSceneDiagnostics();
+      }
+    },
+  );
   bool _nativeCloudAnchorsEnabled = false;
   final bool _resolvedSessionCloudAnchorsEnabled = false;
   bool _nativeMemoryPlacementAllowed = false;
@@ -512,7 +527,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       _lastARCameraFrameAt = null;
       _latestSessionReadiness = null;
       _nativeMemoryPlacementAllowed = false;
-      _nativeSceneFingerprint = null;
+      _sceneSync.invalidate();
     });
     ref.invalidate(arViewerCapabilitiesProvider);
     ref.invalidate(arViewerSessionPlanProvider);
@@ -602,8 +617,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       return;
     }
     scene.preferNativeGeospatialAnchors = true;
-    setState(() => _nativeSceneFingerprint = null);
-    _scheduleNativeSceneSync();
+    setState(_sceneSync.invalidate);
+    _sceneSync.schedule();
   }
 
   void _applyLiveHeading(double headingDegrees) {
@@ -645,8 +660,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       ref.read(captureSessionProvider).previewSnapshot,
     );
     if (!ViewerGeo.sameOrigin(beforeOrigin, afterOrigin)) {
-      setState(() => _nativeSceneFingerprint = null);
-      _scheduleNativeSceneSync();
+      setState(_sceneSync.invalidate);
+      _sceneSync.schedule();
     }
   }
 
@@ -683,11 +698,11 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
             _headingDegrees = normalizedHeading;
           }
           if (shouldRefreshNativeScene) {
-            _nativeSceneFingerprint = null;
+            _sceneSync.invalidate();
           }
         });
         if (shouldRefreshNativeScene) {
-          _scheduleNativeSceneSync();
+          _sceneSync.schedule();
         }
       }
     } finally {
@@ -700,109 +715,67 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   }
 
   Future<void> _resolveInitialTrailLaunch(ARTrailSession trailSession) async {
-    if (!mounted || !trailSession.canStart) {
-      return;
-    }
-
-    final controller = ref.read(activeARTrailProgressProvider.notifier);
-    if (widget.resumeExistingProgress) {
-      controller.resume(
-        trailSession,
-        currentMemoryId: _focusedMemoryId,
-      );
-      _isResolvingTrailLaunch = false;
-      return;
-    }
-
-    final activeProgress = ref.read(activeARTrailProgressProvider);
-    if (activeProgress == null || activeProgress.isFinished) {
-      controller.start(
-        trailSession,
-        currentMemoryId: _focusedMemoryId,
-      );
-      _isResolvingTrailLaunch = false;
-      return;
-    }
-
-    if (activeProgress.session.hasSameRouteAs(trailSession)) {
-      _resumeProgressInViewer(activeProgress);
-      controller.resume(
-        activeProgress.session,
-        currentMemoryId: activeProgress.currentMemoryId,
-      );
-      return;
-    }
-
-    final choice = await _showTrailLaunchConflictDialog(
-      activeProgress: activeProgress,
-      requestedTrail: trailSession,
-    );
     if (!mounted) {
       return;
     }
-
-    switch (choice) {
-      case _TrailLaunchConflictChoice.resumeCurrent:
-        _resumeProgressInViewer(activeProgress);
-        return;
-      case _TrailLaunchConflictChoice.replace:
-        controller.start(
-          trailSession,
-          currentMemoryId: _focusedMemoryId,
+    final action = TrailLaunchPlanner.plan(
+      requested: trailSession,
+      active: ref.read(activeARTrailProgressProvider),
+      resumeExisting: widget.resumeExistingProgress,
+      focusedMemoryId: _focusedMemoryId,
+    );
+    if (action == null) {
+      return;
+    }
+    final controller = ref.read(activeARTrailProgressProvider.notifier);
+    switch (action) {
+      case ResumeTrail(:final session, :final currentMemoryId):
+        controller.resume(session, currentMemoryId: currentMemoryId);
+        _isResolvingTrailLaunch = false;
+      case StartTrail(:final session, :final currentMemoryId):
+        controller.start(session, currentMemoryId: currentMemoryId);
+        _isResolvingTrailLaunch = false;
+      case AdoptActiveTrail(:final progress):
+        _resumeProgressInViewer(progress);
+        controller.resume(
+          progress.session,
+          currentMemoryId: progress.currentMemoryId,
         );
-        _isResolvingTrailLaunch = false;
-        return;
-      case _TrailLaunchConflictChoice.cancel:
-      case null:
-        _isResolvingTrailLaunch = false;
-        await Navigator.of(context).maybePop();
-        return;
+      case AskTrailConflict(:final active, :final requested):
+        final choice = await showTrailLaunchConflictDialog(
+          context: context,
+          active: active,
+          requested: requested,
+        );
+        if (!mounted) {
+          return;
+        }
+        await _applyTrailConflictResolution(
+          TrailLaunchPlanner.resolveConflict(
+            choice: choice,
+            active: active,
+            requested: requested,
+            focusedMemoryId: _focusedMemoryId,
+          ),
+        );
     }
   }
 
-  Future<_TrailLaunchConflictChoice?> _showTrailLaunchConflictDialog({
-    required ARTrailProgress activeProgress,
-    required ARTrailSession requestedTrail,
-  }) {
-    return showDialog<_TrailLaunchConflictChoice>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          key: const ValueKey('ar_trail_conflict_dialog'),
-          title: const Text('Active trail in progress'),
-          content: Text(
-            'You are already on "${activeProgress.session.title}" at '
-            '${activeProgress.currentStopLabel} '
-            '(${activeProgress.progressLabel}). Start '
-            '"${requestedTrail.title}" instead?',
-          ),
-          actions: [
-            TextButton(
-              key: const ValueKey('ar_trail_conflict_cancel_button'),
-              onPressed: () => Navigator.of(context).pop(
-                _TrailLaunchConflictChoice.cancel,
-              ),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              key: const ValueKey('ar_trail_conflict_replace_button'),
-              onPressed: () => Navigator.of(context).pop(
-                _TrailLaunchConflictChoice.replace,
-              ),
-              child: const Text('Replace'),
-            ),
-            FilledButton(
-              key: const ValueKey('ar_trail_conflict_resume_button'),
-              onPressed: () => Navigator.of(context).pop(
-                _TrailLaunchConflictChoice.resumeCurrent,
-              ),
-              child: const Text('Resume current'),
-            ),
-          ],
-        );
-      },
-    );
+  Future<void> _applyTrailConflictResolution(
+    TrailConflictResolution resolution,
+  ) async {
+    switch (resolution) {
+      case ShowActiveTrail(:final progress):
+        _resumeProgressInViewer(progress);
+      case ReplaceWithRequested(:final session, :final currentMemoryId):
+        ref
+            .read(activeARTrailProgressProvider.notifier)
+            .start(session, currentMemoryId: currentMemoryId);
+        _isResolvingTrailLaunch = false;
+      case AbandonLaunch():
+        _isResolvingTrailLaunch = false;
+        await Navigator.of(context).maybePop();
+    }
   }
 
   void _resumeProgressInViewer(ARTrailProgress progress) {
@@ -832,8 +805,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       WidgetsBinding.instance.removeTimingsCallback(_handleFrameTimings);
     }
     _scheduleCaptureDetach();
-    _nativeSceneRefreshQueued = false;
-    _nativeSceneDiagnosticsResetScheduled = false;
+    _sceneSync.dispose();
+    _diagnosticsReset.reset();
     _cloudAnchorScheduler.cancelMaintenance();
     _cloudAnchorScheduler.cancelRetry();
     WidgetsBinding.instance.removeObserver(this);
@@ -1115,7 +1088,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                                     _isRelocalizing()
                                         ? Icons.center_focus_weak
                                         : Icons.lightbulb_outline,
-                                    color: _poseSourceColor(),
+                                    color: _poseSourceColor(Theme.of(context).colorScheme),
                                     size: 18,
                                   ),
                                   const SizedBox(width: 8),
@@ -1365,12 +1338,12 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       );
       _nativeMemoryPlacementAllowed = false;
       _latestSessionReadiness = null;
-      _nativeSceneFingerprint = null;
+      _sceneSync.invalidate();
     });
     _placementPlanner.clear();
     _lastARHeadingUpdateAt = null;
     _startGeospatialQualityMonitor(controller);
-    _scheduleNativeSceneSync();
+    _sceneSync.schedule();
   }
 
   void _handleNativeCameraUpdate(ARCamera camera) {
@@ -1391,8 +1364,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       return;
     }
     if (!hadTrackingCamera && _nativeMemoryScene != null) {
-      _nativeSceneFingerprint = null;
-      _scheduleNativeSceneSync();
+      _sceneSync.invalidate();
+      _sceneSync.schedule();
     }
     final heading = _headingFromARCamera(camera);
     if (heading == null) {
@@ -1453,7 +1426,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     final didReadinessChange = _latestSessionReadiness != readiness;
     _latestSessionReadiness = readiness;
     if (didReadinessChange) {
-      _nativeSceneFingerprint = null;
+      _sceneSync.invalidate();
     }
     _diagnosticsController.updateSessionHealthAssessmentForSession(
       _diagnosticsSessionId,
@@ -1462,7 +1435,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _captureController.updateAssessment(assessment);
     if (_nativeMemoryScene != null) {
       _nativeMemoryPlacementAllowed = true;
-      _scheduleNativeSceneSync();
+      _sceneSync.schedule();
     }
   }
 
@@ -1549,14 +1522,14 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     if (!ViewerGeo.sameOrigin(_latestNativeSceneOrigin, viewerOrigin)) {
       _latestNativeSceneOrigin = viewerOrigin;
       _placementPlanner.clear();
-      _nativeSceneFingerprint = null;
+      _sceneSync.invalidate();
     }
     final bool? canStartSession = arCapabilities.when(
       data: (capabilities) {
         final canPersistCloudAnchors = capabilities.canPersistCloudAnchors &&
             _resolvedSessionCloudAnchorsEnabled;
         if (_nativeCloudAnchorsEnabled != canPersistCloudAnchors) {
-          _nativeSceneFingerprint = null;
+          _sceneSync.invalidate();
         }
         if (!canPersistCloudAnchors) {
           _cloudAnchorScheduler.cancelMaintenance();
@@ -1588,7 +1561,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         _cloudAnchorScheduler.cancelMaintenance();
         _cloudAnchorScheduler.cancelRetry();
         _cloudAnchorHostInFlightMemoryIds.clear();
-        _nativeSceneFingerprint = null;
+        _sceneSync.invalidate();
         _scheduleNativeSceneDiagnosticsReset();
       }
       return;
@@ -1618,17 +1591,17 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       _nativeMemoryPlacementAllowed = true;
       _cloudAnchorScheduler.cancelMaintenance();
       _cloudAnchorScheduler.cancelRetry();
-      if (fingerprint != _nativeSceneFingerprint) {
-        _scheduleNativeSceneSync();
+      if (!_sceneSync.isCurrent(fingerprint)) {
+        _sceneSync.schedule();
       }
       return;
     }
     _nativeMemoryPlacementAllowed = true;
     _scheduleCloudAnchorMaintenance();
-    if (fingerprint == _nativeSceneFingerprint) {
+    if (_sceneSync.isCurrent(fingerprint)) {
       return;
     }
-    _scheduleNativeSceneSync();
+    _sceneSync.schedule();
   }
 
   bool get _isNativePlacementPaused {
@@ -1661,124 +1634,105 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     }
   }
 
-  void _scheduleNativeSceneSync() {
-    if (_nativeSceneSyncScheduled) {
-      return;
+  NativeSceneSyncAttempt? _prepareNativeSceneSync() {
+    final scene = _nativeMemoryScene;
+    if (scene == null) {
+      return null;
     }
-    _nativeSceneSyncScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _nativeSceneSyncScheduled = false;
-      if (!mounted) {
-        return;
-      }
-      unawaited(_syncNativeScene());
-    });
+    final memories = List<AnchorMemory>.unmodifiable(
+      _latestNativeSceneMemories,
+    );
+    final origin = _latestNativeSceneOrigin;
+    final mediaPreviewBytesByMemoryId = _mediaPreviewBytesByMemoryId(memories);
+    final mediaIdsByMemoryId = _mediaIdsByMemoryId(memories);
+    final sessionPlacementsByMemoryId = _nativeSessionPlacementsByMemoryId(
+      _latestNativeSceneProjections,
+    );
+    final fingerprint = _nativeSceneSyncService.fingerprint(
+      origin: origin,
+      memories: memories,
+      mediaPreviewBytesByMemoryId: mediaPreviewBytesByMemoryId,
+      mediaIdsByMemoryId: mediaIdsByMemoryId,
+      sessionPlacementsByMemoryId: sessionPlacementsByMemoryId,
+      nativeSessionStartedAt: _diagnosticsSessionStartedAt,
+    );
+    return NativeSceneSyncAttempt(
+      fingerprint: fingerprint,
+      run: () => _runNativeSceneSync(
+        scene: scene,
+        memories: memories,
+        origin: origin,
+        mediaPreviewBytesByMemoryId: mediaPreviewBytesByMemoryId,
+        mediaIdsByMemoryId: mediaIdsByMemoryId,
+        sessionPlacementsByMemoryId: sessionPlacementsByMemoryId,
+      ),
+    );
   }
 
-  Future<void> _syncNativeScene() async {
-    if (!_nativeMemoryPlacementAllowed) {
-      return;
+  /// Pushes one snapshot to the native scene. Returns `false` when the screen
+  /// went away or the scene was replaced mid-flight.
+  Future<bool> _runNativeSceneSync({
+    required JejakuMemoryARScene scene,
+    required List<AnchorMemory> memories,
+    required JejakuGeoOrigin origin,
+    required Map<String, Uint8List> mediaPreviewBytesByMemoryId,
+    required Map<String, String> mediaIdsByMemoryId,
+    required Map<String, ARMemorySessionPlacement>
+        sessionPlacementsByMemoryId,
+  }) async {
+    final placementReadiness = _nativeScenePlacementReadinessForSync();
+    final outcome = await _nativeSceneSyncService.sync(
+      scene: scene,
+      origin: origin,
+      memories: memories,
+      cloudAnchorManager:
+          _nativeCloudAnchorsEnabled ? _nativeCloudAnchorManager : null,
+      placementReadiness: placementReadiness,
+      mediaPreviewBytesByMemoryId: mediaPreviewBytesByMemoryId,
+      mediaIdsByMemoryId: mediaIdsByMemoryId,
+      sessionPlacementsByMemoryId: sessionPlacementsByMemoryId,
+      modelPreflight: ref.read(arMemoryModelPreflightProvider),
+      nativeSessionStartedAt: _diagnosticsSessionStartedAt,
+    );
+    if (!mounted || scene != _nativeMemoryScene) {
+      return false;
     }
-    if (_nativeSceneSyncing) {
-      return;
-    }
-    _nativeSceneSyncing = true;
-    String? attemptedFingerprint;
-    try {
-      while (mounted) {
-        final scene = _nativeMemoryScene;
-        if (scene == null) {
-          return;
-        }
-        final memories = List<AnchorMemory>.unmodifiable(
-          _latestNativeSceneMemories,
-        );
-        final origin = _latestNativeSceneOrigin;
-        final mediaPreviewBytesByMemoryId = _mediaPreviewBytesByMemoryId(
-          memories,
-        );
-        final mediaIdsByMemoryId = _mediaIdsByMemoryId(memories);
-        final sessionPlacementsByMemoryId = _nativeSessionPlacementsByMemoryId(
-          _latestNativeSceneProjections,
-        );
-        final fingerprint = _nativeSceneSyncService.fingerprint(
-          origin: origin,
-          memories: memories,
-          mediaPreviewBytesByMemoryId: mediaPreviewBytesByMemoryId,
-          mediaIdsByMemoryId: mediaIdsByMemoryId,
-          sessionPlacementsByMemoryId: sessionPlacementsByMemoryId,
-          nativeSessionStartedAt: _diagnosticsSessionStartedAt,
-        );
-        if (fingerprint == _nativeSceneFingerprint) {
-          return;
-        }
-        attemptedFingerprint = fingerprint;
-        final placementReadiness = _nativeScenePlacementReadinessForSync();
-        final outcome = await _nativeSceneSyncService.sync(
-          scene: scene,
-          origin: origin,
-          memories: memories,
-          cloudAnchorManager:
-              _nativeCloudAnchorsEnabled ? _nativeCloudAnchorManager : null,
-          placementReadiness: placementReadiness,
-          mediaPreviewBytesByMemoryId: mediaPreviewBytesByMemoryId,
-          mediaIdsByMemoryId: mediaIdsByMemoryId,
-          sessionPlacementsByMemoryId: sessionPlacementsByMemoryId,
-          modelPreflight: ref.read(arMemoryModelPreflightProvider),
-          nativeSessionStartedAt: _diagnosticsSessionStartedAt,
-        );
-        if (!mounted || scene != _nativeMemoryScene) {
-          return;
-        }
-        final hostingResult = outcome.scene.isPlacementDeferred
-            ? const ARMemoryCloudAnchorHostingResult()
-            : await _maybeHostCloudAnchors(
-                sceneResult: outcome.scene,
-                memories: memories,
-              );
-        if (!mounted || scene != _nativeMemoryScene) {
-          return;
-        }
-        final retryDecision = outcome.scene.isPlacementDeferred
-            ? null
-            : _cloudAnchorScheduler.scheduleRetry({
-                ...outcome.cloudAnchors.unresolvedMemoryIds,
-                ...hostingResult.failedMemoryIds,
-              });
-        if (outcome.scene.isPlacementDeferred) {
-          _cloudAnchorScheduler.cancelRetry();
-        }
-        _publishNativeSceneDiagnostics(
-          ARMemorySceneDiagnostics.fromSync(
-            sessionId: _diagnosticsSessionId,
-            scene: outcome.scene,
+    final hostingResult = outcome.scene.isPlacementDeferred
+        ? const ARMemoryCloudAnchorHostingResult()
+        : await _maybeHostCloudAnchors(
+            sceneResult: outcome.scene,
             memories: memories,
-            resolution: outcome.cloudAnchors,
-            hosting: hostingResult,
-            modelPreflight: outcome.modelPreflight,
-            cloudAnchorsEnabled: _nativeCloudAnchorsEnabled,
-            syncedAt: DateTime.now(),
-            nextCloudAnchorRetryDelay: retryDecision?.delay,
-            cloudAnchorRetryAttempt: _cloudAnchorScheduler.retryState.attempt,
-            nextCloudAnchorMaintenanceAt: _cloudAnchorScheduler.maintenanceCheckAt,
-            sessionStartedAt: _diagnosticsSessionStartedAt,
-            unsupportedSessionFeatureKeys: _unsupportedNativeSessionFeatureKeys,
-          ),
-        );
-        _nativeSceneFingerprint = fingerprint;
-      }
-    } catch (error) {
-      // The projection HUD remains the fallback if native scene placement fails.
-      _nativeSceneFingerprint = attemptedFingerprint;
-      _publishNativeSceneFailure(error);
-    } finally {
-      _nativeSceneSyncing = false;
-      final shouldRefreshAgain = _nativeSceneRefreshQueued;
-      _nativeSceneRefreshQueued = false;
-      if (shouldRefreshAgain && mounted && _nativeMemoryScene != null) {
-        _scheduleNativeSceneSync();
-      }
+          );
+    if (!mounted || scene != _nativeMemoryScene) {
+      return false;
     }
+    final retryDecision = outcome.scene.isPlacementDeferred
+        ? null
+        : _cloudAnchorScheduler.scheduleRetry({
+            ...outcome.cloudAnchors.unresolvedMemoryIds,
+            ...hostingResult.failedMemoryIds,
+          });
+    if (outcome.scene.isPlacementDeferred) {
+      _cloudAnchorScheduler.cancelRetry();
+    }
+    _publishNativeSceneDiagnostics(
+      ARMemorySceneDiagnostics.fromSync(
+        sessionId: _diagnosticsSessionId,
+        scene: outcome.scene,
+        memories: memories,
+        resolution: outcome.cloudAnchors,
+        hosting: hostingResult,
+        modelPreflight: outcome.modelPreflight,
+        cloudAnchorsEnabled: _nativeCloudAnchorsEnabled,
+        syncedAt: DateTime.now(),
+        nextCloudAnchorRetryDelay: retryDecision?.delay,
+        cloudAnchorRetryAttempt: _cloudAnchorScheduler.retryState.attempt,
+        nextCloudAnchorMaintenanceAt: _cloudAnchorScheduler.maintenanceCheckAt,
+        sessionStartedAt: _diagnosticsSessionStartedAt,
+        unsupportedSessionFeatureKeys: _unsupportedNativeSessionFeatureKeys,
+      ),
+    );
+    return true;
   }
 
   ARSessionReadiness? _nativeScenePlacementReadinessForSync() {
@@ -1860,8 +1814,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   }
 
   void _resyncNativeScene() {
-    _nativeSceneFingerprint = null;
-    _scheduleNativeSceneSync();
+    _sceneSync.invalidate();
+    _sceneSync.schedule();
   }
 
   void _onCloudAnchorRetryDue() {
@@ -1930,19 +1884,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     );
   }
 
-  void _scheduleNativeSceneDiagnosticsReset() {
-    if (_nativeSceneDiagnosticsResetScheduled) {
-      return;
-    }
-    _nativeSceneDiagnosticsResetScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _nativeSceneDiagnosticsResetScheduled = false;
-      if (!mounted) {
-        return;
-      }
-      _resetNativeSceneDiagnostics();
-    });
-  }
+  void _scheduleNativeSceneDiagnosticsReset() => _diagnosticsReset.schedule();
 
   void _resetNativeSceneDiagnostics() {
     if (!mounted) {
@@ -1953,18 +1895,10 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
 
   void _refreshNativeScene() {
     _placementPlanner.clear();
-    _nativeSceneFingerprint = null;
     _cloudAnchorScheduler.cancelRetry();
-    if (_nativeMemoryScene == null) {
-      _nativeSceneRefreshQueued = false;
+    if (!_sceneSync.refresh()) {
       _resetNativeSceneDiagnostics();
-      return;
     }
-    if (_nativeSceneSyncing) {
-      _nativeSceneRefreshQueued = true;
-      return;
-    }
-    _scheduleNativeSceneSync();
   }
 
   Widget _buildProjectionBackdrop({
@@ -2242,9 +2176,9 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     setState(() {
       _focusedMemoryId = result;
       _didApplyInitialFocus = false;
-      _nativeSceneFingerprint = null;
+      _sceneSync.invalidate();
     });
-    _scheduleNativeSceneSync();
+    _sceneSync.schedule();
   }
 
   Future<void> _captureARSnapshot() async {
@@ -2259,7 +2193,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
           ? 'AR snapshot staged for publishing'
           : snapshot.errorMessage ?? 'AR snapshot unavailable';
       if (!snapshot.succeeded) {
-        stagedBytes = await _captureARVisualFrame();
+        stagedBytes = await _frameCapturer.capturePng();
         stagedAt = DateTime.now().toUtc();
         if (stagedBytes != null) {
           message = 'AR visual snapshot staged for publishing';
@@ -2377,32 +2311,17 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     }
   }
 
-  Future<Uint8List?> _captureARVisualFrame() async {
-    final overlayImage = await _captureAROverlayImage();
-    if (overlayImage == null) {
-      return null;
-    }
-    ui.Image? cameraImage;
-    ui.Image? composedImage;
-    try {
-      cameraImage = await _captureNativeCameraImage();
-      final outputImage = cameraImage == null
-          ? overlayImage
-          : await _composeARVisualFrame(
-              cameraImage: cameraImage,
-              overlayImage: overlayImage,
-            );
-      if (!identical(outputImage, overlayImage)) {
-        composedImage = outputImage;
-      }
-      final data = await outputImage.toByteData(format: ui.ImageByteFormat.png);
-      return data?.buffer.asUint8List();
-    } finally {
-      composedImage?.dispose();
-      cameraImage?.dispose();
-      overlayImage.dispose();
-    }
-  }
+  late final ARVisualFrameCapturer _frameCapturer = ARVisualFrameCapturer(
+    captureOverlay: _captureAROverlayImage,
+    captureCameraBytes: () async => _arController?.captureSnapshot(),
+  );
+
+  late final ARRecordingCoordinator _recordingCoordinator =
+      ARRecordingCoordinator(
+    gateway: _captureController,
+    config: _screenRecordingConfig,
+    frameSource: _frameCapturer.capturePng,
+  );
 
   Future<ui.Image?> _captureAROverlayImage() async {
     if (!mounted) {
@@ -2426,70 +2345,16 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     return renderObject.toImage(pixelRatio: pixelRatio);
   }
 
-  Future<ui.Image?> _captureNativeCameraImage() async {
-    final controller = _arController;
-    if (controller == null) {
-      return null;
+  void _showRecordingOutcome(
+    ScaffoldMessengerState messenger,
+    ARRecordingOutcome outcome,
+  ) {
+    if (!mounted) {
+      return;
     }
-    try {
-      final cameraBytes = await controller.captureSnapshot();
-      if (cameraBytes == null || cameraBytes.isEmpty) {
-        return null;
-      }
-      return await _decodeImage(cameraBytes);
-    } on Object {
-      return null;
-    }
-  }
-
-  Future<ui.Image> _decodeImage(Uint8List bytes) async {
-    final codec = await ui.instantiateImageCodec(bytes);
-    try {
-      final frame = await codec.getNextFrame();
-      return frame.image;
-    } finally {
-      codec.dispose();
-    }
-  }
-
-  Future<ui.Image> _composeARVisualFrame({
-    required ui.Image cameraImage,
-    required ui.Image overlayImage,
-  }) async {
-    final width = overlayImage.width;
-    final height = overlayImage.height;
-    final outputRect = Offset.zero & Size(width.toDouble(), height.toDouble());
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    final sourceSize = Size(
-      cameraImage.width.toDouble(),
-      cameraImage.height.toDouble(),
-    );
-    final fitted = applyBoxFit(BoxFit.cover, sourceSize, outputRect.size);
-    final sourceRect =
-        Alignment.center.inscribe(fitted.source, Offset.zero & sourceSize);
-    final destinationRect =
-        Alignment.center.inscribe(fitted.destination, outputRect);
-
-    canvas
-      ..drawImageRect(cameraImage, sourceRect, destinationRect, Paint())
-      ..drawImageRect(
-        overlayImage,
-        Rect.fromLTWH(
-          0,
-          0,
-          overlayImage.width.toDouble(),
-          overlayImage.height.toDouble(),
-        ),
-        outputRect,
-        Paint(),
-      );
-    final picture = recorder.endRecording();
-    try {
-      return await picture.toImage(width, height);
-    } finally {
-      picture.dispose();
-    }
+    messenger
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(outcome.message)));
   }
 
   Future<void> _toggleARRecording() async {
@@ -2502,156 +2367,52 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     if (state.recordingState != ARRecordingState.idle) {
       return;
     }
-
     final messenger = ScaffoldMessenger.of(context);
-    try {
-      await _captureController.startRecording(
-        config: _screenRecordingConfig,
-        frameSource: _captureARVisualFrame,
-      );
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          const SnackBar(content: Text('AR screen recording started')),
-        );
-    } on Object catch (error) {
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(content: Text('AR screen recording failed: $error')),
-        );
-    }
+    _showRecordingOutcome(messenger, await _recordingCoordinator.start());
   }
 
   Future<void> _pauseARRecording() async {
     final messenger = ScaffoldMessenger.of(context);
-    try {
-      await _captureController.pauseRecording();
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          const SnackBar(content: Text('AR screen recording paused')),
-        );
-    } on Object catch (error) {
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(content: Text('AR screen recording pause failed: $error')),
-        );
-    }
+    _showRecordingOutcome(messenger, await _recordingCoordinator.pause());
   }
 
   Future<void> _resumeARRecording() async {
     final messenger = ScaffoldMessenger.of(context);
-    try {
-      await _captureController.resumeRecording();
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          const SnackBar(content: Text('AR screen recording resumed')),
-        );
-    } on Object catch (error) {
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(content: Text('AR screen recording resume failed: $error')),
-        );
-    }
-  }
-
-  Future<void> _stopARRecording() async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      final recording = await _captureController.stopRecording();
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              recording.succeeded
-                  ? 'AR screen recording staged for publishing'
-                  : recording.result.errorMessage ??
-                      'AR screen recording not saved',
-            ),
-          ),
-        );
-      final filePath = recording.result.filePath;
-      if (recording.succeeded && filePath != null) {
-        await _refreshViewerPoseFromDeviceSensors();
-        if (!mounted) {
-          return;
-        }
-        final capturedAt = DateTime.now().toUtc();
-        ref.read(captureSessionProvider.notifier).stageARRecording(
-              capturedAt: capturedAt,
-              filePath: filePath,
-              duration: recording.result.duration,
-              frameCount: recording.result.frameCount,
-              targetFps: _screenRecordingConfig.fps,
-              videoBitrateKbps: _screenRecordingConfig.videoBitrateKbps,
-              outputFormat: _screenRecordingConfig.outputFormat,
-              includesUIOverlay: _screenRecordingConfig.includeUIOverlay,
-              includesAudio: _screenRecordingConfig.includeAudio,
-              fileSizeBytes: recording.result.fileSizeBytes,
-              arDiagnostics: _captureDiagnosticsSnapshot(capturedAt),
-            );
-        await _openPublishAndFocusPublishedMemory();
-      }
-    } on Object catch (error) {
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(content: Text('AR screen recording stop failed: $error')),
-        );
-    }
+    _showRecordingOutcome(messenger, await _recordingCoordinator.resume());
   }
 
   Future<void> _cancelARRecording() async {
     final messenger = ScaffoldMessenger.of(context);
-    try {
-      await _captureController.cancelRecording();
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          const SnackBar(content: Text('AR screen recording discarded')),
-        );
-    } on Object catch (error) {
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(content: Text('AR screen recording cancel failed: $error')),
-        );
+    _showRecordingOutcome(messenger, await _recordingCoordinator.cancel());
+  }
+
+  Future<void> _stopARRecording() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final outcome = await _recordingCoordinator.stop();
+    _showRecordingOutcome(messenger, outcome);
+    final staged = outcome.staged;
+    if (staged == null) {
+      return;
     }
+    await _refreshViewerPoseFromDeviceSensors();
+    if (!mounted) {
+      return;
+    }
+    final capturedAt = DateTime.now().toUtc();
+    ref.read(captureSessionProvider.notifier).stageARRecording(
+          capturedAt: capturedAt,
+          filePath: staged.filePath,
+          duration: staged.duration,
+          frameCount: staged.frameCount,
+          targetFps: _screenRecordingConfig.fps,
+          videoBitrateKbps: _screenRecordingConfig.videoBitrateKbps,
+          outputFormat: _screenRecordingConfig.outputFormat,
+          includesUIOverlay: _screenRecordingConfig.includeUIOverlay,
+          includesAudio: _screenRecordingConfig.includeAudio,
+          fileSizeBytes: staged.fileSizeBytes,
+          arDiagnostics: _captureDiagnosticsSnapshot(capturedAt),
+        );
+    await _openPublishAndFocusPublishedMemory();
   }
 
   Map<String, Object?> _captureDiagnosticsSnapshot(DateTime capturedAt) {
@@ -3018,8 +2779,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       _headingDegrees = anchor.projection.bearingDegrees;
     });
     _placementPlanner.forget(anchor.memory.id);
-    _nativeSceneFingerprint = null;
-    _scheduleNativeSceneSync();
+    _sceneSync.invalidate();
+    _sceneSync.schedule();
     _trackTrailFocus(anchor.memory.id);
   }
 

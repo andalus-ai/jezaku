@@ -68,7 +68,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                   children: [
                     Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Native scene diagnostics',
                             style: TextStyle(
@@ -388,7 +388,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         ),
                       if (latestCaptureSessionDiagnosticsReport != null) ...[
                         const SizedBox(height: 10),
-                        const Text(
+                        Text(
                           'Captured session report',
                           style: TextStyle(
                             color: colors.onSurfaceVariant,
@@ -477,7 +477,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         const SizedBox(height: 8),
                         Text(
                           '+${cloudAnchorIssues.length - 6} more affected',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: colors.onSurfaceVariant,
                             fontWeight: FontWeight.w700,
                           ),
