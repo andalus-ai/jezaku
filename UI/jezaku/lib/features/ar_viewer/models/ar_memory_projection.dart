@@ -126,6 +126,19 @@ class ARMemoryProjectionCache {
   List<AnchorMemory> _memories = const <AnchorMemory>[];
   Map<String, AnchorMemory> _memoryById = const <String, AnchorMemory>{};
   List<JejakuGeoAnchor> _geoAnchors = const <JejakuGeoAnchor>[];
+  List<ARMemoryProjection>? _lastProjection;
+  ({
+    double latitude,
+    double longitude,
+    double altitudeMeters,
+    double headingDegrees,
+    double pitchDegrees,
+    double horizontalFovDegrees,
+    double verticalFovDegrees,
+    double maxDistanceMeters,
+  })? _lastPoseKey;
+  JejakuViewProjector? _lastProjector;
+  bool _lastOnlyInRange = true;
   bool _hasSnapshot = false;
 
   ({Map<String, AnchorMemory> memoryById, List<JejakuGeoAnchor> geoAnchors})
@@ -151,16 +164,66 @@ class ARMemoryProjectionCache {
       _memories = nextMemories;
       _memoryById = memoryById;
       _geoAnchors = geoAnchors;
+      _lastProjection = null;
+      _lastPoseKey = null;
+      _lastProjector = null;
       _hasSnapshot = true;
     }
 
     return (memoryById: _memoryById, geoAnchors: _geoAnchors);
   }
 
+  /// Reuses completed projection output across unrelated widget rebuilds.
+  List<ARMemoryProjection> project({
+    required JejakuViewerPose viewerPose,
+    required JejakuViewProjector projector,
+    required bool onlyInRange,
+  }) {
+    final origin = viewerPose.origin;
+    final poseKey = (
+      latitude: origin.latitude,
+      longitude: origin.longitude,
+      altitudeMeters: origin.altitudeMeters,
+      headingDegrees: viewerPose.headingDegrees,
+      pitchDegrees: viewerPose.pitchDegrees,
+      horizontalFovDegrees: viewerPose.horizontalFovDegrees,
+      verticalFovDegrees: viewerPose.verticalFovDegrees,
+      maxDistanceMeters: viewerPose.maxDistanceMeters,
+    );
+    final cached = _lastProjection;
+    if (cached != null &&
+        _lastPoseKey == poseKey &&
+        identical(_lastProjector, projector) &&
+        _lastOnlyInRange == onlyInRange) {
+      return cached;
+    }
+
+    final projections = projector.projectAnchors(
+      viewerPose: viewerPose,
+      anchors: _geoAnchors,
+      onlyInRange: onlyInRange,
+    );
+    final result = <ARMemoryProjection>[
+      for (final projection in projections)
+        ARMemoryProjection(
+          memory: _memoryById[projection.anchor.id]!,
+          projection: projection,
+        ),
+    ];
+    _lastProjection = result;
+    _lastPoseKey = poseKey;
+    _lastProjector = projector;
+    _lastOnlyInRange = onlyInRange;
+    return result;
+  }
+
   void clear() {
     _memories = const <AnchorMemory>[];
     _memoryById = const <String, AnchorMemory>{};
     _geoAnchors = const <JejakuGeoAnchor>[];
+    _lastProjection = null;
+    _lastPoseKey = null;
+    _lastProjector = null;
     _hasSnapshot = false;
   }
 }
@@ -183,21 +246,25 @@ List<ARMemoryProjection> projectAnchorMemories({
   bool onlyInRange = true,
   ARMemoryProjectionCache? cache,
 }) {
-  // A cache hit avoids rebuilding geographic inputs and metadata maps when
-  // only the viewer pose (heading, pitch, or viewport) changes.
-  final inputs = cache?.resolve(memories) ?? _buildProjectionInputs(memories);
-  final memoryById = inputs.memoryById;
-  final geoAnchors = inputs.geoAnchors;
+  if (cache != null) {
+    cache.resolve(memories);
+    return cache.project(
+      viewerPose: viewerPose,
+      projector: projector,
+      onlyInRange: onlyInRange,
+    );
+  }
+
+  final inputs = _buildProjectionInputs(memories);
   final projections = projector.projectAnchors(
     viewerPose: viewerPose,
-    anchors: geoAnchors,
+    anchors: inputs.geoAnchors,
     onlyInRange: onlyInRange,
   );
-
   return [
     for (final projection in projections)
       ARMemoryProjection(
-        memory: memoryById[projection.anchor.id]!,
+        memory: inputs.memoryById[projection.anchor.id]!,
         projection: projection,
       ),
   ];
