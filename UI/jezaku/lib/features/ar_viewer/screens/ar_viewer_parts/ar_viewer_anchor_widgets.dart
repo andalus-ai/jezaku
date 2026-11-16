@@ -1,5 +1,84 @@
 part of '../ar_viewer_screen.dart';
 
+
+class _HangingFrameAimPreview extends StatelessWidget {
+  const _HangingFrameAimPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          key: const ValueKey('ar_hanging_frame_aim_preview'),
+          width: 148,
+          height: 104,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.16),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.82), width: 2),
+            borderRadius: BorderRadius.circular(5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.22),
+                blurRadius: 14,
+              ),
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              const Icon(
+                Icons.photo_outlined,
+                color: Colors.white70,
+                size: 42,
+              ),
+              Positioned(
+                top: 7,
+                right: 7,
+                child: Icon(
+                  Icons.add,
+                  color: Colors.white.withValues(alpha: 0.9),
+                  size: 15,
+                ),
+              ),
+              Positioned(
+                bottom: 7,
+                left: 8,
+                right: 8,
+                child: Container(
+                  height: 1,
+                  color: Colors.white.withValues(alpha: 0.48),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.58),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white24),
+          ),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            child: Text(
+              'FRAME AIM • FLOATS IN SPACE',
+              key: ValueKey('ar_hanging_frame_aim_label'),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 9,
+                letterSpacing: 0.8,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _AnchorBubble extends ConsumerWidget {
   const _AnchorBubble({
     required this.anchor,

@@ -912,6 +912,13 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                         wallTitlesByMemoryId: wallTitlesByMemoryId,
                         totalMemoryCount: anchors.length,
                       ),
+                    // Camera-relative guide follows the view; the persistent
+                    // world pose is resolved from live AR tracking on capture.
+                    const Positioned.fill(
+                      child: IgnorePointer(
+                        child: Center(child: _HangingFrameAimPreview()),
+                      ),
+                    ),
                     // Subtle edge scrims keep controls and status readable
                     // over bright skies without dimming the center camera view.
                     Positioned.fill(
