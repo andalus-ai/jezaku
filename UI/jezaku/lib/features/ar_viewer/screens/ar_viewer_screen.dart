@@ -2322,16 +2322,18 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       final cameraForward = camera.pose.rotation.rotateVector(
         ARVector3.forward,
       );
-      final horizontalForward = ARVector3(cameraForward.x, 0, cameraForward.z);
-      if (horizontalForward.lengthSquared < 0.000001) {
+      // Free-space fallback follows the complete camera ray, including
+      // pitch. This lets a frame float above or below eye level instead of
+      // being flattened onto the camera's horizontal heading.
+      if (cameraForward.lengthSquared < 0.000001) {
         debugPrint(
           '[AR_HANGING_FRAME] capture_pose skipped: '
-          'camera horizontal forward too small '
+          'camera forward vector too small '
           'forward=${ARDiagnosticsLabels.vector(cameraForward)}',
         );
         return null;
       }
-      final forward = horizontalForward.normalized;
+      final forward = cameraForward.normalized;
       const fallbackDistance = 1.5;
       final fallbackPosition = cameraPosition + forward * fallbackDistance;
       final useSurfacePosition =
