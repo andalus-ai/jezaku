@@ -2746,7 +2746,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       return colors.error;
     }
     if (diagnostics.hasCloudAnchorFailures) {
-      return Colors.redAccent.shade100;
+      return colors.error;
     }
     if (diagnostics.hasSessionConfigDowngrades) {
       return colors.tertiary;
@@ -2786,7 +2786,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   ) {
     final assessment = diagnostics.sessionHealthAssessment;
     if (assessment == null) {
-      return Colors.white70;
+      return colors.onSurfaceVariant;
     }
     return switch (assessment.severity) {
       ARSessionHealthSeverity.good => colors.primary,
@@ -2883,7 +2883,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         const _HudPill(
           icon: Icons.videocam_outlined,
           label: 'No rec',
-          color: Colors.white70,
+          color: colors.onSurfaceVariant,
         ),
       ],
       loading: () => [
@@ -2895,7 +2895,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         _HudPill(
           icon: Icons.videocam_outlined,
           label: 'Rec check',
-          color: Colors.blueAccent.shade100,
+          color: colors.secondary,
         ),
       ],
     );
