@@ -175,6 +175,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       ),
       floatingActionButton: _currentIndex == 0 || _currentIndex == 1
           ? FloatingActionButton.extended(
+              tooltip: 'Capture a memory',
               onPressed: () => _openCamera(),
               icon: const Icon(Icons.add_a_photo),
               label: const Text('Capture'),
