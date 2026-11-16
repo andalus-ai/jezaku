@@ -37,6 +37,7 @@ import 'package:jejaku/features/ar_viewer/states/ar_capture_provider.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capability_providers.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_scene_diagnostics_provider.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_placement_quality_chip.dart';
+import 'package:jejaku/features/ar_viewer/widgets/ar_trail_launch_conflict_dialog.dart';
 import 'package:jejaku/features/camera/models/capture_sensor_snapshot.dart';
 import 'package:jejaku/features/camera/states/capture_session_provider.dart';
 import 'package:jejaku/features/home/models/anchor_journey_step.dart';
@@ -46,6 +47,7 @@ import 'package:jejaku/features/home/services/anchor_spatial_journey_service.dar
 import 'package:jejaku/features/home/states/anchor_providers.dart';
 import 'package:jejaku/features/home/widgets/anchor_media_pill.dart';
 import 'package:jejaku/features/trails/models/ar_trail_session.dart';
+import 'package:jejaku/features/trails/services/trail_launch_planner.dart';
 import 'package:jejaku/features/trails/states/ar_trail_session_providers.dart';
 import 'package:jejaku/features/trails/widgets/ar_trail_snackbars.dart';
 import 'package:jejaku/features/virtual_wall/models/ar_wall.dart';
@@ -702,109 +704,67 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   }
 
   Future<void> _resolveInitialTrailLaunch(ARTrailSession trailSession) async {
-    if (!mounted || !trailSession.canStart) {
-      return;
-    }
-
-    final controller = ref.read(activeARTrailProgressProvider.notifier);
-    if (widget.resumeExistingProgress) {
-      controller.resume(
-        trailSession,
-        currentMemoryId: _focusedMemoryId,
-      );
-      _isResolvingTrailLaunch = false;
-      return;
-    }
-
-    final activeProgress = ref.read(activeARTrailProgressProvider);
-    if (activeProgress == null || activeProgress.isFinished) {
-      controller.start(
-        trailSession,
-        currentMemoryId: _focusedMemoryId,
-      );
-      _isResolvingTrailLaunch = false;
-      return;
-    }
-
-    if (activeProgress.session.hasSameRouteAs(trailSession)) {
-      _resumeProgressInViewer(activeProgress);
-      controller.resume(
-        activeProgress.session,
-        currentMemoryId: activeProgress.currentMemoryId,
-      );
-      return;
-    }
-
-    final choice = await _showTrailLaunchConflictDialog(
-      activeProgress: activeProgress,
-      requestedTrail: trailSession,
-    );
     if (!mounted) {
       return;
     }
-
-    switch (choice) {
-      case _TrailLaunchConflictChoice.resumeCurrent:
-        _resumeProgressInViewer(activeProgress);
-        return;
-      case _TrailLaunchConflictChoice.replace:
-        controller.start(
-          trailSession,
-          currentMemoryId: _focusedMemoryId,
+    final action = TrailLaunchPlanner.plan(
+      requested: trailSession,
+      active: ref.read(activeARTrailProgressProvider),
+      resumeExisting: widget.resumeExistingProgress,
+      focusedMemoryId: _focusedMemoryId,
+    );
+    if (action == null) {
+      return;
+    }
+    final controller = ref.read(activeARTrailProgressProvider.notifier);
+    switch (action) {
+      case ResumeTrail(:final session, :final currentMemoryId):
+        controller.resume(session, currentMemoryId: currentMemoryId);
+        _isResolvingTrailLaunch = false;
+      case StartTrail(:final session, :final currentMemoryId):
+        controller.start(session, currentMemoryId: currentMemoryId);
+        _isResolvingTrailLaunch = false;
+      case AdoptActiveTrail(:final progress):
+        _resumeProgressInViewer(progress);
+        controller.resume(
+          progress.session,
+          currentMemoryId: progress.currentMemoryId,
         );
-        _isResolvingTrailLaunch = false;
-        return;
-      case _TrailLaunchConflictChoice.cancel:
-      case null:
-        _isResolvingTrailLaunch = false;
-        await Navigator.of(context).maybePop();
-        return;
+      case AskTrailConflict(:final active, :final requested):
+        final choice = await showTrailLaunchConflictDialog(
+          context: context,
+          active: active,
+          requested: requested,
+        );
+        if (!mounted) {
+          return;
+        }
+        await _applyTrailConflictResolution(
+          TrailLaunchPlanner.resolveConflict(
+            choice: choice,
+            active: active,
+            requested: requested,
+            focusedMemoryId: _focusedMemoryId,
+          ),
+        );
     }
   }
 
-  Future<_TrailLaunchConflictChoice?> _showTrailLaunchConflictDialog({
-    required ARTrailProgress activeProgress,
-    required ARTrailSession requestedTrail,
-  }) {
-    return showDialog<_TrailLaunchConflictChoice>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          key: const ValueKey('ar_trail_conflict_dialog'),
-          title: const Text('Active trail in progress'),
-          content: Text(
-            'You are already on "${activeProgress.session.title}" at '
-            '${activeProgress.currentStopLabel} '
-            '(${activeProgress.progressLabel}). Start '
-            '"${requestedTrail.title}" instead?',
-          ),
-          actions: [
-            TextButton(
-              key: const ValueKey('ar_trail_conflict_cancel_button'),
-              onPressed: () => Navigator.of(context).pop(
-                _TrailLaunchConflictChoice.cancel,
-              ),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              key: const ValueKey('ar_trail_conflict_replace_button'),
-              onPressed: () => Navigator.of(context).pop(
-                _TrailLaunchConflictChoice.replace,
-              ),
-              child: const Text('Replace'),
-            ),
-            FilledButton(
-              key: const ValueKey('ar_trail_conflict_resume_button'),
-              onPressed: () => Navigator.of(context).pop(
-                _TrailLaunchConflictChoice.resumeCurrent,
-              ),
-              child: const Text('Resume current'),
-            ),
-          ],
-        );
-      },
-    );
+  Future<void> _applyTrailConflictResolution(
+    TrailConflictResolution resolution,
+  ) async {
+    switch (resolution) {
+      case ShowActiveTrail(:final progress):
+        _resumeProgressInViewer(progress);
+      case ReplaceWithRequested(:final session, :final currentMemoryId):
+        ref
+            .read(activeARTrailProgressProvider.notifier)
+            .start(session, currentMemoryId: currentMemoryId);
+        _isResolvingTrailLaunch = false;
+      case AbandonLaunch():
+        _isResolvingTrailLaunch = false;
+        await Navigator.of(context).maybePop();
+    }
   }
 
   void _resumeProgressInViewer(ARTrailProgress progress) {
