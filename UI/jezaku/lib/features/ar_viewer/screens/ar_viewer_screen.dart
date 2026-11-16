@@ -2880,7 +2880,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
           label: 'Local AR',
           color: colors.primary,
         ),
-        const _HudPill(
+        _HudPill(
           icon: Icons.videocam_outlined,
           label: 'No rec',
           color: colors.onSurfaceVariant,
