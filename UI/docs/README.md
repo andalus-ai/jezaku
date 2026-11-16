@@ -1,17 +1,24 @@
 # UI Documentation
 
-This directory documents the Flutter client and reusable UI-side packages.
+This directory documents the Flutter client, main application, reusable Dart packages, and shared UI/UX standards.
 
 ## Documents
 
 - [Architecture](architecture.md) — app/package boundaries, feature structure, state, networking, AR integration, and data flow.
+- [Application structure](app-structure.md) — actual Flutter app layout and code ownership.
+- [Reusable package catalog](package-catalog.md) — responsibilities, dependency direction, and public contract expectations for packages.
 - [Design system and UX standards](design-system-and-ux.md) — visual foundations, accessibility, interaction states, and polish criteria.
+
+## Scoped instructions
+
+- [UI-wide instructions](../AGENTS.md)
+- [Flutter app instructions](../jezaku/AGENTS.md)
+- [Reusable package instructions](../Packages/AGENTS.md)
 
 ## Related documentation
 
-- [UI agent instructions](../AGENTS.md)
 - [Product UI/UX polish plan](../../docs/UI_UX_POLISH_PLAN.md)
 - [AR viewer performance budgets](../../docs/AR_VIEWER_PERFORMANCE_BUDGETS.md)
 - [AR device validation](../../docs/AR_DEVICE_VALIDATION_V1.md)
 
-Keep these documents aligned with the implementation. When code changes alter a boundary, workflow, design rule, or validation command, update the relevant document in the same change.
+Keep these documents aligned with the implementation. Update the relevant document whenever a boundary, workflow, public package contract, design rule, or validation command changes.
