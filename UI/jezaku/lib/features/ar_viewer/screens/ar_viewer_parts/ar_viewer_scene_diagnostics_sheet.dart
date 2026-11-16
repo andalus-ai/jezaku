@@ -54,6 +54,30 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
       showDragHandle: true,
       builder: (context) {
         final colors = Theme.of(context).colorScheme;
+
+        Widget sectionHeading(String title) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 16, bottom: 8),
+            child: Row(
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: colors.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Divider(color: colors.outlineVariant, height: 1),
+                ),
+              ],
+            ),
+          );
+        }
+
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
@@ -95,7 +119,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                       label: Text(diagnostics.hudStatusLabel),
                       backgroundColor: _sceneDiagnosticsColor(diagnostics, colors),
                     ),
-                    const SizedBox(height: 8),
+                    sectionHeading('OVERVIEW'),
                     _DiagnosticsRow(
                       icon: Icons.timeline,
                       label: 'Session',
@@ -134,6 +158,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         value: diagnostics.sessionHealthGuidanceLabel,
                         valueColor: _sessionHealthColor(diagnostics, colors),
                       ),
+                    sectionHeading('RUNTIME & SYNCHRONIZATION'),
                     _DiagnosticsRow(
                       icon: Icons.tune,
                       label: 'Config',
@@ -163,6 +188,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                       label: 'Scene',
                       value: diagnostics.sceneChangeLabel,
                     ),
+                    sectionHeading('ASSETS & CACHE'),
                     if (diagnostics.hasModelPreflight)
                       _DiagnosticsRow(
                         icon: Icons.view_in_ar_outlined,
@@ -206,7 +232,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                       value: diagnostics.maintenanceStatusLabel,
                     ),
                     if (sessionDiagnosticsReport != null) ...[
-                      const SizedBox(height: 14),
+                      sectionHeading('REPORTS & HISTORY'),
                       Text(
                         'Live session report',
                         style: TextStyle(
@@ -326,7 +352,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                       ),
                     ],
                     if (latestCaptureDiagnostics != null) ...[
-                      const SizedBox(height: 14),
+                      sectionHeading('LAST CAPTURE'),
                       Text(
                         'Last capture diagnostics',
                         style: TextStyle(
@@ -447,7 +473,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                       ),
                     ],
                     if (cloudAnchorIssues.isNotEmpty) ...[
-                      const SizedBox(height: 10),
+                      sectionHeading('AFFECTED ANCHORS'),
                       Text(
                         'Affected anchors',
                         style: TextStyle(
@@ -484,7 +510,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         ),
                       ],
                     ],
-                    const SizedBox(height: 14),
+                    sectionHeading('ACTIONS & EXPORT'),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
