@@ -18,6 +18,9 @@ import 'package:jejaku/features/trails/services/ar_trail_progress_store.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+const bool _arOfflineTestMode =
+    bool.fromEnvironment('JEZAKU_AR_TEST_MODE', defaultValue: false);
+
 void main() {
   installGlobalErrorHandlers();
   _start();
@@ -98,7 +101,8 @@ class JejakuApp extends ConsumerWidget {
       theme: JejakuTheme.light(),
       darkTheme: JejakuTheme.dark(),
       themeMode: ThemeMode.system,
-      initialRoute: AppRoutes.root,
+      initialRoute:
+          _arOfflineTestMode ? AppRoutes.arViewer : AppRoutes.root,
       onGenerateRoute: AppRoutes.onGenerateRoute,
     );
   }
