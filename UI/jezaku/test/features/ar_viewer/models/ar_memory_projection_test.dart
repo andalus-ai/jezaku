@@ -91,8 +91,12 @@ void main() {
       captureSource: 'test',
     );
 
-    AnchorMemory memory({String title = 'Anchor'}) => AnchorMemory(
-          id: 'cached-anchor',
+    AnchorMemory memory({
+      String id = 'cached-anchor',
+      String title = 'Anchor',
+    }) =>
+        AnchorMemory(
+          id: id,
           title: title,
           caption: '',
           distanceLabel: '5 m',
@@ -127,6 +131,47 @@ void main() {
       expect(identical(second.geoAnchors, first.geoAnchors), isFalse);
       expect(second.geoAnchors.single.title, 'Updated anchor');
       expect(identical(second.memoryById['cached-anchor'], updated), isTrue);
+    });
+
+    test('reuses inputs for a dense collection of 1000 stable memories', () {
+      final cache = ARMemoryProjectionCache();
+      final memories = List<AnchorMemory>.generate(
+        1000,
+        (index) => memory(id: 'anchor-$index', title: 'Anchor $index'),
+        growable: false,
+      );
+
+      final first = cache.resolve(memories);
+      final second = cache.resolve(memories);
+
+      expect(first.geoAnchors, hasLength(1000));
+      expect(first.memoryById, hasLength(1000));
+      expect(first.geoAnchors.first.id, 'anchor-0');
+      expect(first.geoAnchors.last.id, 'anchor-999');
+      expect(identical(second.geoAnchors, first.geoAnchors), isTrue);
+      expect(identical(second.memoryById, first.memoryById), isTrue);
+    });
+
+    test('invalidates cached inputs when dense collection order changes', () {
+      final cache = ARMemoryProjectionCache();
+      final firstMemory = memory(id: 'anchor-1');
+      final secondMemory = memory(id: 'anchor-2');
+      final first = cache.resolve(<AnchorMemory>[
+        firstMemory,
+        secondMemory,
+      ]);
+
+      final reordered = cache.resolve(<AnchorMemory>[
+        secondMemory,
+        firstMemory,
+      ]);
+
+      expect(identical(reordered.geoAnchors, first.geoAnchors), isFalse);
+      expect(
+        reordered.geoAnchors.map((anchor) => anchor.id),
+        <String>['anchor-2', 'anchor-1'],
+      );
+      expect(identical(reordered.memoryById['anchor-1'], firstMemory), isTrue);
     });
 
     test('clear forces the next resolve to rebuild its inputs', () {
