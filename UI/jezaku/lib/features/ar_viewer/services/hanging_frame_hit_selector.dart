@@ -9,12 +9,26 @@ abstract final class HangingFrameHitSelector {
   static const double verticalNormalDotLimit = 0.45;
 
   static ARHitTestResult? best(List<ARHitTestResult> hits) {
+    if (hits.isEmpty) {
+      return null;
+    }
+
+    // Providers are not required to return hits in distance order. Prefer the
+    // nearest vertical surface for a frame, then the nearest arbitrary hit as
+    // a deterministic fallback. Free-space placement is handled by the caller
+    // when no vertical surface is available.
+    ARHitTestResult? nearestVertical;
+    ARHitTestResult? nearestAny;
     for (final hit in hits) {
-      if (isVerticalSurface(hit)) {
-        return hit;
+      if (nearestAny == null || hit.distance < nearestAny.distance) {
+        nearestAny = hit;
+      }
+      if (isVerticalSurface(hit) &&
+          (nearestVertical == null || hit.distance < nearestVertical.distance)) {
+        nearestVertical = hit;
       }
     }
-    return hits.isEmpty ? null : hits.first;
+    return nearestVertical ?? nearestAny;
   }
 
   static bool isVerticalSurface(ARHitTestResult hit) {
