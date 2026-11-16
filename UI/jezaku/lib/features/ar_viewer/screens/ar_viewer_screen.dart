@@ -1117,7 +1117,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                                     _isRelocalizing()
                                         ? Icons.center_focus_weak
                                         : Icons.lightbulb_outline,
-                                    color: _poseSourceColor(),
+                                    color: _poseSourceColor(Theme.of(context).colorScheme),
                                     size: 18,
                                   ),
                                   const SizedBox(width: 8),
