@@ -119,9 +119,9 @@ class ARMemoryProjection {
 }
 
 
-/// Reuses immutable geographic inputs while the same AnchorMemory instances
-/// remain in the source collection. Viewer pose changes still run projection,
-/// but avoid rebuilding every JejakuGeoAnchor and its metadata map.
+/// Reuses immutable geographic inputs and completed projection output while
+/// the source memories and every viewer-pose input remain unchanged. This
+/// avoids repeating the O(n log n) projection/sort work on unrelated rebuilds.
 class ARMemoryProjectionCache {
   List<AnchorMemory> _memories = const <AnchorMemory>[];
   Map<String, AnchorMemory> _memoryById = const <String, AnchorMemory>{};
