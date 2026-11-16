@@ -506,12 +506,35 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     ref.invalidate(arViewerSessionConfigProvider);
   }
 
-  void _startViewerPoseTracking() {
+  Duration get _viewerPoseRefreshInterval {
+    // Native AR pose is the primary source while tracking is healthy. Sensor
+    // polling remains more frequent during startup, relocalization, and GPS
+    // fallback, then backs off once fresh AR frames are flowing.
+    return _hasFreshARPose()
+        ? const Duration(seconds: 8)
+        : const Duration(seconds: 3);
+  }
+
+  void _scheduleViewerPoseRefresh() {
     _viewerPoseRefreshTimer?.cancel();
-    _viewerPoseRefreshTimer = Timer.periodic(
-      const Duration(seconds: 3),
-      (_) => unawaited(_refreshViewerPoseFromDeviceSensors()),
+    if (!mounted || _backgrounded ||
+        !ref.read(arViewerLivePoseTrackingProvider)) {
+      _viewerPoseRefreshTimer = null;
+      return;
+    }
+    _viewerPoseRefreshTimer = Timer(
+      _viewerPoseRefreshInterval,
+      () async {
+        await _refreshViewerPoseFromDeviceSensors();
+        if (mounted && !_backgrounded) {
+          _scheduleViewerPoseRefresh();
+        }
+      },
     );
+  }
+
+  void _startViewerPoseTracking() {
+    _scheduleViewerPoseRefresh();
     unawaited(_refreshViewerPoseFromDeviceSensors());
     _poseTracker.startCompass();
     unawaited(_poseTracker.startPosition(isActive: () => mounted));
@@ -1337,8 +1360,9 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     }
     if (hadTrackingCamera != camera.isTracking) {
       // Surface tracking loss and recovery immediately without rebuilding on
-      // every camera frame.
+      // every camera frame. Also adapt sensor polling to the new pose source.
       setState(() {});
+      _scheduleViewerPoseRefresh();
     }
     if (!camera.isTracking) {
       return;
