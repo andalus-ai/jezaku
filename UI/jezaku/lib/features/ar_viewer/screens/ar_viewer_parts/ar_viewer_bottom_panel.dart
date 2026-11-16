@@ -123,8 +123,8 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
                           ? Icons.info_outline
                           : Icons.build_circle_outlined,
                       color: isDeviceLimitation
-                          ? Colors.lightBlueAccent
-                          : Colors.orangeAccent,
+                          ? colors.secondary
+                          : colors.tertiary,
                       size: 20,
                     ),
                     const SizedBox(width: 10),
@@ -159,8 +159,8 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
                                 : 'TROUBLESHOOT · View details',
                             style: TextStyle(
                               color: isDeviceLimitation
-                                  ? Colors.lightBlueAccent
-                                  : Colors.orangeAccent,
+                                  ? colors.secondary
+                                  : colors.tertiary,
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.35,
@@ -269,12 +269,12 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
                 label: isWallTrail
                     ? '$visibleCount/$displayTotal trail in view'
                     : '$visibleCount/$displayTotal in view',
-                color: Colors.greenAccent.shade100,
+                color: colors.primary,
               ),
               _HudPill(
                 icon: Icons.verified,
                 label: '$reliableCount reliable',
-                color: Colors.amberAccent.shade100,
+                color: colors.tertiary,
               ),
               if (sceneDiagnostics.hasSessionHealth)
                 _HudPill(
