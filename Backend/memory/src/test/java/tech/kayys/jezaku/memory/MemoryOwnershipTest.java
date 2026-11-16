@@ -30,8 +30,13 @@ class MemoryOwnershipTest {
                   "mediaUrl": "https://cdn.jezaku.local/upload/photo.jpg",
                   "thumbnailUrl": "https://cdn.jezaku.local/upload/photo-thumb.jpg",
                   "caption": "ownership",
-                  "position": {"latitude": -6.880100, "longitude": 107.611100},
-                  "anchorType": "gps",
+                  "position": {"latitude": -6.880100, "longitude": 107.611100, "altitudeMeters": 742.5},
+                  "headingDegrees": 5,
+                  "compassDegrees": 345,
+                  "pitchDegrees": -12.5,
+                  "rollDegrees": 1.25,
+                  "gpsAccuracyMeters": 3.2,
+                  "anchorType": "HYBRID",
                   "visibility": "%s"
                 }
                 """.formatted(ownerId, visibility);
