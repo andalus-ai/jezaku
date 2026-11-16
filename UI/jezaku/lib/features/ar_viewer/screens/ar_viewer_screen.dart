@@ -21,6 +21,8 @@ import 'package:jejaku/features/ar_viewer/presentation/ar_session_report_compari
 import 'package:jejaku/features/ar_viewer/models/ar_scene_diagnostics_export_bundle.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_hosting_service.dart';
+import 'package:jejaku/features/ar_viewer/services/ar_recording_coordinator.dart';
+import 'package:jejaku/features/ar_viewer/services/ar_visual_frame_capturer.dart';
 import 'package:jejaku/features/ar_viewer/services/cloud_anchor_scheduler.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_geospatial_quality_monitor.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
@@ -2259,7 +2261,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
           ? 'AR snapshot staged for publishing'
           : snapshot.errorMessage ?? 'AR snapshot unavailable';
       if (!snapshot.succeeded) {
-        stagedBytes = await _captureARVisualFrame();
+        stagedBytes = await _frameCapturer.capturePng();
         stagedAt = DateTime.now().toUtc();
         if (stagedBytes != null) {
           message = 'AR visual snapshot staged for publishing';
@@ -2375,32 +2377,17 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     }
   }
 
-  Future<Uint8List?> _captureARVisualFrame() async {
-    final overlayImage = await _captureAROverlayImage();
-    if (overlayImage == null) {
-      return null;
-    }
-    ui.Image? cameraImage;
-    ui.Image? composedImage;
-    try {
-      cameraImage = await _captureNativeCameraImage();
-      final outputImage = cameraImage == null
-          ? overlayImage
-          : await _composeARVisualFrame(
-              cameraImage: cameraImage,
-              overlayImage: overlayImage,
-            );
-      if (!identical(outputImage, overlayImage)) {
-        composedImage = outputImage;
-      }
-      final data = await outputImage.toByteData(format: ui.ImageByteFormat.png);
-      return data?.buffer.asUint8List();
-    } finally {
-      composedImage?.dispose();
-      cameraImage?.dispose();
-      overlayImage.dispose();
-    }
-  }
+  late final ARVisualFrameCapturer _frameCapturer = ARVisualFrameCapturer(
+    captureOverlay: _captureAROverlayImage,
+    captureCameraBytes: () async => _arController?.captureSnapshot(),
+  );
+
+  late final ARRecordingCoordinator _recordingCoordinator =
+      ARRecordingCoordinator(
+    gateway: _captureController,
+    config: _screenRecordingConfig,
+    frameSource: _frameCapturer.capturePng,
+  );
 
   Future<ui.Image?> _captureAROverlayImage() async {
     if (!mounted) {
@@ -2424,70 +2411,16 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     return renderObject.toImage(pixelRatio: pixelRatio);
   }
 
-  Future<ui.Image?> _captureNativeCameraImage() async {
-    final controller = _arController;
-    if (controller == null) {
-      return null;
+  void _showRecordingOutcome(
+    ScaffoldMessengerState messenger,
+    ARRecordingOutcome outcome,
+  ) {
+    if (!mounted) {
+      return;
     }
-    try {
-      final cameraBytes = await controller.captureSnapshot();
-      if (cameraBytes == null || cameraBytes.isEmpty) {
-        return null;
-      }
-      return await _decodeImage(cameraBytes);
-    } on Object {
-      return null;
-    }
-  }
-
-  Future<ui.Image> _decodeImage(Uint8List bytes) async {
-    final codec = await ui.instantiateImageCodec(bytes);
-    try {
-      final frame = await codec.getNextFrame();
-      return frame.image;
-    } finally {
-      codec.dispose();
-    }
-  }
-
-  Future<ui.Image> _composeARVisualFrame({
-    required ui.Image cameraImage,
-    required ui.Image overlayImage,
-  }) async {
-    final width = overlayImage.width;
-    final height = overlayImage.height;
-    final outputRect = Offset.zero & Size(width.toDouble(), height.toDouble());
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    final sourceSize = Size(
-      cameraImage.width.toDouble(),
-      cameraImage.height.toDouble(),
-    );
-    final fitted = applyBoxFit(BoxFit.cover, sourceSize, outputRect.size);
-    final sourceRect =
-        Alignment.center.inscribe(fitted.source, Offset.zero & sourceSize);
-    final destinationRect =
-        Alignment.center.inscribe(fitted.destination, outputRect);
-
-    canvas
-      ..drawImageRect(cameraImage, sourceRect, destinationRect, Paint())
-      ..drawImageRect(
-        overlayImage,
-        Rect.fromLTWH(
-          0,
-          0,
-          overlayImage.width.toDouble(),
-          overlayImage.height.toDouble(),
-        ),
-        outputRect,
-        Paint(),
-      );
-    final picture = recorder.endRecording();
-    try {
-      return await picture.toImage(width, height);
-    } finally {
-      picture.dispose();
-    }
+    messenger
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(outcome.message)));
   }
 
   Future<void> _toggleARRecording() async {
@@ -2500,156 +2433,52 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     if (state.recordingState != ARRecordingState.idle) {
       return;
     }
-
     final messenger = ScaffoldMessenger.of(context);
-    try {
-      await _captureController.startRecording(
-        config: _screenRecordingConfig,
-        frameSource: _captureARVisualFrame,
-      );
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          const SnackBar(content: Text('AR screen recording started')),
-        );
-    } on Object catch (error) {
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(content: Text('AR screen recording failed: $error')),
-        );
-    }
+    _showRecordingOutcome(messenger, await _recordingCoordinator.start());
   }
 
   Future<void> _pauseARRecording() async {
     final messenger = ScaffoldMessenger.of(context);
-    try {
-      await _captureController.pauseRecording();
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          const SnackBar(content: Text('AR screen recording paused')),
-        );
-    } on Object catch (error) {
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(content: Text('AR screen recording pause failed: $error')),
-        );
-    }
+    _showRecordingOutcome(messenger, await _recordingCoordinator.pause());
   }
 
   Future<void> _resumeARRecording() async {
     final messenger = ScaffoldMessenger.of(context);
-    try {
-      await _captureController.resumeRecording();
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          const SnackBar(content: Text('AR screen recording resumed')),
-        );
-    } on Object catch (error) {
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(content: Text('AR screen recording resume failed: $error')),
-        );
-    }
-  }
-
-  Future<void> _stopARRecording() async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      final recording = await _captureController.stopRecording();
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              recording.succeeded
-                  ? 'AR screen recording staged for publishing'
-                  : recording.result.errorMessage ??
-                      'AR screen recording not saved',
-            ),
-          ),
-        );
-      final filePath = recording.result.filePath;
-      if (recording.succeeded && filePath != null) {
-        await _refreshViewerPoseFromDeviceSensors();
-        if (!mounted) {
-          return;
-        }
-        final capturedAt = DateTime.now().toUtc();
-        ref.read(captureSessionProvider.notifier).stageARRecording(
-              capturedAt: capturedAt,
-              filePath: filePath,
-              duration: recording.result.duration,
-              frameCount: recording.result.frameCount,
-              targetFps: _screenRecordingConfig.fps,
-              videoBitrateKbps: _screenRecordingConfig.videoBitrateKbps,
-              outputFormat: _screenRecordingConfig.outputFormat,
-              includesUIOverlay: _screenRecordingConfig.includeUIOverlay,
-              includesAudio: _screenRecordingConfig.includeAudio,
-              fileSizeBytes: recording.result.fileSizeBytes,
-              arDiagnostics: _captureDiagnosticsSnapshot(capturedAt),
-            );
-        await _openPublishAndFocusPublishedMemory();
-      }
-    } on Object catch (error) {
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(content: Text('AR screen recording stop failed: $error')),
-        );
-    }
+    _showRecordingOutcome(messenger, await _recordingCoordinator.resume());
   }
 
   Future<void> _cancelARRecording() async {
     final messenger = ScaffoldMessenger.of(context);
-    try {
-      await _captureController.cancelRecording();
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          const SnackBar(content: Text('AR screen recording discarded')),
-        );
-    } on Object catch (error) {
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(content: Text('AR screen recording cancel failed: $error')),
-        );
+    _showRecordingOutcome(messenger, await _recordingCoordinator.cancel());
+  }
+
+  Future<void> _stopARRecording() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final outcome = await _recordingCoordinator.stop();
+    _showRecordingOutcome(messenger, outcome);
+    final staged = outcome.staged;
+    if (staged == null) {
+      return;
     }
+    await _refreshViewerPoseFromDeviceSensors();
+    if (!mounted) {
+      return;
+    }
+    final capturedAt = DateTime.now().toUtc();
+    ref.read(captureSessionProvider.notifier).stageARRecording(
+          capturedAt: capturedAt,
+          filePath: staged.filePath,
+          duration: staged.duration,
+          frameCount: staged.frameCount,
+          targetFps: _screenRecordingConfig.fps,
+          videoBitrateKbps: _screenRecordingConfig.videoBitrateKbps,
+          outputFormat: _screenRecordingConfig.outputFormat,
+          includesUIOverlay: _screenRecordingConfig.includeUIOverlay,
+          includesAudio: _screenRecordingConfig.includeAudio,
+          fileSizeBytes: staged.fileSizeBytes,
+          arDiagnostics: _captureDiagnosticsSnapshot(capturedAt),
+        );
+    await _openPublishAndFocusPublishedMemory();
   }
 
   Map<String, Object?> _captureDiagnosticsSnapshot(DateTime capturedAt) {

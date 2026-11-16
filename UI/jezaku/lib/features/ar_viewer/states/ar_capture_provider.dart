@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:ar_engine/ar_engine.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:jejaku/features/ar_viewer/services/ar_recording_coordinator.dart';
 import 'package:jezaku_ar/jezaku_ar.dart';
 
 const _unchanged = Object();
@@ -283,7 +284,8 @@ String _formatRecordingElapsed(Duration duration) {
   return '$minuteLabel:$secondLabel';
 }
 
-class ARViewerCaptureController extends Notifier<ARViewerCaptureState> {
+class ARViewerCaptureController extends Notifier<ARViewerCaptureState>
+    implements ARRecordingGateway {
   JejakuARCaptureManager? _manager;
   int _attachEpoch = 0;
   int _recordingProgressEpoch = 0;
