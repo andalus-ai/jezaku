@@ -51,10 +51,135 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
       sceneDiagnostics,
       arCapture,
     );
+    final hasTroubleshootingIssue = sceneDiagnostics.hasSessionHealthIssue ||
+        sceneDiagnostics.hasRuntimeDiagnosticsIssue ||
+        sceneDiagnostics.hasNativeSceneFailure ||
+        sceneDiagnostics.hasCloudAnchorFailures ||
+        sceneDiagnostics.hasModelPreflightIssues ||
+        sceneDiagnostics.hasSessionConfigDowngrades;
+    final healthGuidance = sceneDiagnostics.sessionHealthGuidance;
+    final troubleshootingTitle = sceneDiagnostics.hasSessionHealthIssue
+        ? sceneDiagnostics.sessionHealthStatusLabel
+        : sceneDiagnostics.hasRuntimeDiagnosticsIssue
+            ? sceneDiagnostics.runtimeDiagnosticsStatusLabel
+            : sceneDiagnostics.hasNativeSceneFailure
+                ? 'Scene synchronization issue'
+                : sceneDiagnostics.hasCloudAnchorFailures
+                    ? 'Cloud anchor needs attention'
+                    : sceneDiagnostics.hasModelPreflightIssues
+                        ? 'Some anchor models need attention'
+                        : 'Device capability limitation';
+    final troubleshootingMessage =
+        healthGuidance?.message ??
+        sceneDiagnostics.runtimeDiagnosticsGuidanceLabel ??
+        (sceneDiagnostics.hasNativeSceneFailure
+            ? sceneDiagnostics.nativeSceneFailureMessage
+            : null) ??
+        (sceneDiagnostics.hasCloudAnchorFailures
+            ? sceneDiagnostics.cloudAnchorStatusLabel
+            : null) ??
+        (sceneDiagnostics.hasModelPreflightIssues
+            ? sceneDiagnostics.modelPreflightStatusLabel
+            : null) ??
+        (sceneDiagnostics.hasSessionConfigDowngrades
+            ? 'This device cannot provide: '
+                '${sceneDiagnostics.unsupportedSessionFeatureLabels.join(', ')}. '
+                'AR viewing remains available with reduced capabilities.'
+            : null) ??
+        sceneDiagnostics.sessionHealthDetailLabel;
+    final isDeviceLimitation = sceneDiagnostics.hasSessionConfigDowngrades &&
+        !sceneDiagnostics.hasSessionHealthIssue &&
+        !sceneDiagnostics.hasRuntimeDiagnosticsIssue &&
+        !sceneDiagnostics.hasNativeSceneFailure &&
+        !sceneDiagnostics.hasCloudAnchorFailures &&
+        !sceneDiagnostics.hasModelPreflightIssues;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (showInfoDashboard && hasTroubleshootingIssue) ...[
+          Material(
+            color: Colors.black.withValues(alpha: 0.78),
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              key: const ValueKey('ar_troubleshooting_summary'),
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => _showSceneDiagnosticsSheet(
+                context,
+                sceneDiagnostics,
+                anchors,
+                latestCaptureDiagnostics: ref
+                    .read(captureSessionProvider.notifier)
+                    .latestArDiagnostics,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      isDeviceLimitation
+                          ? Icons.info_outline
+                          : Icons.build_circle_outlined,
+                      color: isDeviceLimitation
+                          ? Colors.lightBlueAccent
+                          : Colors.orangeAccent,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            troubleshootingTitle,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            troubleshootingMessage,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                              height: 1.3,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            isDeviceLimitation
+                                ? 'DEVICE LIMITATION · View details'
+                                : 'TROUBLESHOOT · View details',
+                            style: TextStyle(
+                              color: isDeviceLimitation
+                                  ? Colors.lightBlueAccent
+                                  : Colors.orangeAccent,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         if (showInfoDashboard && focusedAnchor != null) ...[
           _FocusedAnchorPanel(
             anchor: focusedAnchor,
