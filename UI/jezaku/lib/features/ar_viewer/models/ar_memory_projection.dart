@@ -124,12 +124,18 @@ List<ARMemoryProjection> projectAnchorMemories({
   JejakuViewProjector projector = const JejakuViewProjector(),
   bool onlyInRange = true,
 }) {
-  final memoryById = <String, AnchorMemory>{
-    for (final memory in memories) memory.id: memory,
-  };
+  // Build the lookup and native projection inputs together. This avoids
+  // traversing a potentially large memory collection twice on every pose
+  // update while retaining the same ID-based projection mapping.
+  final memoryById = <String, AnchorMemory>{};
+  final geoAnchors = <JejakuGeoAnchor>[];
+  for (final memory in memories) {
+    memoryById[memory.id] = memory;
+    geoAnchors.add(memory.toJejakuGeoAnchor());
+  }
   final projections = projector.projectAnchors(
     viewerPose: viewerPose,
-    anchors: memories.map((memory) => memory.toJejakuGeoAnchor()),
+    anchors: geoAnchors,
     onlyInRange: onlyInRange,
   );
 
