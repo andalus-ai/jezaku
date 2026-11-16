@@ -72,7 +72,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                           child: Text(
                             'Native scene diagnostics',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: colors.onSurface,
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
                             ),
@@ -116,14 +116,14 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         value: diagnostics.sessionReadinessLabel,
                         valueColor: diagnostics.isSessionReadyForPlacement
                             ? null
-                            : _sessionHealthColor(diagnostics),
+                            : _sessionHealthColor(diagnostics, colors),
                       ),
                     _DiagnosticsRow(
                       icon: Icons.add_location_alt_outlined,
                       label: 'Placement',
                       value: diagnostics.nativePlacementStatusLabel,
                       valueColor: diagnostics.isNativePlacementDeferred
-                          ? _sessionHealthColor(diagnostics)
+                          ? _sessionHealthColor(diagnostics, colors)
                           : null,
                     ),
                     if (diagnostics.hasSessionHealthIssue &&
@@ -132,7 +132,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         icon: Icons.tips_and_updates_outlined,
                         label: 'Guidance',
                         value: diagnostics.sessionHealthGuidanceLabel,
-                        valueColor: _sessionHealthColor(diagnostics),
+                        valueColor: _sessionHealthColor(diagnostics, colors),
                       ),
                     _DiagnosticsRow(
                       icon: Icons.tune,
@@ -156,7 +156,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         label: 'Native error',
                         value: diagnostics.nativeSceneFailureMessage ??
                             'Unknown native scene sync error',
-                        valueColor: Colors.redAccent.shade100,
+                        valueColor: colors.error,
                       ),
                     _DiagnosticsRow(
                       icon: Icons.view_in_ar,
@@ -169,7 +169,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         label: 'Models',
                         value: diagnostics.modelPreflightStatusLabel,
                         valueColor: diagnostics.hasModelPreflightIssues
-                            ? Colors.amberAccent.shade100
+                            ? colors.tertiary
                             : null,
                       ),
                     if (diagnostics.modelPreflight.hasRevalidatedModels)
@@ -185,14 +185,14 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         value: ARDiagnosticsLabels.modelStaleCacheFallback(
                           diagnostics,
                         ),
-                        valueColor: Colors.amberAccent.shade100,
+                        valueColor: colors.tertiary,
                       ),
                     _DiagnosticsRow(
                       icon: Icons.cloud_queue,
                       label: 'Cloud',
                       value: diagnostics.cloudAnchorStatusLabel,
                       valueColor: diagnostics.hasCloudAnchorFailures
-                          ? Colors.redAccent.shade100
+                          ? colors.error
                           : null,
                     ),
                     _DiagnosticsRow(
@@ -207,10 +207,10 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                     ),
                     if (sessionDiagnosticsReport != null) ...[
                       const SizedBox(height: 14),
-                      const Text(
+                      Text(
                         'Live session report',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: colors.onSurfaceVariant,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -327,10 +327,10 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                     ],
                     if (latestCaptureDiagnostics != null) ...[
                       const SizedBox(height: 14),
-                      const Text(
+                      Text(
                         'Last capture diagnostics',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: colors.onSurfaceVariant,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -342,7 +342,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         valueColor: latestCaptureDiagnostics
                                     .hasNativeSceneFailure ||
                                 latestCaptureDiagnostics.hasCloudAnchorFailures
-                            ? Colors.redAccent.shade100
+                            ? colors.error
                             : null,
                       ),
                       _DiagnosticsRow(
@@ -391,7 +391,7 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         const Text(
                           'Captured session report',
                           style: TextStyle(
-                            color: Colors.white70,
+                            color: colors.onSurfaceVariant,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -448,10 +448,10 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                     ],
                     if (cloudAnchorIssues.isNotEmpty) ...[
                       const SizedBox(height: 10),
-                      const Text(
+                      Text(
                         'Affected anchors',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: colors.onSurfaceVariant,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
