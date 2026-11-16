@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/app/app_error_handling.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
+import 'package:jejaku/app/theme/jejaku_theme.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_store.dart';
@@ -16,6 +17,9 @@ import 'package:jejaku/features/sync/services/anchor_media_upload_queue_store.da
 import 'package:jejaku/features/trails/services/ar_trail_progress_store.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+const bool _arOfflineTestMode =
+    bool.fromEnvironment('JEZAKU_AR_TEST_MODE', defaultValue: false);
 
 void main() {
   installGlobalErrorHandlers();
@@ -94,19 +98,11 @@ class JejakuApp extends ConsumerWidget {
     return MaterialApp(
       title: 'Jejaku',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6366F1),
-          brightness: Brightness.light,
-        ),
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-        ),
-      ),
-      initialRoute: AppRoutes.root,
+      theme: JejakuTheme.light(),
+      darkTheme: JejakuTheme.dark(),
+      themeMode: ThemeMode.system,
+      initialRoute:
+          _arOfflineTestMode ? AppRoutes.arViewer : AppRoutes.root,
       onGenerateRoute: AppRoutes.onGenerateRoute,
     );
   }

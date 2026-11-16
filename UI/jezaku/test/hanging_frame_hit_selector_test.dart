@@ -67,6 +67,20 @@ void main() {
       expect(HangingFrameHitSelector.best([nearFloor, farWall]), same(farWall));
     });
 
+    test('chooses the nearest vertical surface regardless of provider order', () {
+      final farWall =
+          _hit(ARHitTestResultType.plane, rotation: wall, distance: 3);
+      final nearWall =
+          _hit(ARHitTestResultType.plane, rotation: wall, distance: 1);
+      expect(HangingFrameHitSelector.best([farWall, nearWall]), same(nearWall));
+    });
+
+    test('falls back to the nearest hit when no vertical surface exists', () {
+      final farFloor = _hit(ARHitTestResultType.plane, rotation: floor, distance: 3);
+      final nearFeature = _hit(ARHitTestResultType.featurePoint, distance: 0.8);
+      expect(HangingFrameHitSelector.best([farFloor, nearFeature]), same(nearFeature));
+    });
+
     test('falls back to the first hit, and to null when there are none', () {
       final first = _hit(ARHitTestResultType.plane, rotation: floor);
       final second = _hit(ARHitTestResultType.featurePoint, distance: 2);

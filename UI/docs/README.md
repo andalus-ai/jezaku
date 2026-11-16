@@ -1,0 +1,29 @@
+# UI Documentation
+
+- [AR Device Demo Lab](ar-device-demo-lab.md) — offline-first physical-device testing workflow for AR runtime, placement, photo frames, snapshots and recording.
+
+
+This directory documents the Flutter client, main application, reusable Dart packages, and shared UI/UX standards.
+
+## Documents
+
+- [Architecture](architecture.md) — app/package boundaries, feature structure, state, networking, AR integration, and data flow.
+- [Application structure](app-structure.md) — actual Flutter app layout and code ownership.
+- [Feature catalog](feature-catalog.md) — current app feature directories, responsibilities, and boundaries.
+- [Reusable package catalog](package-catalog.md) — responsibilities, dependency direction, and public contract expectations for packages.
+- [Design system and UX standards](design-system-and-ux.md) — visual foundations, accessibility, interaction states, and polish criteria.
+- [Quality gates](quality-gates.md) — accessibility, responsive layout, privacy, hardware, performance, and release validation checklist.
+
+## Scoped instructions
+
+- [UI-wide instructions](../AGENTS.md)
+- [Flutter app instructions](../jezaku/AGENTS.md)
+- [Reusable package instructions](../Packages/AGENTS.md)
+
+## Related documentation
+
+- [Product UI/UX polish plan](../../docs/UI_UX_POLISH_PLAN.md)
+- [AR viewer performance budgets](../../docs/AR_VIEWER_PERFORMANCE_BUDGETS.md)
+- [AR device validation](../../docs/AR_DEVICE_VALIDATION_V1.md)
+
+Keep these documents aligned with the implementation. Update the relevant document whenever a boundary, workflow, public package contract, design rule, or validation command changes.

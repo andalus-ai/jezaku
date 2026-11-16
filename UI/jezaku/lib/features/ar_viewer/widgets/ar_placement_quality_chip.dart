@@ -13,8 +13,15 @@ class ARPlacementQualityChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final precise = assessment.isPrecise;
-    final color = precise ? Colors.greenAccent : Colors.amberAccent;
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = colorScheme.brightness == Brightness.dark;
+    // The camera HUD stays dark in both app themes. Use container accents in
+    // light mode and their brighter foreground counterparts in dark mode so
+    // the status remains legible against the translucent HUD background.
+    final color = assessment.isPrecise
+        ? (isDark ? colorScheme.primary : colorScheme.primaryContainer)
+        : (isDark ? colorScheme.tertiary : colorScheme.tertiaryContainer);
+
     return Tooltip(
       message: assessment.detailLabel,
       triggerMode: TooltipTriggerMode.tap,
@@ -34,7 +41,7 @@ class ARPlacementQualityChip extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  precise ? Icons.gps_fixed : Icons.gps_not_fixed,
+                  assessment.isPrecise ? Icons.gps_fixed : Icons.gps_not_fixed,
                   color: color,
                   size: 16,
                 ),

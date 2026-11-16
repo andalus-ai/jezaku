@@ -21,6 +21,7 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
     required bool showInfoDashboard,
     required bool showRecordingPanel,
   }) {
+    final colors = Theme.of(context).colorScheme;
     final isWallTrail = trailStopNumbers.isNotEmpty;
     final hudAnchors = isWallTrail
         ? anchors
@@ -122,8 +123,8 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
                           ? Icons.info_outline
                           : Icons.build_circle_outlined,
                       color: isDeviceLimitation
-                          ? Colors.lightBlueAccent
-                          : Colors.orangeAccent,
+                          ? colors.secondary
+                          : colors.tertiary,
                       size: 20,
                     ),
                     const SizedBox(width: 10),
@@ -158,8 +159,8 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
                                 : 'TROUBLESHOOT · View details',
                             style: TextStyle(
                               color: isDeviceLimitation
-                                  ? Colors.lightBlueAccent
-                                  : Colors.orangeAccent,
+                                  ? colors.secondary
+                                  : colors.tertiary,
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.35,
@@ -260,7 +261,7 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
                 icon: _poseSourceIcon(),
                 label:
                     '${_headingDegrees.round()} deg · ${_poseSourceShortLabel()}',
-                color: _poseSourceColor(),
+                color: _poseSourceColor(colors),
                 tooltip: _poseSourceDetailLabel(),
               ),
               _HudPill(
@@ -268,19 +269,19 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
                 label: isWallTrail
                     ? '$visibleCount/$displayTotal trail in view'
                     : '$visibleCount/$displayTotal in view',
-                color: Colors.greenAccent.shade100,
+                color: colors.primary,
               ),
               _HudPill(
                 icon: Icons.verified,
                 label: '$reliableCount reliable',
-                color: Colors.amberAccent.shade100,
+                color: colors.tertiary,
               ),
               if (sceneDiagnostics.hasSessionHealth)
                 _HudPill(
                   key: const ValueKey('ar_session_health_hud'),
                   icon: _sessionHealthIcon(sceneDiagnostics),
                   label: sceneDiagnostics.sessionHealthHudLabel,
-                  color: _sessionHealthColor(sceneDiagnostics),
+                  color: _sessionHealthColor(sceneDiagnostics, colors),
                   tooltip: sceneDiagnostics.sessionHealthDetailLabel,
                 ),
               if (reviewCount > 0)
@@ -293,7 +294,7 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
                 key: const ValueKey('ar_scene_diagnostics_hud'),
                 icon: _sceneDiagnosticsIcon(sceneDiagnostics),
                 label: sceneDiagnostics.hudStatusLabel,
-                color: _sceneDiagnosticsColor(sceneDiagnostics),
+                color: _sceneDiagnosticsColor(sceneDiagnostics, colors),
                 tooltip: sceneDiagnostics.detailStatusLabel,
                 onTap: () => _showSceneDiagnosticsSheet(
                   context,
@@ -304,7 +305,7 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
                       .latestArDiagnostics,
                 ),
               ),
-              ..._capabilityHudPills(arSessionPlan, sceneDiagnostics),
+              ..._capabilityHudPills(arSessionPlan, sceneDiagnostics, colors),
             ],
           ),
           if (showCaptureControls) const SizedBox(height: 12),

@@ -10,8 +10,11 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import tech.kayys.jezaku.auth.AuthContext;
 import tech.kayys.jezaku.rewards.RewardDtos.BadgeCatalogResponse;
 import tech.kayys.jezaku.rewards.RewardDtos.LeaderboardResponse;
 import tech.kayys.jezaku.rewards.RewardDtos.RewardEventRequest;
@@ -26,9 +29,13 @@ public class RewardResource {
     @Inject
     RewardService service;
 
+    @Context
+    ContainerRequestContext requestContext;
+
     @POST
     @Path("/events")
     public Uni<Response> recordEvent(RewardEventRequest request) {
+        AuthContext.requireSelf(requestContext, request == null ? null : request.userId());
         return service.recordEvent(request)
                 .map(event -> Response.status(Response.Status.CREATED).entity(event).build());
     }
