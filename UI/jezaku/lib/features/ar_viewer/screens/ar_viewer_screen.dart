@@ -958,7 +958,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                         ],
                       ),
                     ),
-                    if (_isResumingARSession || _arResumeError != null)
+                    if ((_isResumingARSession && _arController != null) ||
+                        _arResumeError != null)
                       Positioned(
                         key: const ValueKey('ar_session_interruption_panel'),
                         left: 16,
