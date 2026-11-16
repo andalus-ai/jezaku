@@ -15,8 +15,12 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import tech.kayys.jezaku.auth.AuthContext;
+import tech.kayys.jezaku.auth.AuthenticatedUser;
 import tech.kayys.jezaku.contract.MediaMemorySnapshotContracts.MemoryMediaSnapshotApplyResponse;
 import tech.kayys.jezaku.contract.MediaMemorySnapshotContracts.MemoryMediaSnapshotBatchRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryAnchorHistoryResponse;
@@ -39,8 +43,21 @@ public class MemoryResource {
     @Inject
     MemoryService service;
 
+    @Context
+    ContainerRequestContext requestContext;
+
+    private void self(String userId) {
+        AuthContext.requireSelf(requestContext, userId);
+    }
+
+    /** The authenticated caller, or null while authentication is not enforced. */
+    private String caller() {
+        return AuthContext.user(requestContext).map(AuthenticatedUser::userId).orElse(null);
+    }
+
     @POST
     public Uni<Response> create(MemoryCreateRequest request) {
+        self(request == null ? null : request.ownerId());
         return service.create(request)
                 .map(memory -> Response.status(Response.Status.CREATED).entity(memory).build());
     }
@@ -51,7 +68,7 @@ public class MemoryResource {
             @PathParam("id") String id,
             @QueryParam("lat") Double lat,
             @QueryParam("lng") Double lng) {
-        return service.get(id, lat, lng);
+        return service.get(id, lat, lng, caller());
     }
 
     @PATCH
@@ -59,6 +76,7 @@ public class MemoryResource {
     public Uni<MemoryResponse> updateAnchor(
             @PathParam("id") String id,
             MemoryAnchorUpdateRequest request) {
+        self(request == null ? null : request.ownerId());
         return service.updateAnchor(id, request);
     }
 
@@ -67,6 +85,7 @@ public class MemoryResource {
     public Uni<MemoryAnchorHistoryResponse> anchorHistory(
             @PathParam("id") String id,
             @QueryParam("ownerId") String ownerId) {
+        self(ownerId);
         return service.anchorHistory(id, ownerId);
     }
 
@@ -130,13 +149,13 @@ public class MemoryResource {
     @GET
     @Path("/users/{userId}")
     public Uni<MemoryFeedResponse> userMemories(@PathParam("userId") String userId) {
-        return service.userMemories(userId);
+        return service.userMemories(userId, caller());
     }
 
     @DELETE
     @Path("/{id}")
     public Uni<Response> delete(@PathParam("id") String id) {
-        return service.delete(id)
+        return service.delete(id, caller())
                 .replaceWith(Response.noContent().build());
     }
 
