@@ -112,6 +112,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   List<AnchorMemory> _latestNativeSceneMemories = const <AnchorMemory>[];
   List<ARMemoryProjection> _latestNativeSceneProjections =
       const <ARMemoryProjection>[];
+  final ARMemoryProjectionCache _memoryProjectionCache =
+      ARMemoryProjectionCache();
   final NativeSessionPlacementPlanner _placementPlanner =
       NativeSessionPlacementPlanner();
   String? _nativeSceneFingerprint;
@@ -814,6 +816,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _latestARCamera = null;
     _lastARHeadingUpdateAt = null;
     _placementPlanner.clear();
+    _memoryProjectionCache.clear();
     _scheduleCaptureDetach();
     _nativeSceneRefreshQueued = false;
     _nativeSceneDiagnosticsResetScheduled = false;
@@ -863,6 +866,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       memories: anchors,
       viewerPose: viewerPose,
       onlyInRange: false,
+      cache: _memoryProjectionCache,
     );
     final trailStopNumbers = _trailStopNumbers();
     final activeProjectedAnchors = _activeProjectedAnchors(
