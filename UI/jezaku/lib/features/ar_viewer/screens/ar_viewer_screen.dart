@@ -994,7 +994,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                                     key: const ValueKey('ar_pose_source_status'),
                                     icon: _poseSourceIcon(),
                                     label: _poseSourceShortLabel(),
-                                    color: _poseSourceColor(),
+                                    color: _poseSourceColor(Theme.of(context).colorScheme),
                                     tooltip: _poseSourceDetailLabel(),
                                   ),
                                 ],
@@ -2738,23 +2738,26 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     return Icons.hourglass_empty;
   }
 
-  Color _sceneDiagnosticsColor(ARMemorySceneDiagnostics diagnostics) {
+  Color _sceneDiagnosticsColor(
+    ARMemorySceneDiagnostics diagnostics,
+    ColorScheme colors,
+  ) {
     if (diagnostics.hasNativeSceneFailure) {
-      return Colors.redAccent.shade100;
+      return colors.error;
     }
     if (diagnostics.hasCloudAnchorFailures) {
       return Colors.redAccent.shade100;
     }
     if (diagnostics.hasSessionConfigDowngrades) {
-      return Colors.amberAccent.shade100;
+      return colors.tertiary;
     }
     if (diagnostics.hasCloudAnchorRetryScheduled) {
-      return Colors.blueAccent.shade100;
+      return colors.secondary;
     }
     if (diagnostics.hasSyncedScene) {
-      return Colors.cyanAccent.shade100;
+      return colors.primary;
     }
-    return Colors.white70;
+    return colors.onSurfaceVariant;
   }
 
   IconData _sessionHealthIcon(ARMemorySceneDiagnostics diagnostics) {
@@ -2777,25 +2780,29 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     return Icons.sensors;
   }
 
-  Color _sessionHealthColor(ARMemorySceneDiagnostics diagnostics) {
+  Color _sessionHealthColor(
+    ARMemorySceneDiagnostics diagnostics,
+    ColorScheme colors,
+  ) {
     final assessment = diagnostics.sessionHealthAssessment;
     if (assessment == null) {
       return Colors.white70;
     }
     return switch (assessment.severity) {
-      ARSessionHealthSeverity.good => Colors.greenAccent.shade100,
-      ARSessionHealthSeverity.warning => Colors.amberAccent.shade100,
+      ARSessionHealthSeverity.good => colors.primary,
+      ARSessionHealthSeverity.warning => colors.tertiary,
       ARSessionHealthSeverity.blocked => assessment.hasIssue(
           ARSessionHealthIssue.sessionStopped,
         )
-            ? Colors.redAccent.shade100
-            : Colors.amberAccent.shade100,
+            ? colors.error
+            : colors.tertiary,
     };
   }
 
   List<Widget> _capabilityHudPills(
     AsyncValue<JejakuARSessionPlan> arSessionPlan,
     ARMemorySceneDiagnostics sceneDiagnostics,
+    ColorScheme colors,
   ) {
     return arSessionPlan.when(
       data: (plan) {
@@ -2819,10 +2826,10 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                     ? Icons.map_outlined
                     : Icons.portable_wifi_off;
         final placementColor = isPlacementPaused
-            ? _sessionHealthColor(sceneDiagnostics)
+            ? _sessionHealthColor(sceneDiagnostics, colors)
             : capabilities.canPlaceMemories
-                ? Colors.cyanAccent.shade100
-                : Colors.white70;
+                ? colors.primary
+                : colors.onSurfaceVariant;
         final placementTooltip =
             isPlacementPaused ? placementReadiness.detailLabel : null;
         final recordingLabel = capabilities.recordingMode ==
@@ -2854,15 +2861,15 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
             icon: Icons.videocam_outlined,
             label: recordingLabel,
             color: capabilities.canRecord
-                ? Colors.greenAccent.shade100
-                : Colors.white70,
+                ? colors.primary
+                : colors.onSurfaceVariant,
             tooltip: recordingTooltip,
           ),
           if (plan.hasNativeDowngrades)
             _HudPill(
               icon: Icons.tune,
               label: 'AR limited',
-              color: Colors.amberAccent.shade100,
+              color: colors.tertiary,
               tooltip: downgradeTooltip,
             ),
         ];
@@ -2871,7 +2878,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         _HudPill(
           icon: Icons.map_outlined,
           label: 'Local AR',
-          color: Colors.cyanAccent.shade100,
+          color: colors.primary,
         ),
         const _HudPill(
           icon: Icons.videocam_outlined,
@@ -2883,7 +2890,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         _HudPill(
           icon: Icons.sensors,
           label: 'AR check',
-          color: Colors.blueAccent.shade100,
+          color: colors.secondary,
         ),
         _HudPill(
           icon: Icons.videocam_outlined,
@@ -3230,13 +3237,13 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     return Icons.explore_outlined;
   }
 
-  Color _poseSourceColor() {
+  Color _poseSourceColor(ColorScheme colors) {
     if (_hasFreshARPose()) {
-      return Colors.greenAccent.shade100;
+      return colors.primary;
     }
     return _lastARCameraFrameAt == null
-        ? Colors.amberAccent.shade100
-        : Colors.orangeAccent.shade100;
+        ? colors.tertiary
+        : colors.error;
   }
 
   String _poseRecoveryGuidance() {
