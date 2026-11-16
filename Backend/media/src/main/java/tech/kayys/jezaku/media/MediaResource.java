@@ -11,8 +11,11 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import tech.kayys.jezaku.auth.AuthContext;
 import tech.kayys.jezaku.media.MediaDtos.MediaLifecycleEventsResponse;
 import tech.kayys.jezaku.media.MediaDtos.MediaListResponse;
 import tech.kayys.jezaku.media.MediaDtos.MediaMemorySnapshotSyncResponse;
@@ -44,9 +47,17 @@ public class MediaResource {
     @Inject
     MediaService service;
 
+    @Context
+    ContainerRequestContext requestContext;
+
+    private void self(String userId) {
+        AuthContext.requireSelf(requestContext, userId);
+    }
+
     @POST
     @Path("/uploads")
     public Uni<Response> createUpload(UploadCreateRequest request) {
+        self(request == null ? null : request.ownerId());
         return service.createUpload(request)
                 .map(upload -> Response.status(Response.Status.CREATED).entity(upload).build());
     }
@@ -56,6 +67,7 @@ public class MediaResource {
     public Uni<MediaResponse> completeUpload(
             @PathParam("uploadId") String uploadId,
             UploadCompleteRequest request) {
+        self(request == null ? null : request.ownerId());
         return service.completeUpload(uploadId, request);
     }
 
@@ -168,6 +180,7 @@ public class MediaResource {
     @GET
     @Path("/users/{ownerId}")
     public Uni<MediaListResponse> userMedia(@PathParam("ownerId") String ownerId) {
+        self(ownerId);
         return service.userMedia(ownerId);
     }
 
@@ -176,6 +189,7 @@ public class MediaResource {
     public Uni<Response> delete(
             @PathParam("mediaId") String mediaId,
             @QueryParam("ownerId") String ownerId) {
+        self(ownerId);
         return service.delete(mediaId, ownerId)
                 .replaceWith(Response.noContent().build());
     }

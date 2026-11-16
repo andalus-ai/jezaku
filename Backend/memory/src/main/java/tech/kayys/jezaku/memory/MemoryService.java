@@ -120,9 +120,14 @@ public class MemoryService {
     }
 
     public Uni<MemoryResponse> get(String id, Double lat, Double lng) {
+        return get(id, lat, lng, null);
+    }
+
+    /** {@code viewerId} is the authenticated caller, or null when anonymous. Hidden memories look absent. */
+    public Uni<MemoryResponse> get(String id, Double lat, Double lng, String viewerId) {
         return Uni.createFrom().item(() -> {
             MemoryRecord memory = repository.findById(id);
-            if (memory == null) {
+            if (memory == null || !MemoryAccessPolicy.canView(memory.ownerId(), viewerId, publicVisible(memory))) {
                 throw new NotFoundException("Memory not found: " + id);
             }
             GeoPoint viewer = lat == null || lng == null ? memory.position() : new GeoPoint(lat, lng, null);
@@ -256,10 +261,15 @@ public class MemoryService {
     }
 
     public Uni<MemoryFeedResponse> userMemories(String userId) {
+        return userMemories(userId, null);
+    }
+
+    public Uni<MemoryFeedResponse> userMemories(String userId, String viewerId) {
         return Uni.createFrom().item(() -> {
             String normalizedUserId = requireText(userId, "userId");
             List<MemoryResponse> result = repository.findAll().stream()
                     .filter(memory -> memory.ownerId().equals(normalizedUserId))
+                    .filter(memory -> MemoryAccessPolicy.canView(memory.ownerId(), viewerId, publicVisible(memory)))
                     .sorted(Comparator.comparing(MemoryRecord::capturedAt).reversed())
                     .map(memory -> toResponse(memory, memory.position()))
                     .toList();
@@ -338,7 +348,15 @@ public class MemoryService {
     }
 
     public Uni<Void> delete(String id) {
+        return delete(id, null);
+    }
+
+    public Uni<Void> delete(String id, String callerId) {
         return Uni.createFrom().item(() -> {
+            MemoryRecord existing = repository.findById(id);
+            if (existing != null && !MemoryAccessPolicy.canModify(existing.ownerId(), callerId)) {
+                throw new ForbiddenException("Only the memory owner can delete the memory");
+            }
             if (!repository.deleteById(id)) {
                 throw new NotFoundException("Memory not found: " + id);
             }
