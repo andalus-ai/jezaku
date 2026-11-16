@@ -200,7 +200,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Native error'), findsOneWidget);
-    expect(find.text('Bad state: node unavailable'), findsOneWidget);
+    // The viewer HUD repeats the failure, so scope to the sheet.
+    expect(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text('Bad state: node unavailable'),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.textContaining('Native scene sync failed 2026-05-30 10:05 UTC'),
       findsWidgets,
@@ -529,7 +536,10 @@ void main() {
     expect(find.text('Live session report'), findsOneWidget);
     expect(find.text('Runtime'), findsOneWidget);
     expect(
-      find.text('ARCore: AR camera frame unavailable'),
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text('ARCore: AR camera frame unavailable'),
+      ),
       findsOneWidget,
     );
     expect(find.text('Runtime detail'), findsOneWidget);
@@ -1223,7 +1233,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Native error'), findsOneWidget);
-      expect(find.text('Bad state: node unavailable'), findsOneWidget);
+      // The viewer HUD repeats the failure, so scope to the sheet.
+    expect(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text('Bad state: node unavailable'),
+      ),
+      findsOneWidget,
+    );
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }
