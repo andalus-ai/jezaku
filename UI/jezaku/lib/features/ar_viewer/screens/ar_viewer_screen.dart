@@ -2248,11 +2248,15 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       barrierDismissible: false,
       builder: (dialogContext) {
         final theme = Theme.of(dialogContext);
+        final distanceMeters = placement?.distanceMeters;
+        final distanceText = distanceMeters == null
+            ? 'nearby'
+            : 'about ${distanceMeters.toStringAsFixed(1)} m';
         final placementLabel = placement == null
             ? 'Placement unavailable — the photo can still be published.'
             : placement.planeId == null
-                ? 'Floating in space • about ${placement.distanceMeters.toStringAsFixed(1)} m ahead'
-                : 'Near a detected vertical surface • about ${placement.distanceMeters.toStringAsFixed(1)} m away';
+                ? 'Floating in space • $distanceText ahead'
+                : 'Near a detected vertical surface • $distanceText away';
         return AlertDialog(
           key: const ValueKey('ar_snapshot_confirmation_dialog'),
           title: const Text('Review AR photo'),
