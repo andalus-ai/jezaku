@@ -278,62 +278,80 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ],
                     ),
                   ),
-                  if (hasActiveTrail) ...[
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-                      child: _ContinueARTrailCard(
-                        progress: activeTrailProgress,
-                        currentStopTitle:
-                            _anchorTitleFor(anchors, activeTrailProgress),
-                        onResume: () => _resumeArTrail(activeTrailProgress),
-                      ),
-                    ),
-                  ],
-                  if (shouldShowTrailPulse) ...[
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-                      child: _TrailPulseCard(
-                        summary: trailSummary,
-                        savedTrails: savedTrails,
-                        achievements: trailAchievements,
-                        lifetimeStats: trailLifetimeStats,
-                        recentUnlocks: recentUnlocks,
-                        onOpenProfile: widget.onOpenTrailProfile,
-                        onReplayTrail: _replayTrail,
-                        onStartNearbyTrail: visibleJourneySteps.isEmpty
-                            ? null
-                            : () => _openArTrail(visibleJourneySteps),
-                        onOpenRoute: _openTrailPulseRoute,
-                      ),
-                    ),
-                  ],
+                  // Trail cards and the memory list scroll together, so a tall
+                  // card on a short screen can never push the list off the sheet.
                   Expanded(
-                    child: visibleAnchors.isEmpty
-                        ? MemoryEmptyState(
-                            hasAnyMemories: anchors.isNotEmpty,
-                            onCapture: () => Navigator.pushNamed(
-                              context,
-                              AppRoutes.camera,
+                    child: CustomScrollView(
+                      slivers: [
+                        if (hasActiveTrail)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+                              child: _ContinueARTrailCard(
+                                progress: activeTrailProgress,
+                                currentStopTitle: _anchorTitleFor(
+                                  anchors,
+                                  activeTrailProgress,
+                                ),
+                                onResume: () =>
+                                    _resumeArTrail(activeTrailProgress),
+                              ),
                             ),
-                            onResetFilter: () =>
-                                setState(() => _filter = 'Nearby'),
+                          ),
+                        if (shouldShowTrailPulse)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+                              child: _TrailPulseCard(
+                                summary: trailSummary,
+                                savedTrails: savedTrails,
+                                achievements: trailAchievements,
+                                lifetimeStats: trailLifetimeStats,
+                                recentUnlocks: recentUnlocks,
+                                onOpenProfile: widget.onOpenTrailProfile,
+                                onReplayTrail: _replayTrail,
+                                onStartNearbyTrail: visibleJourneySteps.isEmpty
+                                    ? null
+                                    : () => _openArTrail(visibleJourneySteps),
+                                onOpenRoute: _openTrailPulseRoute,
+                              ),
+                            ),
+                          ),
+                        if (visibleAnchors.isEmpty)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: MemoryEmptyState(
+                              hasAnyMemories: anchors.isNotEmpty,
+                              onCapture: () => Navigator.pushNamed(
+                                context,
+                                AppRoutes.camera,
+                              ),
+                              onResetFilter: () =>
+                                  setState(() => _filter = 'Nearby'),
+                            ),
                           )
-                        : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                          itemCount: visibleAnchors.length,
-                          itemBuilder: (context, index) {
-                            final anchor = visibleAnchors[index];
-                            final linkedWalls = wallsLinkedToMemory(
-                              anchor.id,
-                              walls,
-                            );
-                            return AnchorListTile(
-                              anchor: anchor,
-                              linkedWallLabel: _linkedWallLabel(linkedWalls),
-                              onTap: () => _openMemoryDetails(anchor),
-                            );
-                          },
-                        ),
+                        else
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                            sliver: SliverList.builder(
+                              itemCount: visibleAnchors.length,
+                              itemBuilder: (context, index) {
+                                final anchor = visibleAnchors[index];
+                                final linkedWalls = wallsLinkedToMemory(
+                                  anchor.id,
+                                  walls,
+                                );
+                                return AnchorListTile(
+                                  anchor: anchor,
+                                  linkedWallLabel:
+                                      _linkedWallLabel(linkedWalls),
+                                  onTap: () => _openMemoryDetails(anchor),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ],
               ),
