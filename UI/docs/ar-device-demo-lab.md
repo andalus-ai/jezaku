@@ -50,7 +50,11 @@ Do not weaken production authentication or authorization to make device testing 
 - [ ] Test relocalization after briefly pointing the camera away.
 - [ ] Confirm unsupported device capabilities are reported rather than silently failing.
 
-### 3. Photo frame rendering
+### 3. Free-space photo frame rendering
+
+**Placement contract: frames float freely in tracked AR world space. They are not wall-mounted.** A detected plane may be used as an optional placement aid, but plane detection must not be a prerequisite for placing a frame. The user can position a frame at arbitrary reachable height, depth and orientation in front of the camera, including in open air, above furniture, or as part of a floating gallery.
+
+Frames should use a stable world-space pose (position and rotation) so they remain visually anchored while the user walks around them. The placement flow should support preview, confirm, reposition, rotate, scale, select and delete. Where the runtime cannot maintain tracking, show a clear tracking warning rather than silently snapping frames to a wall or floor.
 
 The package currently provides these frame presets through `JejakuHangingPhotoFrameStyle`:
 
@@ -59,7 +63,7 @@ The package currently provides these frame presets through `JejakuHangingPhotoFr
 - `darkGallery`
 - `floatingGlass`
 
-For each preset, validate front/back material visibility, border proportions, photo recess, depth, transparency where applicable, and behavior at different viewing angles. A local fixture gallery that creates these frames without account-backed memory records is a follow-up implementation task; the current launcher does not seed sample memories automatically.
+For each preset, validate front/back material visibility, border proportions, photo recess, depth, transparency where applicable, and behavior at different viewing angles. Test frames at multiple world-space positions and rotations, including positions with no detected plane nearby. A local fixture gallery that creates these frames without account-backed memory records is a follow-up implementation task; the current launcher does not seed sample memories automatically.
 
 ### 4. Snapshot and recording
 
@@ -87,4 +91,4 @@ For each preset, validate front/back material visibility, border proportions, ph
 
 ## Follow-up implementation
 
-The next Demo Lab increment should add a debug-only local fixture gallery with bundled sample photographs, one in-memory sample per frame preset, direct placement controls, and a local capture review screen. The fixtures must be isolated from production memory providers and must not create cloud anchors or account records.
+The next Demo Lab increment should add a debug-only local fixture gallery with bundled sample photographs, one in-memory sample per frame preset, free-space world-pose placement controls (not wall-only placement), and a local capture review screen. The fixtures must be isolated from production memory providers and must not create cloud anchors or account records.
