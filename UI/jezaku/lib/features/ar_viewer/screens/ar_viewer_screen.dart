@@ -870,9 +870,22 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                           ValueListenableBuilder<JejakuGeospatialAssessment>(
                             valueListenable: _placementAssessment,
                             builder: (context, assessment, _) {
-                              return ARPlacementQualityChip(
-                                key: const ValueKey('ar_placement_quality_chip'),
-                                assessment: assessment,
+                              return Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ARPlacementQualityChip(
+                                    key: const ValueKey('ar_placement_quality_chip'),
+                                    assessment: assessment,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  _HudPill(
+                                    key: const ValueKey('ar_pose_source_status'),
+                                    icon: _poseSourceIcon(),
+                                    label: _poseSourceShortLabel(),
+                                    color: _poseSourceColor(),
+                                    tooltip: _poseSourceDetailLabel(),
+                                  ),
+                                ],
                               );
                             },
                           ),
@@ -1100,7 +1113,15 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _lastARCameraFrameAt = now;
     final hadTrackingCamera = _latestARCamera?.isTracking == true;
     _latestARCamera = camera;
-    if (!mounted || !camera.isTracking) {
+    if (!mounted) {
+      return;
+    }
+    if (hadTrackingCamera != camera.isTracking) {
+      // Surface tracking loss and recovery immediately without rebuilding on
+      // every camera frame.
+      setState(() {});
+    }
+    if (!camera.isTracking) {
       return;
     }
     if (!hadTrackingCamera && _nativeMemoryScene != null) {
@@ -2796,20 +2817,38 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
 
   bool _hasFreshARPose() {
     final lastARFrameAt = _lastARCameraFrameAt;
-    return lastARFrameAt != null &&
+    return _latestARCamera?.isTracking == true &&
+        lastARFrameAt != null &&
+        DateTime.now().toUtc().difference(lastARFrameAt) <
+            const Duration(seconds: 2);
+  }
+
+  bool _isRelocalizing() {
+    final lastARFrameAt = _lastARCameraFrameAt;
+    return _latestARCamera?.isTracking == false &&
+        lastARFrameAt != null &&
         DateTime.now().toUtc().difference(lastARFrameAt) <
             const Duration(seconds: 2);
   }
 
   String _poseSourceShortLabel() {
     if (_hasFreshARPose()) {
-      return 'AR pose';
+      return 'AR tracking';
+    }
+    if (_isRelocalizing()) {
+      return 'Relocalizing · GPS';
     }
     return _lastARCameraFrameAt == null ? 'GPS fallback' : 'AR stale · GPS';
   }
 
   IconData _poseSourceIcon() {
-    return _hasFreshARPose() ? Icons.view_in_ar : Icons.explore_outlined;
+    if (_hasFreshARPose()) {
+      return Icons.view_in_ar;
+    }
+    if (_isRelocalizing()) {
+      return Icons.center_focus_weak;
+    }
+    return Icons.explore_outlined;
   }
 
   Color _poseSourceColor() {
@@ -2831,8 +2870,11 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         .difference(lastARFrameAt)
         .inMilliseconds
         .clamp(0, 9999);
-    if (ageMs < 2000) {
-      return 'Tracking with a recent ARCore camera pose.';
+    if (_hasFreshARPose()) {
+      return 'ARCore tracking is active. Heading uses the live camera pose.';
+    }
+    if (_isRelocalizing()) {
+      return 'ARCore is trying to relocalize. Heading temporarily uses compass/GPS fallback; keep the camera pointed at a well-lit area with recognizable features.';
     }
     return 'ARCore camera pose is stale (${ageMs} ms). Heading currently uses compass/GPS fallback.';
   }
