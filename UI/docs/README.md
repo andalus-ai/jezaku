@@ -1,5 +1,8 @@
 # UI Documentation
 
+- [AR Device Demo Lab](ar-device-demo-lab.md) — offline-first physical-device testing workflow for AR runtime, placement, photo frames, snapshots and recording.
+
+
 This directory documents the Flutter client, main application, reusable Dart packages, and shared UI/UX standards.
 
 ## Documents
