@@ -892,6 +892,70 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                         ],
                       ),
                     ),
+                    if (_arController != null && !_hasFreshARPose())
+                      Positioned(
+                        key: const ValueKey('ar_tracking_recovery_guidance'),
+                        top: 72,
+                        right: 16,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 224),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.76),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: _isRelocalizing()
+                                    ? Colors.orangeAccent.shade100
+                                    : Colors.amberAccent.shade100,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    _isRelocalizing()
+                                        ? Icons.center_focus_weak
+                                        : Icons.lightbulb_outline,
+                                    color: _poseSourceColor(),
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          _isRelocalizing()
+                                              ? 'Recovering AR tracking'
+                                              : 'AR tracking unavailable',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          _poseRecoveryGuidance(),
+                                          style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 11,
+                                            height: 1.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     Positioned(
                       top: 16,
                       right: 16,
@@ -2858,6 +2922,20 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     return _lastARCameraFrameAt == null
         ? Colors.amberAccent.shade100
         : Colors.orangeAccent.shade100;
+  }
+
+  String _poseRecoveryGuidance() {
+    if (_isRelocalizing()) {
+      return 'Move the phone slowly. Aim at a well-lit area with distinct '
+          'edges or textured surfaces, and avoid blank walls.';
+    }
+    if (_lastARCameraFrameAt == null) {
+      return 'Point the camera at a well-lit area with visible detail. '
+          'Compass/GPS is being used until AR tracking starts.';
+    }
+    return 'AR pose updates are stale. Keep the app in the foreground, '
+        'move slowly, and scan nearby surfaces to resume tracking. '
+        'Compass/GPS is only an approximate fallback.';
   }
 
   String _poseSourceDetailLabel() {
