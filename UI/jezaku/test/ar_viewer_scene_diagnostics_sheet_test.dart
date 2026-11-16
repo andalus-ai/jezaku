@@ -551,9 +551,12 @@ void main() {
     );
     expect(find.text('Runtime action'), findsOneWidget);
     expect(
-      find.text(
-        'Keep the camera view unobstructed, move the device slightly, and wait '
-        'for the first AR frame.',
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text(
+          'Keep the camera view unobstructed, move the device slightly, and '
+          'wait for the first AR frame.',
+        ),
       ),
       findsOneWidget,
     );
