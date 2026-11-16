@@ -150,6 +150,14 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   ARCamera? _latestARCamera;
   DateTime? _lastARCameraFrameAt;
   DateTime? _lastARHeadingUpdateAt;
+  DateTime? _lastOverlayPerformanceLogAt;
+  DateTime? _lastFramePerformanceLogAt;
+  Duration _lastProjectionBuildDuration = Duration.zero;
+  int _frameTimingSampleCount = 0;
+  int _frameBuildMicrosTotal = 0;
+  int _frameRasterMicrosTotal = 0;
+  int _frameTotalMicrosTotal = 0;
+  int _frameTotalMicrosMax = 0;
 
   static String _createDiagnosticsSessionId() {
     final serial = _diagnosticsSessionSerial++;
@@ -164,6 +172,9 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _captureController = ref.read(arViewerCaptureProvider.notifier);
     _arPermissionsFuture = _checkARRuntimePermissions();
     WidgetsBinding.instance.addObserver(this);
+    if (kDebugMode) {
+      WidgetsBinding.instance.addTimingsCallback(_handleFrameTimings);
+    }
     final initialHeading =
         ref.read(captureSessionProvider).previewSnapshot.headingDegrees;
     if (initialHeading.isFinite) {
@@ -817,6 +828,9 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _lastARHeadingUpdateAt = null;
     _placementPlanner.clear();
     _memoryProjectionCache.clear();
+    if (kDebugMode) {
+      WidgetsBinding.instance.removeTimingsCallback(_handleFrameTimings);
+    }
     _scheduleCaptureDetach();
     _nativeSceneRefreshQueued = false;
     _nativeSceneDiagnosticsResetScheduled = false;
@@ -862,12 +876,16 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       verticalFovDegrees: 52,
       maxDistanceMeters: 260,
     );
+    final projectionStopwatch = kDebugMode ? (Stopwatch()..start()) : null;
     final projectedAnchors = projectAnchorMemories(
       memories: anchors,
       viewerPose: viewerPose,
       onlyInRange: false,
       cache: _memoryProjectionCache,
     );
+    projectionStopwatch?.stop();
+    _lastProjectionBuildDuration =
+        Duration(microseconds: projectionStopwatch?.elapsedMicroseconds ?? 0);
     final trailStopNumbers = _trailStopNumbers();
     final activeProjectedAnchors = _activeProjectedAnchors(
       projectedAnchors,
@@ -919,6 +937,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                         focusedMemoryId: _focusedMemoryId,
                         trailStopNumbers: trailStopNumbers,
                         wallTitlesByMemoryId: wallTitlesByMemoryId,
+                        totalMemoryCount: anchors.length,
                       ),
                     // Subtle edge scrims keep controls and status readable
                     // over bright skies without dimming the center camera view.
@@ -2026,7 +2045,9 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     required String? focusedMemoryId,
     required Map<String, int> trailStopNumbers,
     required Map<String, List<String>> wallTitlesByMemoryId,
+    required int totalMemoryCount,
   }) {
+    final overlayStopwatch = kDebugMode ? (Stopwatch()..start()) : null;
     // Keep every on-screen anchor and the focused anchor, but bound
     // off-screen bubbles to the eight nearest memories. The radar and list
     // still expose the complete collection; this only limits expensive
@@ -2120,7 +2141,94 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         ),
       );
     }
+    overlayStopwatch?.stop();
+    _logOverlayPerformance(
+      totalMemoryCount: totalMemoryCount,
+      candidateCount: anchors.length,
+      visibleCount: visibleAnchors.length,
+      renderedCount: orderedAnchors.length,
+      projectionDuration: _lastProjectionBuildDuration,
+      overlayDuration: Duration(
+        microseconds: overlayStopwatch?.elapsedMicroseconds ?? 0,
+      ),
+    );
     return overlays;
+  }
+
+  void _handleFrameTimings(List<ui.FrameTiming> timings) {
+    if (!kDebugMode || timings.isEmpty) {
+      return;
+    }
+    for (final timing in timings) {
+      final buildMicros = timing.buildDuration.inMicroseconds;
+      final rasterMicros = timing.rasterDuration.inMicroseconds;
+      final totalMicros = timing.totalSpan.inMicroseconds;
+      _frameTimingSampleCount++;
+      _frameBuildMicrosTotal += buildMicros;
+      _frameRasterMicrosTotal += rasterMicros;
+      _frameTotalMicrosTotal += totalMicros;
+      if (totalMicros > _frameTotalMicrosMax) {
+        _frameTotalMicrosMax = totalMicros;
+      }
+    }
+
+    final now = DateTime.now();
+    final lastLogAt = _lastFramePerformanceLogAt;
+    if (lastLogAt != null &&
+        now.difference(lastLogAt) < const Duration(seconds: 5)) {
+      return;
+    }
+    _lastFramePerformanceLogAt = now;
+    final samples = _frameTimingSampleCount;
+    if (samples == 0) {
+      return;
+    }
+    final averageBuildMs =
+        _frameBuildMicrosTotal / samples / 1000;
+    final averageRasterMs =
+        _frameRasterMicrosTotal / samples / 1000;
+    final averageTotalMs =
+        _frameTotalMicrosTotal / samples / 1000;
+    final maxTotalMs = _frameTotalMicrosMax / 1000;
+    debugPrint(
+      '[ARViewerPerf] frame samples=$samples '
+      'avgBuild=${averageBuildMs.toStringAsFixed(2)}ms '
+      'avgRaster=${averageRasterMs.toStringAsFixed(2)}ms '
+      'avgTotal=${averageTotalMs.toStringAsFixed(2)}ms '
+      'maxTotal=${maxTotalMs.toStringAsFixed(2)}ms',
+    );
+    _frameTimingSampleCount = 0;
+    _frameBuildMicrosTotal = 0;
+    _frameRasterMicrosTotal = 0;
+    _frameTotalMicrosTotal = 0;
+    _frameTotalMicrosMax = 0;
+  }
+
+  void _logOverlayPerformance({
+    required int totalMemoryCount,
+    required int candidateCount,
+    required int visibleCount,
+    required int renderedCount,
+    required Duration projectionDuration,
+    required Duration overlayDuration,
+  }) {
+    if (!kDebugMode) {
+      return;
+    }
+    final now = DateTime.now();
+    final lastLogAt = _lastOverlayPerformanceLogAt;
+    if (lastLogAt != null &&
+        now.difference(lastLogAt) < const Duration(seconds: 5)) {
+      return;
+    }
+    _lastOverlayPerformanceLogAt = now;
+    debugPrint(
+      '[ARViewerPerf] anchors total=$totalMemoryCount '
+      'candidates=$candidateCount visible=$visibleCount '
+      'rendered=$renderedCount '
+      'projection=${projectionDuration.inMicroseconds}us '
+      'overlayBuild=${overlayDuration.inMicroseconds}us',
+    );
   }
 
   Future<void> _openPublishAndFocusPublishedMemory() async {
