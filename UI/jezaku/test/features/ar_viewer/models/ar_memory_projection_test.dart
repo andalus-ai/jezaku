@@ -203,6 +203,39 @@ void main() {
       expect(identical(second, first), isTrue);
     });
 
+    test('reuses completed projection for 1000 unchanged memories', () {
+      final cache = ARMemoryProjectionCache();
+      final memories = List<AnchorMemory>.generate(
+        1000,
+        (index) => memory(id: 'projected-$index'),
+        growable: false,
+      );
+      const pose = JejakuViewerPose(
+        origin: JejakuGeoOrigin(
+          latitude: -6.9,
+          longitude: 107.6,
+          altitudeMeters: 700,
+        ),
+        maxDistanceMeters: 260,
+      );
+
+      final first = projectAnchorMemories(
+        memories: memories,
+        viewerPose: pose,
+        onlyInRange: false,
+        cache: cache,
+      );
+      final second = projectAnchorMemories(
+        memories: memories,
+        viewerPose: pose,
+        onlyInRange: false,
+        cache: cache,
+      );
+
+      expect(first, hasLength(1000));
+      expect(identical(second, first), isTrue);
+    });
+
     test('reprojects when any viewer pose input changes', () {
       final cache = ARMemoryProjectionCache();
       final anchorMemory = memory();
