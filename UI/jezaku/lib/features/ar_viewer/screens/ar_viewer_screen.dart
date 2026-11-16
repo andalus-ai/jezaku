@@ -395,6 +395,9 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   }
 
   bool _backgrounded = false;
+  bool _isResumingARSession = false;
+  String? _arResumeError;
+  int _arSessionGeneration = 0;
 
   /// Only `paused` pauses live tracking: `inactive` also fires while a system
   /// permission dialog is showing, and pausing then would fight the prompt.
@@ -412,32 +415,95 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       return;
     }
     _backgrounded = true;
-    // Stop GPS/compass streams and the sensor refresh while the app is not
-    // visible; they only burn battery.
     _viewerPoseRefreshTimer?.cancel();
     _viewerPoseRefreshTimer = null;
     _poseTracker.stop();
+    // Do not treat a pre-background camera frame as current tracking.
+    _latestARCamera = null;
+    _lastARCameraFrameAt = null;
+    _lastARHeadingUpdateAt = null;
+    if (mounted) {
+      setState(() {
+        _isResumingARSession = false;
+        _arResumeError = null;
+      });
+    }
     final controller = _arController;
     if (controller != null && !controller.isDisposed) {
       unawaited(controller.pause().catchError((Object _) {}));
     }
   }
 
-  void _resumeLiveTracking() {
-    if (!_backgrounded) {
+  Future<void> _resumeLiveTracking() async {
+    if (!_backgrounded || !mounted) {
       return;
     }
     _backgrounded = false;
+    setState(() {
+      _isResumingARSession = _arController != null;
+      _arResumeError = null;
+    });
+
+    // Camera permission may have been revoked in system settings.
+    final permissions = await _arPermissionService.check();
     if (!mounted) {
       return;
     }
+    if (!permissions.cameraGranted) {
+      setState(() {
+        _arPermissionsFuture = Future<ARRuntimePermissions>.value(permissions);
+        _isResumingARSession = false;
+      });
+      return;
+    }
+
     final controller = _arController;
     if (controller != null && !controller.isDisposed) {
-      unawaited(controller.resume().catchError((Object _) {}));
+      try {
+        await controller.resume();
+      } on Object catch (error) {
+        if (mounted) {
+          setState(() {
+            _arResumeError = error.toString();
+            _isResumingARSession = false;
+          });
+        }
+        return;
+      }
     }
+    if (!mounted) {
+      return;
+    }
+    setState(() => _isResumingARSession = false);
     if (ref.read(arViewerLivePoseTrackingProvider)) {
       _startViewerPoseTracking();
     }
+  }
+
+  void _retryARSessionAfterInterruption() {
+    if (!mounted) {
+      return;
+    }
+    _stopGeospatialQualityMonitor();
+    unawaited(_arCameraSubscription?.cancel());
+    _arCameraSubscription = null;
+    _scheduleCaptureDetach();
+    setState(() {
+      _arResumeError = null;
+      _isResumingARSession = true;
+      _arSessionGeneration++;
+      _arController = null;
+      _nativeMemoryScene = null;
+      _nativeCloudAnchorManager = null;
+      _latestARCamera = null;
+      _lastARCameraFrameAt = null;
+      _latestSessionReadiness = null;
+      _nativeMemoryPlacementAllowed = false;
+      _nativeSceneFingerprint = null;
+    });
+    ref.invalidate(arViewerCapabilitiesProvider);
+    ref.invalidate(arViewerSessionPlanProvider);
+    ref.invalidate(arViewerSessionConfigProvider);
   }
 
   void _startViewerPoseTracking() {
@@ -892,6 +958,90 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                         ],
                       ),
                     ),
+                    if (_isResumingARSession || _arResumeError != null)
+                      Positioned(
+                        key: const ValueKey('ar_session_interruption_panel'),
+                        left: 16,
+                        right: 16,
+                        top: 76,
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 360),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.86),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: _arResumeError == null
+                                      ? Colors.white24
+                                      : Colors.orangeAccent,
+                                ),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(14),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        if (_isResumingARSession)
+                                          const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        else
+                                          const Icon(
+                                            Icons.warning_amber_rounded,
+                                            color: Colors.orangeAccent,
+                                            size: 20,
+                                          ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            _arResumeError == null
+                                                ? 'Resuming AR session'
+                                                : 'AR session needs to restart',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      _arResumeError == null
+                                          ? 'The camera may take a moment to relocalize. Keep the app open and slowly scan the area.'
+                                          : 'The camera session could not resume. Restart AR to continue. $_arResumeError',
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                    if (_arResumeError != null) ...[
+                                      const SizedBox(height: 10),
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: FilledButton.tonal(
+                                          key: const ValueKey('ar_session_restart_button'),
+                                          onPressed: _retryARSessionAfterInterruption,
+                                          child: const Text('Restart AR'),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     if (_arController != null && !_hasFreshARPose())
                       Positioned(
                         key: const ValueKey('ar_tracking_recovery_guidance'),
@@ -1067,7 +1217,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
               children: [
                 Positioned.fill(
                   child: ARWidget(
-                    key: const ValueKey('native_ar_hanging_photo_view'),
+                    key: ValueKey('native_ar_hanging_photo_view_$_arSessionGeneration'),
                     // Geospatial stays as resolved against device capabilities
                     // so memories can lock to real-world coordinates. Placement
                     // quality is reported in the HUD; GPS/compass projection
@@ -1146,6 +1296,10 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     if (!mounted) {
       return;
     }
+    setState(() {
+      _isResumingARSession = false;
+      _arResumeError = null;
+    });
     _arCameraSubscription?.cancel();
     _arCameraSubscription = controller.onCameraUpdate.listen(
       _handleNativeCameraUpdate,
