@@ -66,7 +66,7 @@ Future<void> _revealFilterChip(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
-Never _diagnoseTap(WidgetTester tester, Finder target, String label) async {
+Future<void> _diagnoseTap(WidgetTester tester, Finder target, String label) async {
   final center = tester.getCenter(target.first);
   final hit = tester.hitTestOnBinding(center);
   final path = hit.path
