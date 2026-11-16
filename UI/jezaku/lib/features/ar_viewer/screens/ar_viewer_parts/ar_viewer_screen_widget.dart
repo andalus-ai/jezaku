@@ -1,11 +1,5 @@
 part of '../ar_viewer_screen.dart';
 
-enum _TrailLaunchConflictChoice {
-  resumeCurrent,
-  replace,
-  cancel,
-}
-
 enum _ARHudPreset {
   defaultView,
   minimal,
