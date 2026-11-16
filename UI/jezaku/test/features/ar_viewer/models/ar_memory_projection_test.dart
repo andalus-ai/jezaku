@@ -174,6 +174,106 @@ void main() {
       expect(identical(reordered.memoryById['anchor-1'], firstMemory), isTrue);
     });
 
+    test('reuses completed projections when anchors and pose are unchanged',
+        () {
+      final cache = ARMemoryProjectionCache();
+      final anchorMemory = memory();
+      final pose = JejakuViewerPose(
+        origin: const JejakuGeoOrigin(
+          latitude: -6.9,
+          longitude: 107.6,
+          altitudeMeters: 700,
+        ),
+        headingDegrees: 0,
+      );
+
+      final first = projectAnchorMemories(
+        memories: <AnchorMemory>[anchorMemory],
+        viewerPose: pose,
+        onlyInRange: false,
+        cache: cache,
+      );
+      final second = projectAnchorMemories(
+        memories: <AnchorMemory>[anchorMemory],
+        viewerPose: pose,
+        onlyInRange: false,
+        cache: cache,
+      );
+
+      expect(identical(second, first), isTrue);
+    });
+
+    test('reprojects when any viewer pose input changes', () {
+      final cache = ARMemoryProjectionCache();
+      final anchorMemory = memory();
+      final memories = <AnchorMemory>[anchorMemory];
+      const origin = JejakuGeoOrigin(
+        latitude: -6.9,
+        longitude: 107.6,
+        altitudeMeters: 700,
+      );
+
+      final first = projectAnchorMemories(
+        memories: memories,
+        viewerPose: const JejakuViewerPose(
+          origin: origin,
+          headingDegrees: 0,
+        ),
+        onlyInRange: false,
+        cache: cache,
+      );
+      final changedHeading = projectAnchorMemories(
+        memories: memories,
+        viewerPose: const JejakuViewerPose(
+          origin: origin,
+          headingDegrees: 20,
+        ),
+        onlyInRange: false,
+        cache: cache,
+      );
+      final changedRangeMode = projectAnchorMemories(
+        memories: memories,
+        viewerPose: const JejakuViewerPose(
+          origin: origin,
+          headingDegrees: 20,
+        ),
+        onlyInRange: true,
+        cache: cache,
+      );
+
+      expect(identical(changedHeading, first), isFalse);
+      expect(identical(changedRangeMode, changedHeading), isFalse);
+    });
+
+    test('reprojects when the memory collection changes', () {
+      final cache = ARMemoryProjectionCache();
+      final firstMemory = memory(id: 'anchor-1');
+      final secondMemory = memory(id: 'anchor-2');
+      const pose = JejakuViewerPose(
+        origin: JejakuGeoOrigin(
+          latitude: -6.9,
+          longitude: 107.6,
+          altitudeMeters: 700,
+        ),
+      );
+
+      final first = projectAnchorMemories(
+        memories: <AnchorMemory>[firstMemory],
+        viewerPose: pose,
+        onlyInRange: false,
+        cache: cache,
+      );
+      final second = projectAnchorMemories(
+        memories: <AnchorMemory>[firstMemory, secondMemory],
+        viewerPose: pose,
+        onlyInRange: false,
+        cache: cache,
+      );
+
+      expect(identical(second, first), isFalse);
+      expect(second, hasLength(2));
+    });
+
     test('clear forces the next resolve to rebuild its inputs', () {
       final cache = ARMemoryProjectionCache();
       final anchorMemory = memory();
