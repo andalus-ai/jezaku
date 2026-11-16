@@ -118,21 +118,76 @@ class ARMemoryProjection {
   final JejakuAnchorProjection projection;
 }
 
-List<ARMemoryProjection> projectAnchorMemories({
-  required Iterable<AnchorMemory> memories,
-  required JejakuViewerPose viewerPose,
-  JejakuViewProjector projector = const JejakuViewProjector(),
-  bool onlyInRange = true,
-}) {
-  // Build the lookup and native projection inputs together. This avoids
-  // traversing a potentially large memory collection twice on every pose
-  // update while retaining the same ID-based projection mapping.
+
+/// Reuses immutable geographic inputs while the same AnchorMemory instances
+/// remain in the source collection. Viewer pose changes still run projection,
+/// but avoid rebuilding every JejakuGeoAnchor and its metadata map.
+class ARMemoryProjectionCache {
+  List<AnchorMemory> _memories = const <AnchorMemory>[];
+  Map<String, AnchorMemory> _memoryById = const <String, AnchorMemory>{};
+  List<JejakuGeoAnchor> _geoAnchors = const <JejakuGeoAnchor>[];
+  bool _hasSnapshot = false;
+
+  ({Map<String, AnchorMemory> memoryById, List<JejakuGeoAnchor> geoAnchors})
+      resolve(Iterable<AnchorMemory> memories) {
+    final nextMemories = memories.toList(growable: false);
+    var unchanged = _hasSnapshot && nextMemories.length == _memories.length;
+    if (unchanged) {
+      for (var index = 0; index < nextMemories.length; index++) {
+        if (!identical(nextMemories[index], _memories[index])) {
+          unchanged = false;
+          break;
+        }
+      }
+    }
+
+    if (!unchanged) {
+      final memoryById = <String, AnchorMemory>{};
+      final geoAnchors = <JejakuGeoAnchor>[];
+      for (final memory in nextMemories) {
+        memoryById[memory.id] = memory;
+        geoAnchors.add(memory.toJejakuGeoAnchor());
+      }
+      _memories = nextMemories;
+      _memoryById = memoryById;
+      _geoAnchors = geoAnchors;
+      _hasSnapshot = true;
+    }
+
+    return (memoryById: _memoryById, geoAnchors: _geoAnchors);
+  }
+
+  void clear() {
+    _memories = const <AnchorMemory>[];
+    _memoryById = const <String, AnchorMemory>{};
+    _geoAnchors = const <JejakuGeoAnchor>[];
+    _hasSnapshot = false;
+  }
+}
+
+({Map<String, AnchorMemory> memoryById, List<JejakuGeoAnchor> geoAnchors})
+    _buildProjectionInputs(Iterable<AnchorMemory> memories) {
   final memoryById = <String, AnchorMemory>{};
   final geoAnchors = <JejakuGeoAnchor>[];
   for (final memory in memories) {
     memoryById[memory.id] = memory;
     geoAnchors.add(memory.toJejakuGeoAnchor());
   }
+  return (memoryById: memoryById, geoAnchors: geoAnchors);
+}
+
+List<ARMemoryProjection> projectAnchorMemories({
+  required Iterable<AnchorMemory> memories,
+  required JejakuViewerPose viewerPose,
+  JejakuViewProjector projector = const JejakuViewProjector(),
+  bool onlyInRange = true,
+  ARMemoryProjectionCache? cache,
+}) {
+  // A cache hit avoids rebuilding geographic inputs and metadata maps when
+  // only the viewer pose (heading, pitch, or viewport) changes.
+  final inputs = cache?.resolve(memories) ?? _buildProjectionInputs(memories);
+  final memoryById = inputs.memoryById;
+  final geoAnchors = inputs.geoAnchors;
   final projections = projector.projectAnchors(
     viewerPose: viewerPose,
     anchors: geoAnchors,
