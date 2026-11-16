@@ -15,7 +15,7 @@ import tech.kayys.jezaku.social.SocialDtos.SocialFeedResponse;
  */
 @Path("/social")
 @Produces(MediaType.APPLICATION_JSON)
-public class SocialFeedResource {
+public class SocialFeedResource extends SocialResourceSupport {
     @Inject
     SocialService service;
 
@@ -25,6 +25,7 @@ public class SocialFeedResource {
             @QueryParam("viewerId") String viewerId,
             @QueryParam("limit") @DefaultValue("20") Integer limit,
             @QueryParam("cursor") String cursor) {
+        viewerId = viewer(viewerId);
         return service.feed(viewerId, limit, cursor);
     }
 }

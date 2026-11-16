@@ -19,7 +19,7 @@ import tech.kayys.jezaku.social.SocialDtos.SocialUserProfileUpdateRequest;
  */
 @Path("/social")
 @Produces(MediaType.APPLICATION_JSON)
-public class SocialProfileResource {
+public class SocialProfileResource extends SocialResourceSupport {
     @Inject
     SocialService service;
 
@@ -28,6 +28,7 @@ public class SocialProfileResource {
     public Uni<SocialUserProfileSummaryResponse> userProfile(
             @PathParam("userId") String userId,
             @QueryParam("viewerId") String viewerId) {
+        viewerId = viewer(viewerId);
         return service.userProfile(userId, viewerId);
     }
 
@@ -37,6 +38,7 @@ public class SocialProfileResource {
     public Uni<SocialUserProfileResponse> updateUserProfile(
             @PathParam("userId") String userId,
             SocialUserProfileUpdateRequest request) {
+        self(userId);
         return service.updateUserProfile(userId, request);
     }
 }

@@ -15,7 +15,7 @@ import tech.kayys.jezaku.social.SocialDtos.SocialSearchResponse;
  */
 @Path("/social")
 @Produces(MediaType.APPLICATION_JSON)
-public class SocialSearchResource {
+public class SocialSearchResource extends SocialResourceSupport {
     @Inject
     SocialService service;
 
@@ -27,6 +27,7 @@ public class SocialSearchResource {
             @QueryParam("types") String types,
             @QueryParam("limit") @DefaultValue("20") Integer limit,
             @QueryParam("cursor") String cursor) {
+        viewerId = viewer(viewerId);
         return service.search(viewerId, query, types, limit, cursor);
     }
 }

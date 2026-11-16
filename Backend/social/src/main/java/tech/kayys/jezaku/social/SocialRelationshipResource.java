@@ -37,7 +37,7 @@ import tech.kayys.jezaku.social.SocialDtos.SocialUserFollowResponse;
 
 @Path("/social")
 @Produces(MediaType.APPLICATION_JSON)
-public class SocialRelationshipResource {
+public class SocialRelationshipResource extends SocialResourceSupport {
     @Inject
     SocialService service;
 
@@ -45,6 +45,7 @@ public class SocialRelationshipResource {
     @Path("/friend-requests")
     @Consumes(MediaType.APPLICATION_JSON)
     public Uni<Response> createFriendRequest(FriendRequestCreateRequest request) {
+        self(request == null ? null : request.fromUserId());
         return service.createFriendRequest(request)
                 .map(created -> Response.status(Response.Status.CREATED).entity(created).build());
     }
@@ -57,6 +58,7 @@ public class SocialRelationshipResource {
             @QueryParam("status") @DefaultValue("all") String status,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(userId);
         return service.friendRequests(userId, direction, status, limit, cursor);
     }
 
@@ -65,6 +67,7 @@ public class SocialRelationshipResource {
     public Uni<FriendRequestResponse> acceptRequest(
             @PathParam("requestId") String requestId,
             @QueryParam("actorUserId") String actorUserId) {
+        self(actorUserId);
         return service.acceptRequest(requestId, actorUserId);
     }
 
@@ -73,6 +76,7 @@ public class SocialRelationshipResource {
     public Uni<FriendRequestResponse> declineRequest(
             @PathParam("requestId") String requestId,
             @QueryParam("actorUserId") String actorUserId) {
+        self(actorUserId);
         return service.declineRequest(requestId, actorUserId);
     }
 
@@ -83,6 +87,7 @@ public class SocialRelationshipResource {
             @QueryParam("viewerId") String viewerId,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        viewerId = viewer(viewerId);
         return service.friends(userId, viewerId, limit, cursor);
     }
 
@@ -91,6 +96,7 @@ public class SocialRelationshipResource {
     public Uni<Response> removeFriend(
             @PathParam("userId") String userId,
             @PathParam("friendId") String friendId) {
+        self(userId);
         return service.removeFriend(userId, friendId)
                 .replaceWith(Response.noContent().build());
     }
@@ -101,6 +107,7 @@ public class SocialRelationshipResource {
     public Uni<SocialUserFollowResponse> followUser(
             @PathParam("followedUserId") String followedUserId,
             SocialUserFollowRequest request) {
+        self(request == null ? null : request.followerId());
         return service.followUser(followedUserId, request);
     }
 
@@ -109,6 +116,7 @@ public class SocialRelationshipResource {
     public Uni<Response> unfollowUser(
             @PathParam("followedUserId") String followedUserId,
             @PathParam("followerId") String followerId) {
+        self(followerId);
         return service.unfollowUser(followedUserId, followerId)
                 .replaceWith(Response.noContent().build());
     }
@@ -120,6 +128,7 @@ public class SocialRelationshipResource {
             @QueryParam("viewerId") String viewerId,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        viewerId = viewer(viewerId);
         return service.followers(userId, viewerId, limit, cursor);
     }
 
@@ -130,6 +139,7 @@ public class SocialRelationshipResource {
             @QueryParam("viewerId") String viewerId,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        viewerId = viewer(viewerId);
         return service.following(userId, viewerId, limit, cursor);
     }
 
@@ -141,6 +151,7 @@ public class SocialRelationshipResource {
             @QueryParam("status") @DefaultValue("pending") String status,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(userId);
         return service.userFollowRequests(userId, direction, status, limit, cursor);
     }
 
@@ -151,6 +162,7 @@ public class SocialRelationshipResource {
             @PathParam("followedUserId") String followedUserId,
             @PathParam("followerId") String followerId,
             SocialUserFollowDecisionRequest request) {
+        self(request == null ? null : request.actorUserId());
         return service.decideUserFollowRequest(followedUserId, followerId, request);
     }
 
@@ -160,6 +172,7 @@ public class SocialRelationshipResource {
             @PathParam("userId") String userId,
             @QueryParam("limit") @DefaultValue("20") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(userId);
         return service.followingFeed(userId, limit, cursor);
     }
 
@@ -170,6 +183,7 @@ public class SocialRelationshipResource {
             @QueryParam("viewerId") String viewerId,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        viewerId = viewer(viewerId);
         return service.closeFriends(userId, viewerId, limit, cursor);
     }
 
@@ -178,6 +192,7 @@ public class SocialRelationshipResource {
     public Uni<FriendSummary> addCloseFriend(
             @PathParam("userId") String userId,
             @PathParam("friendId") String friendId) {
+        self(userId);
         return service.addCloseFriend(userId, friendId);
     }
 
@@ -186,6 +201,7 @@ public class SocialRelationshipResource {
     public Uni<Response> removeCloseFriend(
             @PathParam("userId") String userId,
             @PathParam("friendId") String friendId) {
+        self(userId);
         return service.removeCloseFriend(userId, friendId)
                 .replaceWith(Response.noContent().build());
     }
@@ -194,6 +210,7 @@ public class SocialRelationshipResource {
     @Path("/blocks")
     @Consumes(MediaType.APPLICATION_JSON)
     public Uni<BlockResponse> block(BlockRequest request) {
+        self(request == null ? null : request.userId());
         return service.block(request);
     }
 
@@ -203,6 +220,7 @@ public class SocialRelationshipResource {
             @PathParam("userId") String userId,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(userId);
         return service.blocks(userId, limit, cursor);
     }
 
@@ -211,6 +229,7 @@ public class SocialRelationshipResource {
     public Uni<Response> unblock(
             @PathParam("userId") String userId,
             @PathParam("blockedUserId") String blockedUserId) {
+        self(userId);
         return service.unblock(userId, blockedUserId)
                 .replaceWith(Response.noContent().build());
     }
@@ -219,6 +238,7 @@ public class SocialRelationshipResource {
     @Path("/mutes")
     @Consumes(MediaType.APPLICATION_JSON)
     public Uni<SocialMuteResponse> mute(SocialMuteRequest request) {
+        self(request == null ? null : request.userId());
         return service.mute(request);
     }
 
@@ -229,6 +249,7 @@ public class SocialRelationshipResource {
             @QueryParam("targetType") @DefaultValue("all") String targetType,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(userId);
         return service.mutes(userId, targetType, limit, cursor);
     }
 
@@ -238,6 +259,7 @@ public class SocialRelationshipResource {
             @PathParam("userId") String userId,
             @PathParam("targetType") String targetType,
             @PathParam("targetId") String targetId) {
+        self(userId);
         return service.unmute(userId, targetType, targetId)
                 .replaceWith(Response.noContent().build());
     }
@@ -246,6 +268,7 @@ public class SocialRelationshipResource {
     @Path("/family")
     @Consumes(MediaType.APPLICATION_JSON)
     public Uni<FamilyLinkResponse> createFamilyLink(FamilyLinkCreateRequest request) {
+        self(request == null ? null : request.firstUserId());
         return service.createFamilyLink(request);
     }
 
@@ -255,6 +278,7 @@ public class SocialRelationshipResource {
             @PathParam("userId") String userId,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(userId);
         return service.family(userId, limit, cursor);
     }
 
@@ -263,6 +287,7 @@ public class SocialRelationshipResource {
     public Uni<Response> removeFamilyLink(
             @PathParam("userId") String userId,
             @PathParam("relativeId") String relativeId) {
+        self(userId);
         return service.removeFamilyLink(userId, relativeId)
                 .replaceWith(Response.noContent().build());
     }

@@ -46,7 +46,7 @@ import tech.kayys.jezaku.social.SocialDtos.SocialUserContentListResponse;
 
 @Path("/social")
 @Produces(MediaType.APPLICATION_JSON)
-public class SocialContentResource {
+public class SocialContentResource extends SocialResourceSupport {
     @Inject
     SocialService service;
 
@@ -57,6 +57,7 @@ public class SocialContentResource {
             @QueryParam("viewerId") String viewerId,
             @QueryParam("limit") @DefaultValue("20") Integer limit,
             @QueryParam("cursor") String cursor) {
+        viewerId = viewer(viewerId);
         return service.userContent(userId, viewerId, limit, cursor);
     }
 
@@ -64,6 +65,7 @@ public class SocialContentResource {
     @Path("/content")
     @Consumes(MediaType.APPLICATION_JSON)
     public Uni<Response> createContent(SocialContentCreateRequest request) {
+        self(request == null ? null : request.ownerId());
         return service.createContent(request)
                 .map(created -> Response.status(Response.Status.CREATED).entity(created).build());
     }
@@ -74,6 +76,7 @@ public class SocialContentResource {
     public Uni<SocialContentResponse> updateContent(
             @PathParam("contentId") String contentId,
             SocialContentUpdateRequest request) {
+        self(request == null ? null : request.actorUserId());
         return service.updateContent(contentId, request);
     }
 
@@ -82,6 +85,7 @@ public class SocialContentResource {
     public Uni<Response> deleteContent(
             @PathParam("contentId") String contentId,
             @QueryParam("actorUserId") String actorUserId) {
+        self(actorUserId);
         return service.deleteContent(contentId, actorUserId)
                 .replaceWith(Response.noContent().build());
     }
@@ -91,6 +95,7 @@ public class SocialContentResource {
     public Uni<SocialContentResponse> content(
             @PathParam("contentId") String contentId,
             @QueryParam("viewerId") String viewerId) {
+        viewerId = viewer(viewerId);
         return service.content(contentId, viewerId);
     }
 
@@ -98,6 +103,7 @@ public class SocialContentResource {
     @Path("/content/access")
     @Consumes(MediaType.APPLICATION_JSON)
     public Uni<SocialContentAccessResponse> contentAccess(SocialContentAccessRequest request) {
+        selfIfPresent(request == null ? null : request.viewerId());
         return service.contentAccess(request);
     }
 
@@ -108,6 +114,7 @@ public class SocialContentResource {
             @QueryParam("viewerId") String viewerId,
             @QueryParam("limit") @DefaultValue("20") Integer limit,
             @QueryParam("cursor") String cursor) {
+        viewerId = viewer(viewerId);
         return service.tagContent(tag, viewerId, limit, cursor);
     }
 
@@ -116,6 +123,7 @@ public class SocialContentResource {
     public Uni<SocialTrendingTagListResponse> trendingTags(
             @QueryParam("viewerId") String viewerId,
             @QueryParam("limit") @DefaultValue("20") Integer limit) {
+        viewerId = viewer(viewerId);
         return service.trendingTags(viewerId, limit);
     }
 
@@ -125,6 +133,7 @@ public class SocialContentResource {
     public Uni<SocialTagFollowResponse> followTag(
             @PathParam("tag") String tag,
             SocialTagFollowRequest request) {
+        self(request == null ? null : request.userId());
         return service.followTag(tag, request);
     }
 
@@ -133,6 +142,7 @@ public class SocialContentResource {
     public Uni<Response> unfollowTag(
             @PathParam("tag") String tag,
             @PathParam("userId") String userId) {
+        self(userId);
         return service.unfollowTag(tag, userId)
                 .replaceWith(Response.noContent().build());
     }
@@ -142,6 +152,7 @@ public class SocialContentResource {
     public Uni<SocialFollowedTagListResponse> followedTags(
             @PathParam("userId") String userId,
             @QueryParam("limit") @DefaultValue("50") Integer limit) {
+        self(userId);
         return service.followedTags(userId, limit);
     }
 
@@ -151,6 +162,7 @@ public class SocialContentResource {
             @PathParam("userId") String userId,
             @QueryParam("limit") @DefaultValue("20") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(userId);
         return service.topicFeed(userId, limit, cursor);
     }
 
@@ -160,6 +172,7 @@ public class SocialContentResource {
     public Uni<SocialReactionResponse> likeContent(
             @PathParam("contentId") String contentId,
             SocialReactionRequest request) {
+        self(request == null ? null : request.userId());
         return service.likeContent(contentId, request);
     }
 
@@ -168,6 +181,7 @@ public class SocialContentResource {
     public Uni<Response> unlikeContent(
             @PathParam("contentId") String contentId,
             @PathParam("userId") String userId) {
+        self(userId);
         return service.unlikeContent(contentId, userId)
                 .replaceWith(Response.noContent().build());
     }
@@ -178,6 +192,7 @@ public class SocialContentResource {
     public Uni<SocialSaveResponse> saveContent(
             @PathParam("contentId") String contentId,
             SocialSaveRequest request) {
+        self(request == null ? null : request.userId());
         return service.saveContent(contentId, request);
     }
 
@@ -186,6 +201,7 @@ public class SocialContentResource {
     public Uni<Response> unsaveContent(
             @PathParam("contentId") String contentId,
             @PathParam("userId") String userId) {
+        self(userId);
         return service.unsaveContent(contentId, userId)
                 .replaceWith(Response.noContent().build());
     }
@@ -196,6 +212,7 @@ public class SocialContentResource {
             @PathParam("userId") String userId,
             @QueryParam("limit") @DefaultValue("20") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(userId);
         return service.savedContent(userId, limit, cursor);
     }
 
@@ -205,6 +222,7 @@ public class SocialContentResource {
     public Uni<Response> shareContent(
             @PathParam("contentId") String contentId,
             SocialShareCreateRequest request) {
+        self(request == null ? null : request.userId());
         return service.shareContent(contentId, request)
                 .map(created -> Response.status(Response.Status.CREATED).entity(created).build());
     }
@@ -216,6 +234,7 @@ public class SocialContentResource {
             @QueryParam("viewerId") String viewerId,
             @QueryParam("limit") @DefaultValue("25") Integer limit,
             @QueryParam("cursor") String cursor) {
+        viewerId = viewer(viewerId);
         return service.shares(contentId, viewerId, limit, cursor);
     }
 
@@ -225,6 +244,7 @@ public class SocialContentResource {
     public Uni<SocialContentHideResponse> hideContent(
             @PathParam("contentId") String contentId,
             SocialContentHideRequest request) {
+        self(request == null ? null : request.userId());
         return service.hideContent(contentId, request);
     }
 
@@ -233,6 +253,7 @@ public class SocialContentResource {
     public Uni<Response> unhideContent(
             @PathParam("contentId") String contentId,
             @PathParam("userId") String userId) {
+        self(userId);
         return service.unhideContent(contentId, userId)
                 .replaceWith(Response.noContent().build());
     }
@@ -243,6 +264,7 @@ public class SocialContentResource {
             @PathParam("userId") String userId,
             @QueryParam("limit") @DefaultValue("20") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(userId);
         return service.hiddenContent(userId, limit, cursor);
     }
 
@@ -252,6 +274,7 @@ public class SocialContentResource {
     public Uni<Response> reportContent(
             @PathParam("contentId") String contentId,
             SocialContentReportRequest request) {
+        self(request == null ? null : request.reporterId());
         return service.reportContent(contentId, request)
                 .map(created -> Response.status(Response.Status.CREATED).entity(created).build());
     }
@@ -272,6 +295,7 @@ public class SocialContentResource {
             @QueryParam("viewerId") String viewerId,
             @QueryParam("limit") @DefaultValue("25") Integer limit,
             @QueryParam("cursor") String cursor) {
+        viewerId = viewer(viewerId);
         return service.contentMentions(contentId, viewerId, limit, cursor);
     }
 
@@ -281,6 +305,7 @@ public class SocialContentResource {
             @PathParam("userId") String userId,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(userId);
         return service.userMentions(userId, limit, cursor);
     }
 
@@ -290,6 +315,7 @@ public class SocialContentResource {
     public Uni<Response> addComment(
             @PathParam("contentId") String contentId,
             SocialCommentCreateRequest request) {
+        self(request == null ? null : request.authorId());
         return service.addComment(contentId, request)
                 .map(created -> Response.status(Response.Status.CREATED).entity(created).build());
     }
@@ -302,6 +328,7 @@ public class SocialContentResource {
             @QueryParam("parentCommentId") String parentCommentId,
             @QueryParam("limit") @DefaultValue("25") Integer limit,
             @QueryParam("cursor") String cursor) {
+        viewerId = viewer(viewerId);
         return service.comments(contentId, viewerId, parentCommentId, limit, cursor);
     }
 
@@ -312,6 +339,7 @@ public class SocialContentResource {
             @PathParam("contentId") String contentId,
             @PathParam("commentId") String commentId,
             SocialReactionRequest request) {
+        self(request == null ? null : request.userId());
         return service.likeComment(contentId, commentId, request);
     }
 
@@ -321,6 +349,7 @@ public class SocialContentResource {
             @PathParam("contentId") String contentId,
             @PathParam("commentId") String commentId,
             @PathParam("userId") String userId) {
+        self(userId);
         return service.unlikeComment(contentId, commentId, userId)
                 .replaceWith(Response.noContent().build());
     }
@@ -331,6 +360,7 @@ public class SocialContentResource {
             @PathParam("contentId") String contentId,
             @PathParam("commentId") String commentId,
             @QueryParam("actorUserId") String actorUserId) {
+        self(actorUserId);
         return service.removeComment(contentId, commentId, actorUserId)
                 .replaceWith(Response.noContent().build());
     }
