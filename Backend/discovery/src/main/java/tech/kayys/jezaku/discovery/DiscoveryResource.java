@@ -1,5 +1,6 @@
 package tech.kayys.jezaku.discovery;
 
+import tech.kayys.jezaku.auth.CallerAwareResource;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
@@ -20,7 +21,7 @@ import tech.kayys.jezaku.discovery.DiscoveryDtos.SearchResponse;
 @Path("/discovery")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class DiscoveryResource {
+public class DiscoveryResource extends CallerAwareResource {
     @Inject
     DiscoveryService service;
 
@@ -32,6 +33,7 @@ public class DiscoveryResource {
             @QueryParam("radiusMeters") @DefaultValue("500") Double radiusMeters,
             @QueryParam("viewerId") String viewerId,
             @QueryParam("type") String type) {
+        viewerId = viewer(viewerId);
         requireCoordinates(lat, lng);
         return service.nearby(lat, lng, radiusMeters, viewerId, type);
     }
@@ -66,6 +68,7 @@ public class DiscoveryResource {
             @QueryParam("lat") Double lat,
             @QueryParam("lng") Double lng,
             @QueryParam("radiusMeters") @DefaultValue("1000") Double radiusMeters) {
+        self(userId);
         requireCoordinates(lat, lng);
         return service.forYou(userId, lat, lng, radiusMeters);
     }
@@ -73,6 +76,7 @@ public class DiscoveryResource {
     @POST
     @Path("/feedback")
     public Uni<FeedbackResponse> feedback(FeedbackRequest request) {
+        self(request == null ? null : request.userId());
         return service.feedback(request);
     }
 
