@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
@@ -66,6 +67,23 @@ Future<void> _revealFilterChip(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
+
+Future<void> _diagnoseTap(WidgetTester tester, Finder target, String label) async {
+  final center = tester.getCenter(target.first);
+  final hit = tester.hitTestOnBinding(center);
+  final names = <String>[];
+  for (final entry in hit.path) {
+    final t = entry.target;
+    if (t is RenderObject) {
+      final creator = t.debugCreator;
+      if (creator is DebugCreator) {
+        names.add(creator.element.widget.runtimeType.toString());
+      }
+    }
+  }
+  final targetWidget = target.first.evaluate().first.widget.runtimeType;
+  fail('DIAG $label: target=$targetWidget center=$center hits=${names.take(14).join(" > ")}');
+}
 
 void main() {
   testWidgets('main tabs render consolidated feature screens', (tester) async {
@@ -4140,6 +4158,7 @@ void main() {
 
     await _revealFilterChip(tester, 'Walls');
     await tester.pumpAndSettle();
+    await _diagnoseTap(tester, find.widgetWithText(ChoiceChip, 'Walls'), 'walls');
     await tester.tap(find.widgetWithText(ChoiceChip, 'Walls'));
     await tester.pumpAndSettle();
 
@@ -4247,6 +4266,7 @@ void main() {
     await tester.tap(find.text('Publish'));
     await tester.pumpAndSettle();
 
+    await _diagnoseTap(tester, find.text('Private default capture').first, 'tile');
     await tester.tap(find.text('Private default capture').first);
     await tester.pumpAndSettle();
 
@@ -4883,6 +4903,7 @@ void main() {
     expect(find.text('GPS drift high'), findsOneWidget);
     expect(find.text('Move near open sky for better GPS.'), findsOneWidget);
 
+    await _diagnoseTap(tester, find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')), 'calib');
     await tester.tap(
       find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')),
     );
