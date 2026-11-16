@@ -76,11 +76,14 @@ typedef ARGestureCallback = void Function(ARGestureEvent event);
 ///   entity id of the nearest hit (null = empty space).
 /// - **Double tap** — same, [ARGestureType.doubleTap].
 /// - **Long press** — same, [ARGestureType.longPress].
-/// - **Drag (1 finger)** — translates the tapped entity along the world XZ
-///   plane. Fires [ARGestureType.drag] on each update and
+/// - **Drag (1 finger)** — translates the tapped entity along world XZ, or
+///   along the camera-facing plane when [freeSpaceDrag] is enabled. The latter
+///   supports free-space movement both horizontally and vertically. Fires
+///   [ARGestureType.drag] on each update and
 ///   [ARGestureType.fling] on release if velocity exceeds the threshold.
 /// - **Pinch** — uniformly scales the entity. Fires [ARGestureType.scale].
-/// - **Twist (2 fingers)** — rotates the entity around Y. Fires
+/// - **Twist (2 fingers)** — rotates around [rotationAxis] (Y by default).
+///   Applications can expose X/Y/Z rotation modes by changing this axis. Fires
 ///   [ARGestureType.rotate].
 ///
 /// When [autoTransform] is `true` (the default) the handler writes the new
@@ -96,6 +99,8 @@ class ARGestureHandler extends StatefulWidget {
     this.autoTransform = true,
     this.flingThreshold = 0.3,
     this.selectionRadius = 0.15,
+    this.freeSpaceDrag = false,
+    this.rotationAxis = ARVector3.up,
   });
 
   final ARController controller;
@@ -111,6 +116,14 @@ class ARGestureHandler extends StatefulWidget {
 
   /// How far (metres) from a hit point an entity can be and still be selected.
   final double selectionRadius;
+
+  /// Drag in the camera-facing plane, allowing horizontal and vertical motion.
+  /// Disabled by default to preserve the original world-XZ interaction.
+  final bool freeSpaceDrag;
+
+  /// World-space axis used by the two-finger twist gesture.
+  /// Set to X, Y, or Z to expose all three rotation axes through mode controls.
+  final ARVector3 rotationAxis;
 
   @override
   State<ARGestureHandler> createState() => _ARGestureHandlerState();
@@ -366,12 +379,20 @@ class _ARGestureHandlerState extends State<ARGestureHandler> {
     _lastDragPosition = pt;
 
     if (widget.autoTransform) {
-      final newPos = ARVector3(
-        _activeNode!.position.x + dx,
-        _activeNode!.position.y,
-        _activeNode!.position.z + dz,
+      final ARVector3 translation;
+      if (widget.freeSpaceDrag) {
+        final camera = widget.controller.currentCamera;
+        if (camera == null || !camera.isTracking) return;
+        final cameraRotation = camera.pose.rotation;
+        final right = cameraRotation.rotateVector(ARVector3.right);
+        final up = cameraRotation.rotateVector(ARVector3.up);
+        translation = (right * dx) + (up * -dz);
+      } else {
+        translation = ARVector3(dx, 0, dz);
+      }
+      final updated = _activeNode!.copyWith(
+        position: _activeNode!.position + translation,
       );
-      final updated = _activeNode!.copyWith(position: newPos);
       _activeNode = updated;
       unawaited(_updateNode(updated));
     }
@@ -460,8 +481,8 @@ class _ARGestureHandlerState extends State<ARGestureHandler> {
         (_activeNode!.scale.z * factor).clamp(0.01, 5.0),
       );
 
-      // Rotate around Y-axis
-      final deltaRot = ARQuaternion.axisAngle(ARVector3.up, d.rotation);
+      // Rotate around the configured world axis (Y by default).
+      final deltaRot = ARQuaternion.axisAngle(widget.rotationAxis, d.rotation);
       final newRot = (_activeNode!.rotation * deltaRot).normalized;
 
       final updated = _activeNode!.copyWith(scale: newScale, rotation: newRot);
