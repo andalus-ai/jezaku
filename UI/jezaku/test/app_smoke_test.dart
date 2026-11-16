@@ -75,7 +75,14 @@ void main() {
     expect(find.text('Places and moments around you'), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('AR View'), findsOneWidget);
+    // The map's quick action also says "AR View", so scope to the nav bar.
+    expect(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('AR View'),
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('Social'));
     await tester.pumpAndSettle();
