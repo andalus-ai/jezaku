@@ -53,10 +53,10 @@ class JourneyOwnershipTest {
         given().header("Authorization", tokenFor("intruder")).contentType(ContentType.JSON).body(complete)
                 .when().post("/journeys/sessions/{s}/checkpoints/{c}/complete", sessionId, "checkpoint_courtyard")
                 .then().statusCode(403);
-        given().header("Authorization", tokenFor("intruder"))
+        given().header("Authorization", tokenFor("intruder")).contentType(ContentType.JSON).body("{}")
                 .when().post("/journeys/sessions/{s}/abandon?userId={u}", sessionId, me).then().statusCode(403);
 
-        given().header("Authorization", tokenFor(me))
+        given().header("Authorization", tokenFor(me)).contentType(ContentType.JSON).body("{}")
                 .when().post("/journeys/sessions/{s}/abandon?userId={u}", sessionId, me).then().statusCode(200);
     }
 
