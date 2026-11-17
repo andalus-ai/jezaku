@@ -27,4 +27,14 @@ public abstract class CallerAwareResource {
     protected String viewer(String claimedViewerId) {
         return AuthContext.viewerOrCaller(requestContext, claimedViewerId);
     }
+
+    /** The endpoint is internal: only a service holding {@code scope} may call it. */
+    protected void requireService(String scope) {
+        AuthContext.requireService(requestContext, scope);
+    }
+
+    /** The user acting for themselves, or a service that holds {@code scope} and may act for users. */
+    protected void selfOrService(String userId, String scope) {
+        AuthContext.requireSelfOrService(requestContext, userId, scope);
+    }
 }

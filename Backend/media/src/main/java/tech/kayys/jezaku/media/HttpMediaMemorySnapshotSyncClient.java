@@ -1,5 +1,6 @@
 package tech.kayys.jezaku.media;
 
+import tech.kayys.jezaku.auth.ServiceTokenSource;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,10 +38,10 @@ public class HttpMediaMemorySnapshotSyncClient implements MediaMemorySnapshotSyn
     public MemoryMediaSnapshotApplyResponse<Map<String, Object>> apply(
             String memoryBaseUrlOverride,
             MemoryMediaSnapshotBatchRequest request) {
-        HttpRequest httpRequest = HttpRequest.newBuilder(memorySnapshotUri(memoryBaseUrlOverride))
+        HttpRequest httpRequest = ServiceTokenSource.request(memorySnapshotUri(memoryBaseUrlOverride))
                 .timeout(requestTimeout())
                 .header("content-type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(json(request)))
+                .PUT(HttpRequest.BodyPublishers.ofString(json(request)))
                 .build();
         try {
             HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());

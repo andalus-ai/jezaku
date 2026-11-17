@@ -1,5 +1,6 @@
 package tech.kayys.jezaku.messaging;
 
+import tech.kayys.jezaku.auth.ServiceTokenSource;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -34,7 +35,7 @@ public class HttpMessagingNotificationHandoffClient implements MessagingNotifica
                 .map(String::trim)
                 .filter(value -> !value.isEmpty())
                 .orElseThrow(() -> new IllegalStateException("Notification intake URL is not configured"));
-        HttpRequest request = HttpRequest.newBuilder(URI.create(endpoint))
+        HttpRequest request = ServiceTokenSource.request(URI.create(endpoint))
                 .timeout(REQUEST_TIMEOUT)
                 .header("content-type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(json(delivery)))

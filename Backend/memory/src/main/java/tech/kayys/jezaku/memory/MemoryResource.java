@@ -21,6 +21,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import tech.kayys.jezaku.auth.AuthContext;
 import tech.kayys.jezaku.auth.AuthenticatedUser;
+import tech.kayys.jezaku.auth.ServiceScopes;
 import tech.kayys.jezaku.contract.MediaMemorySnapshotContracts.MemoryMediaSnapshotApplyResponse;
 import tech.kayys.jezaku.contract.MediaMemorySnapshotContracts.MemoryMediaSnapshotBatchRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryAnchorHistoryResponse;
@@ -94,6 +95,7 @@ public class MemoryResource {
     public Uni<MemoryMediaSnapshotUpdateResponse> updateMediaSnapshot(
             @PathParam("mediaId") String mediaId,
             MemoryMediaSnapshotUpdateRequest request) {
+        AuthContext.requireService(requestContext, ServiceScopes.MEMORY_MEDIA_SYNC);
         return service.updateMediaSnapshot(mediaId, request);
     }
 
@@ -101,6 +103,7 @@ public class MemoryResource {
     @Path("/media/snapshots")
     public Uni<MemoryMediaSnapshotApplyResponse<MemoryMediaSnapshotUpdateResponse>> updateMediaSnapshots(
             MemoryMediaSnapshotBatchRequest request) {
+        AuthContext.requireService(requestContext, ServiceScopes.MEMORY_MEDIA_SYNC);
         return service.updateMediaSnapshots(request);
     }
 

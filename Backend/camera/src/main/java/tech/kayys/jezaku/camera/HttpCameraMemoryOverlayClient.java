@@ -1,5 +1,6 @@
 package tech.kayys.jezaku.camera;
 
+import tech.kayys.jezaku.auth.ServiceTokenSource;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Uni;
@@ -44,7 +45,7 @@ class HttpCameraMemoryOverlayClient {
     Uni<CameraMemoryOverlayResponse> minimap(CameraMemoryOverlayRequest request) {
         HttpRequest httpRequest;
         try {
-            httpRequest = HttpRequest.newBuilder(memoryMinimapUri(request))
+            httpRequest = ServiceTokenSource.request(memoryMinimapUri(request))
                     .timeout(requestTimeout())
                     .GET()
                     .build();
