@@ -28,7 +28,8 @@ The **lib/ar_engine.dart** barrel exports these areas:
 | Scene orchestration | **ARSceneManager**, **ARSceneEntity** |
 | Math | **ARVector3**, **ARQuaternion**, **ARMatrix4**, **ARPose** |
 | Spatial systems | **ARGeospatialAnchor**, **ARGeoOrigin**, **ARGeospatialProjector**, **ARGeospatialStatus**, **ARVpsAvailability**, **ARCloudAnchorManager** |
-| Rendering helpers | **ARAnimationPlayer**, **ARPhysicsWorld**, **ARMeasurement**, **ARRay**, **ARGestureHandler**, **ARImageTracker**, **ARPortal**, **AROcclusionManager**, **ARBodyTracker** |
+| Scene/spatial systems | **ARAnimationPlayer**, **ARPhysicsWorld**, **ARMeasurement**, **ARRay**, **ARGestureHandler**, **ARImageTracker**, **ARPortal**, **ARPortalManager**, **AROcclusionManager**, **ARDepthFrame**, **ARBodyTracker**, **AREnvironmentProbe**, **ARLODManager**, **ARSpatialAudioManager** |
+| Debug/utilities | **ARDebugOverlay**, **ARMiniMap**, **ARPerformanceProfiler**, **ARNodeBuilder**, **ARSceneSerializer** |
 | Capture | **ARScreenRecorder**, **ARRecordingConfig**, **ARRecordingResult**, **ARRecordingState** |
 | Platform/errors | **ArEnginePlatform**, **ArEngineMethodChannel**, and the **AR*Exception** types |
 

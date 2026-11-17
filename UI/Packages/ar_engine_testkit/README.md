@@ -14,7 +14,7 @@ It does not emulate ARCore/ARKit/WebXR, render a camera view, request OS permiss
 import 'package:ar_engine_testkit/ar_engine_testkit.dart';
 ~~~
 
-The barrel exports **ArEngineTestHarness**, **TestArEnginePlatform**, **TestArEngineNodeIdFactory**, and **testCamera()**. Its only production dependency is the local **ar_engine** package. **publish_to: none** is set. **ar_engine** must not depend on this package; **jezaku_ar** and the app use it only as a **dev_dependency**.
+The barrel exports **ArEngineTestHarness**, **TestArEnginePlatform**, **TestArEngineNodeIdFactory**, and **testCamera()**. Its only non-SDK runtime package dependency is the local **ar_engine** package; Flutter is also declared as an SDK dependency. **publish_to: none** is set. **ar_engine** must not depend on this package; **jezaku_ar** and the app use it only as a **dev_dependency**.
 
 ## Default fake behavior
 

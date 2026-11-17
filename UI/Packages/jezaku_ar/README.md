@@ -26,7 +26,7 @@ Memory IDs, title/caption, private-memory metadata, photo-frame presentation and
 
 ## Dependencies and platform constraints
 
-Runtime dependencies are local **ar_engine** and **ar_model_cache**. **ar_engine_testkit** is a **dev_dependency** only. There is no backend SDK or persistent store in this package.
+Runtime package dependencies are local **ar_engine** and **ar_model_cache**; Flutter is also declared as an SDK dependency. **ar_engine_testkit** is a **dev_dependency** only. There is no backend SDK or persistent store in this package.
 
 **ar_model_cache** imports **dart:io**; consequently **jezaku_ar** is not currently Flutter Web compatible, even though lower-level **ar_engine** includes WebXR. Its effective Dart SDK floor is at least 3.4.0 because both runtime dependencies require **>=3.4.0**, while this package's own **pubspec.yaml** currently declares **>=3.3.0** (metadata mismatch to correct separately).
 

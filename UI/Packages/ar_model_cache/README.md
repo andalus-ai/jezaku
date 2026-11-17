@@ -22,7 +22,7 @@ The barrel exports **ARModelAssetCache** and public types in **src/ar_model_asse
 
 ## Dependency direction and platform support
 
-The only package dependency is local **ar_engine**. There is no dependency on **jezaku_ar** or the testkit. Rendering remains in the engine/consumer; the cache returns an **ARModelAsset** whose source is a local file.
+The only non-SDK package dependency is local **ar_engine**; Flutter is also declared as an SDK dependency. There is no dependency on **jezaku_ar** or the testkit. Rendering remains in the engine/consumer; the cache returns an **ARModelAsset** whose source is a local file.
 
 The implementation imports **dart:io** and uses **Directory**, **File**, **HttpClient** and file locks. It requires a Dart VM target with a writable filesystem (for example Android, iOS, macOS, Windows or Linux). It is not Flutter Web compatible. A package that imports **ar_model_cache**, including the current **jezaku_ar** barrel, inherits that web-build limitation even though **ar_engine** has a WebXR backend.
 
