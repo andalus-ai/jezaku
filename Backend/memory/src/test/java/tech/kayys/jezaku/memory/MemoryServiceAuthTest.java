@@ -58,4 +58,14 @@ class MemoryServiceAuthTest {
         given().header("Authorization", service(ServiceScopes.MEMORY_MEDIA_SYNC))
                 .when().get("/memories/m1/anchor/history?ownerId=user_1").then().statusCode(403);
     }
+
+    @Test
+    void ownerLookupIsInternal() {
+        given().header("Authorization", user("user_1")).when().get("/memories/m1/owner").then().statusCode(403);
+        given().header("Authorization", service(ServiceScopes.MEMORY_MEDIA_SYNC))
+                .when().get("/memories/m1/owner").then().statusCode(403);
+        // An unknown memory is a 404 for a permitted service, which proves the scope check passed.
+        given().header("Authorization", service(ServiceScopes.MEMORY_READ))
+                .when().get("/memories/does_not_exist/owner").then().statusCode(404);
+    }
 }

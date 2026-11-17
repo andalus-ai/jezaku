@@ -12,6 +12,8 @@ public final class ServiceScopes {
     public static final String SOCIAL_AUDIENCE = "social:audience";
     /** Push media snapshots and lifecycle events into memory. */
     public static final String MEMORY_MEDIA_SYNC = "memory:media-sync";
+    /** Look up facts about a memory (such as its owner) on behalf of another service. */
+    public static final String MEMORY_READ = "memory:read";
     /** Hand a delivery to the notification service. */
     public static final String NOTIFICATION_INTAKE = "notification:intake";
 

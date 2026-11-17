@@ -135,6 +135,17 @@ public class MemoryService {
         });
     }
 
+    /** The owner of a memory, regardless of visibility; only service callers reach this. */
+    public Uni<MemoryDtos.MemoryOwnerResponse> owner(String id) {
+        return Uni.createFrom().item(() -> {
+            MemoryRecord memory = repository.findById(id);
+            if (memory == null) {
+                throw new NotFoundException("Memory not found: " + id);
+            }
+            return new MemoryDtos.MemoryOwnerResponse(memory.id(), memory.ownerId());
+        });
+    }
+
     public Uni<MemoryResponse> updateAnchor(String id, MemoryAnchorUpdateRequest request) {
         return Uni.createFrom().item(() -> {
             if (request == null) {

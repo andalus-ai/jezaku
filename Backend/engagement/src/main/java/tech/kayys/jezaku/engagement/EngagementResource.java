@@ -69,8 +69,9 @@ public class EngagementResource {
     @Path("/targets/{targetType}/{targetId}/comments")
     public Uni<CommentListResponse> comments(
             @PathParam("targetType") String targetType,
-            @PathParam("targetId") String targetId) {
-        return service.comments(targetType, targetId);
+            @PathParam("targetId") String targetId,
+            @QueryParam("viewerId") String viewerId) {
+        return service.comments(targetType, targetId, AuthContext.viewerOrCaller(requestContext, viewerId));
     }
 
     @DELETE
