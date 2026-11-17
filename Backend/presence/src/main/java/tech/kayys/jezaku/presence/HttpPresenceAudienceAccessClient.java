@@ -1,5 +1,6 @@
 package tech.kayys.jezaku.presence;
 
+import tech.kayys.jezaku.auth.ServiceTokenSource;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -96,7 +97,7 @@ class HttpPresenceAudienceAccessClient {
             String viewerId,
             String scope,
             List<PresenceAudienceOwner> owners) {
-        HttpRequest httpRequest = HttpRequest.newBuilder(audienceAccessUri())
+        HttpRequest httpRequest = ServiceTokenSource.request(audienceAccessUri())
                 .timeout(requestTimeout())
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(requestJson(viewerId, scope, owners)))
