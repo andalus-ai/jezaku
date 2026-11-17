@@ -1,6 +1,6 @@
 package tech.kayys.jezaku.engagement;
 
-import io.quarkus.arc.Priority;
+import jakarta.annotation.Priority;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Singleton;
 
