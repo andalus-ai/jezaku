@@ -39,6 +39,7 @@ import 'package:jejaku/features/ar_viewer/states/ar_capture_provider.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capability_providers.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_scene_diagnostics_provider.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_placement_quality_chip.dart';
+import 'package:jejaku/features/ar_viewer/widgets/ar_snapshot_review_dialog.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_trail_launch_conflict_dialog.dart';
 import 'package:jejaku/features/camera/models/capture_sensor_snapshot.dart';
 import 'package:jejaku/features/camera/states/capture_session_provider.dart';
@@ -2209,10 +2210,18 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       if (!mounted || stagedBytes == null) {
         return;
       }
-      final accepted = await _confirmARSnapshot(
-        stagedBytes,
+      final reviewCamera = _latestARCamera;
+      final accepted = await showARSnapshotReviewDialog(
+        context: context,
+        bytes: stagedBytes,
         placement: localPose,
         onPlacementChanged: (updated) => localPose = updated,
+        cameraPosition: reviewCamera?.pose.position,
+        cameraForward: reviewCamera == null
+            ? const ARVector3(0, 0, -1)
+            : reviewCamera.pose.rotation
+                .rotateVector(ARVector3.forward)
+                .normalized,
       );
       if (!mounted || accepted != true) {
         return;
@@ -2220,16 +2229,19 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       messenger
         ..clearSnackBars()
         ..showSnackBar(SnackBar(content: Text(message)));
+      // The review dialog may have replaced the pose; read the final one once
+      // so it promotes to non-null below.
+      final reviewedPose = localPose;
       final diagnostics = _captureDiagnosticsSnapshot(stagedAt);
       ref.read(captureSessionProvider.notifier).stageARSnapshot(
         capturedAt: stagedAt,
         bytes: stagedBytes,
-        localPose: localPose,
+        localPose: reviewedPose,
         arDiagnostics: <String, Object?>{
           ...diagnostics,
-          if (localPose != null) ...{
-            'localSurfacePose': localPose.toMap(),
-            'localSurfacePoseLabel': localPose.surfaceLabel,
+          if (reviewedPose != null) ...{
+            'localSurfacePose': reviewedPose.toMap(),
+            'localSurfacePoseLabel': reviewedPose.surfaceLabel,
           },
         },
       );
@@ -2246,203 +2258,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     }
   }
 
-
-  Future<bool?> _confirmARSnapshot(
-    Uint8List bytes, {
-    required AnchorLocalPose? placement,
-    required ValueChanged<AnchorLocalPose?> onPlacementChanged,
-  }) {
-    final camera = _latestARCamera;
-    final cameraPosition = camera?.pose.position;
-    final cameraForward = camera == null
-        ? const ARVector3(0, 0, -1)
-        : camera.pose.rotation.rotateVector(ARVector3.forward).normalized;
-    return showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        var reviewedPlacement = placement;
-        var distance = (placement?.distanceMeters ?? 1.5)
-            .clamp(0.5, 5.0)
-            .toDouble();
-        var heightOffset = 0.0;
-        var yawDegrees = 0.0;
-
-        AnchorLocalPose adjustedPlacement() {
-          final base = placement!;
-          final basePosition = ARVector3(base.x, base.y, base.z);
-          final origin = cameraPosition ?? basePosition;
-          final baseDistance = base.distanceMeters ?? 1.5;
-          final position = basePosition +
-              (cameraForward * (distance - baseDistance)) +
-              ARVector3(0, heightOffset, 0);
-          final baseRotation = ARQuaternion(
-            base.qx,
-            base.qy,
-            base.qz,
-            base.qw,
-          );
-          final rotation = (baseRotation *
-                  ARQuaternion.axisAngle(
-                    ARVector3.up,
-                    yawDegrees * math.pi / 180,
-                  ))
-              .normalized;
-          final moved = heightOffset.abs() > 0.001 ||
-              (distance - baseDistance).abs() > 0.001;
-          return AnchorLocalPose(
-            x: position.x,
-            y: position.y,
-            z: position.z,
-            qx: rotation.x,
-            qy: rotation.y,
-            qz: rotation.z,
-            qw: rotation.w,
-            planeId: moved ? null : base.planeId,
-            surfaceType: base.surfaceType,
-            distanceMeters: cameraPosition == null
-                ? distance
-                : ARVector3.distance(origin, position),
-            confidence: base.confidence,
-            capturedAt: base.capturedAt,
-          );
-        }
-
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final activePlacement = reviewedPlacement;
-            final distanceText = activePlacement?.distanceMeters == null
-                ? 'nearby'
-                : 'about ${activePlacement!.distanceMeters!.toStringAsFixed(1)} m';
-            final placementLabel = activePlacement == null
-                ? 'Placement unavailable — the photo can still be published.'
-                : activePlacement.planeId == null
-                    ? 'Floating in space • $distanceText ahead'
-                    : 'Near a detected vertical surface • $distanceText away';
-
-            void updatePlacement() {
-              if (placement == null) return;
-              final updated = adjustedPlacement();
-              reviewedPlacement = updated;
-              onPlacementChanged(updated);
-              setDialogState(() {});
-            }
-
-            return AlertDialog(
-              key: const ValueKey('ar_snapshot_confirmation_dialog'),
-              title: const Text('Review AR photo'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 320),
-                        child: Image.memory(
-                          bytes,
-                          key: const ValueKey('ar_snapshot_confirmation_image'),
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const SizedBox(
-                            height: 120,
-                            child: Center(
-                              child: Icon(Icons.broken_image_outlined, size: 40),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.view_in_ar, size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            placementLabel,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Fine-tune the floating frame before publishing. Moving it away from a detected surface saves a free-space pose.',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    if (placement != null) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        'Distance • ${distance.toStringAsFixed(1)} m',
-                        style: Theme.of(context).textTheme.labelLarge,
-                      ),
-                      Slider(
-                        key: const ValueKey('ar_frame_review_distance_slider'),
-                        min: 0.5,
-                        max: 5,
-                        divisions: 45,
-                        value: distance,
-                        onChanged: (value) {
-                          distance = value;
-                          updatePlacement();
-                        },
-                      ),
-                      Text(
-                        'Height offset • ${heightOffset.toStringAsFixed(1)} m',
-                        style: Theme.of(context).textTheme.labelLarge,
-                      ),
-                      Slider(
-                        key: const ValueKey('ar_frame_review_height_slider'),
-                        min: -1,
-                        max: 1,
-                        divisions: 40,
-                        value: heightOffset,
-                        onChanged: (value) {
-                          heightOffset = value;
-                          updatePlacement();
-                        },
-                      ),
-                      Text(
-                        'Yaw • ${yawDegrees.toStringAsFixed(0)}°',
-                        style: Theme.of(context).textTheme.labelLarge,
-                      ),
-                      Slider(
-                        key: const ValueKey('ar_frame_review_yaw_slider'),
-                        min: -180,
-                        max: 180,
-                        divisions: 72,
-                        value: yawDegrees,
-                        onChanged: (value) {
-                          yawDegrees = value;
-                          updatePlacement();
-                        },
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  key: const ValueKey('ar_snapshot_retake_button'),
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Retake'),
-                ),
-                FilledButton.icon(
-                  key: const ValueKey('ar_snapshot_use_button'),
-                  onPressed: () => Navigator.of(dialogContext).pop(true),
-                  icon: const Icon(Icons.check),
-                  label: const Text('Use photo'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
 
   Future<AnchorLocalPose?> _captureHangingPhotoLocalPose() async {
     final controller = _arController;
