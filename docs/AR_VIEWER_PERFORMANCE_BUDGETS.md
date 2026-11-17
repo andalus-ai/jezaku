@@ -75,6 +75,8 @@ alone.
 
 The viewer currently requests projections during widget build. The projection
 algorithm is synchronous and includes per-anchor geospatial math plus sorting.
+The cache-miss path computes each anchor's 3D magnitude once and reuses it for
+range classification, placement scoring, and the returned distance value.
 Before introducing isolate scheduling, first avoid repeating that work on
 unrelated widget rebuilds: `ARMemoryProjectionCache` now memoizes the completed
 projection for an unchanged memory snapshot and complete pose key.
