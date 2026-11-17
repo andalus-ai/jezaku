@@ -81,7 +81,7 @@ Future<void> placeMemory() async {
 
 For batches, **syncMemories()** deduplicates by memory ID, adds/updates/removes placements, can attach already-resolved anchors, and accepts **ARSessionReadiness**. When readiness is supplied and placement is blocked, new placements are deferred while obsolete placements are removed. Direct **placeMemory()** does not require a readiness object.
 
-When native geospatial placement is preferred, the scene attempts the engine's geospatial operation. If it throws, the current implementation catches the error and falls back to local projection. This keeps the visual path available but does not expose the caught native error as a separate structured placement result; inspect anchor metadata and session diagnostics rather than assuming native GeoTracking succeeded.
+When native geospatial placement is preferred, the scene attempts the engine's geospatial operation. If it throws, the current implementation catches any `Object` and falls back to local projection. This keeps the visual path available but does not distinguish unsupported mode from permission, configuration or other native failures; the fallback can also fail, and the original native error is not exposed as a separate structured placement result. Inspect anchor metadata and session diagnostics rather than assuming native GeoTracking succeeded.
 
 **JejakuGeoProjector** delegates to the engine's local geospatial projector. It is an Earth-radius/local tangent-plane approximation intended for nearby scene placement, not survey-grade geodesy or long-distance coordinate transformation. **JejakuPlacementPolicy** assesses supplied geospatial status/accuracy; it does not acquire GPS, compass or AR sensor data. **JejakuViewProjector** projects caller-supplied viewer pose/heading and memory coordinates; it is not a replacement for native camera tracking.
 
@@ -107,8 +107,9 @@ The wrapper accepts **ttlDays** from 0 through 365 and treats zero as no expiry 
 
 ## Errors and failure modes
 
-- Invalid memory IDs, cloud IDs, TTLs, coordinates or accuracy thresholds can throw **ArgumentError**/**RangeError**.
-- Native session, geospatial, anchor and capture errors can propagate from **ar_engine**; the scene's geospatial placement path currently catches native geospatial errors and falls back locally.
+- **ttlDays** outside 0–365 throws **RangeError**. Empty cloud IDs are rejected by **ARController**; deserializing a cloud-anchor record requires non-empty `memoryId`, `localAnchorId` and `cloudAnchorId` fields, and an invalid expiry string can throw **FormatException**. **resolveAndPlaceMemory()** throws **ArgumentError** when the record's memory ID does not match the supplied memory.
+- **JejakuGeoAnchor** is a value object and does not validate IDs or coordinates at construction. Native geospatial adapters may reject invalid coordinates or unsupported session state; local projection does not provide comprehensive coordinate validation. **JejakuPlacementPolicy** uses assertions for positive accuracy thresholds (debug builds).
+- Native session, geospatial, anchor and capture errors can propagate from **ar_engine**. The scene's native geospatial placement path catches any `Object` and attempts local projection; see the fallback caveat above.
 - Unsupported cloud-anchor hosting/resolution returns **null**; it does not create a fake cross-device anchor.
 - Model preflight represents cache outcomes as **cached**, **cacheHit**, **passthrough**, **missingSource** or **failed**; inspect **errorMessage**, freshness flags and validation reports.
 - The package does not request camera/location permissions, check backend authorization or persist product data.

@@ -7,18 +7,14 @@ This catalog records the package boundaries and **currently verified implementat
 The checked-in manifests and **UI/jezaku/pubspec.yaml** show these direct relationships:
 
 ~~~text
-UI/jezaku
-  ├── ar_engine
-  ├── ar_model_cache
-  └── jezaku_ar
-        ├── ar_engine
-        └── ar_model_cache
+UI/jezaku --runtime--> ar_engine, ar_model_cache, jezaku_ar
+UI/jezaku --dev-----> ar_engine_testkit
 
-ar_model_cache ──> ar_engine
+jezaku_ar --runtime--> ar_engine, ar_model_cache
+jezaku_ar --dev-----> ar_engine_testkit
 
-ar_engine_testkit ──> ar_engine
-  ├── UI/jezaku (dev_dependency)
-  └── jezaku_ar (dev_dependency)
+ar_model_cache -----> ar_engine
+ar_engine_testkit --> ar_engine
 ~~~
 
 **ar_engine_testkit** is not a production dependency. There are no circular package dependencies. The app directly depends on the engine and cache as well as the Jejaku integration package.
@@ -27,7 +23,7 @@ ar_engine_testkit ──> ar_engine
 
 | Package | Verified responsibility | Main exported API | Test files |
 |---|---|---|---:|
-| [ar_engine README](../Packages/ar_engine/README.md) | Generic Flutter AR session/platform contract, scene graph, spatial primitives, diagnostics and capture orchestration | **ARController**, **ARWidget**, **ARSessionConfig**, **ARCapabilities**, **ARSceneManager**, **ARNode**, geospatial/cloud/recording/diagnostic types | 27 |
+| [ar_engine README](../Packages/ar_engine/README.md) | Generic Flutter AR session/platform contract, scene graph, spatial primitives, diagnostics and capture orchestration | **ARController**, **ARWidget**, **ARSessionConfig**, **ARCapabilities**, **ARSceneManager**, **ARNode**, geospatial/cloud/recording/diagnostic types | 28 |
 | [ar_engine_testkit README](../Packages/ar_engine_testkit/README.md) | In-memory platform fake and install/restore harness for tests | **TestArEnginePlatform**, **ArEngineTestHarness**, **testCamera()** | 1 |
 | [ar_model_cache README](../Packages/ar_model_cache/README.md) | Local/network model asset staging, cache freshness, metadata, integrity inspection/repair and retention | **ARModelAssetCache**, fetcher contracts, cache results/status, freshness/prune/integrity types | 1 |
 | [jezaku_ar README](../Packages/jezaku_ar/README.md) | Jejaku memory/geospatial AR integration, memory nodes, placement quality, capture wrapper and cloud-anchor record mapping | **JejakuARCapabilities**, **JejakuGeoAnchor**, **JejakuMemoryARScene**, model preflight, placement/capture/cloud record types | 8 |
@@ -45,7 +41,7 @@ Two public abstractions need particular care:
 - **ARCloudAnchorManager** simulates hosting/resolving when the platform returns **null**. The generated ID and identity-pose resolution are not shared or durable cloud anchors. Native cloud hosting is currently Android ARCore only; iOS explicitly reports unsupported.
 - **ARScreenRecorder** has native video encoding on Android/iOS/macOS. Its Dart fallback is a frame-capture placeholder with a synthetic path, not playable video. **exportGIF** returns a JPEG frame; audio and automatic Flutter-widget overlay capture are not implemented by the native encoders.
 
-The default **ArEnginePlatform.getCapabilities()** fallback is based only on **isARSupported()** and sets optional flags such as image tracking, light estimation and snapshot capture. It is not a trustworthy optional-feature probe. Production backends should provide an explicit capability map.
+The default **ArEnginePlatform.getCapabilities()** fallback is based only on **isARSupported()** and sets optional flags such as image tracking, light estimation and snapshot capture. It is not a trustworthy optional-feature probe. The WebXR adapter also uses `isSessionSupported('immersive-ar')` as a coarse proxy for optional plane-detection and light-estimation support; those features are requested as optional WebXR features and are not independently verified by its capability map. Production backends should provide an explicit capability map.
 
 ### ar_engine_testkit: test-only boundary
 
@@ -88,7 +84,7 @@ The package READMEs and this catalog now distinguish shipped behavior from platf
 
 ## Validation and test coverage
 
-Source-level inspection covered each package's **pubspec.yaml**, public barrel, implementation files, tests and README. Test inventory is 27 files for **ar_engine**, one for **ar_engine_testkit**, one for **ar_model_cache**, and eight for **jezaku_ar**.
+Source-level inspection covered each package's **pubspec.yaml**, public barrel, implementation files, tests and README. Test inventory is 28 files for **ar_engine**, one for **ar_engine_testkit**, one for **ar_model_cache**, and eight for **jezaku_ar**.
 
 The suites cover controller/widget lifecycle and capability resolution; fake-platform gates and cleanup; cache source handling, conditional revalidation, stale fallback, concurrency, integrity and pruning; and Jejaku memory scene, geospatial projection, placement quality, capture, cloud-record and model-preflight behavior.
 
