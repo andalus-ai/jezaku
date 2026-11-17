@@ -26,6 +26,7 @@ import tech.kayys.jezaku.notifications.NotificationDtos.NotificationPreferences;
 import tech.kayys.jezaku.notifications.NotificationDtos.NotificationResponse;
 
 import tech.kayys.jezaku.auth.AuthContext;
+import tech.kayys.jezaku.auth.ServiceScopes;
 
 import java.util.List;
 
@@ -40,8 +41,8 @@ public class NotificationResource {
 
     /**
      * Inbox, preferences and device endpoints belong to one user: a verified token for a different user is refused.
-     * {@code POST /notifications} and {@code /intake/messaging} are producer endpoints called by other services and
-     * are intentionally not owner-scoped; they need service credentials before authentication can be enforced here.
+     * {@code POST /notifications} and {@code /intake/messaging} are producer endpoints for other services: they
+     * need a service token with the notification-intake scope, and a user token is refused.
      */
     private void self(String userId) {
         AuthContext.requireSelf(requestContext, userId);
@@ -50,6 +51,7 @@ public class NotificationResource {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     public Uni<Response> create(NotificationCreateRequest request) {
+        AuthContext.requireService(requestContext, ServiceScopes.NOTIFICATION_INTAKE);
         return service.create(request)
                 .map(created -> Response.status(Response.Status.CREATED).entity(created).build());
     }
@@ -58,6 +60,7 @@ public class NotificationResource {
     @Path("/intake/messaging")
     @Consumes(MediaType.APPLICATION_JSON)
     public Uni<Response> ingestMessaging(MessagingNotificationHandoffRequest request) {
+        AuthContext.requireService(requestContext, ServiceScopes.NOTIFICATION_INTAKE);
         return service.ingestMessagingHandoff(request)
                 .map(response -> Response.status(response.duplicate()
                         ? Response.Status.OK

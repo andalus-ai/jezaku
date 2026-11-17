@@ -1,5 +1,6 @@
 package tech.kayys.jezaku.social;
 
+import tech.kayys.jezaku.auth.CallerAwareResource;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.DefaultValue;
@@ -20,7 +21,7 @@ import tech.kayys.jezaku.social.SocialDtos.SocialActivitySummaryResponse;
  */
 @Path("/social")
 @Produces(MediaType.APPLICATION_JSON)
-public class SocialActivityResource {
+public class SocialActivityResource extends CallerAwareResource {
     @Inject
     SocialService service;
 
@@ -31,12 +32,14 @@ public class SocialActivityResource {
             @QueryParam("mode") @DefaultValue("inbox") String mode,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(userId);
         return service.activities(userId, mode, limit, cursor);
     }
 
     @GET
     @Path("/activity/{userId}/summary")
     public Uni<SocialActivitySummaryResponse> activitySummary(@PathParam("userId") String userId) {
+        self(userId);
         return service.activitySummary(userId);
     }
 
@@ -45,12 +48,14 @@ public class SocialActivityResource {
     public Uni<SocialActivityResponse> markActivityRead(
             @PathParam("activityId") String activityId,
             @QueryParam("actorUserId") String actorUserId) {
+        self(actorUserId);
         return service.markActivityRead(activityId, actorUserId);
     }
 
     @PUT
     @Path("/activity/{userId}/read-all")
     public Uni<SocialActivityMarkReadResponse> markAllActivitiesRead(@PathParam("userId") String userId) {
+        self(userId);
         return service.markAllActivitiesRead(userId);
     }
 }

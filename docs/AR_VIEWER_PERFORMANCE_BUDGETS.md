@@ -63,8 +63,30 @@ alone.
   to grow without bound.
 - Projection input caching should reuse geographic inputs while the same
   immutable `AnchorMemory` instances remain in the same order.
+- Completed projection results should also be reused while the anchor snapshot,
+  viewer origin, heading, pitch, field of view, range, projector and range-filter
+  mode are unchanged.
 - Replacing, adding, removing, or reordering memory instances must invalidate
-  the cached projection inputs.
+  both geographic inputs and completed projection results.
+- Any viewer-pose or projection-mode change must invalidate only the completed
+  projection result; unchanged geographic inputs remain reusable.
+
+## Projection scheduling decision
+
+The viewer currently requests projections during widget build. The projection
+algorithm is synchronous and includes per-anchor geospatial math plus sorting.
+The cache-miss path computes each anchor's 3D magnitude once and reuses it for
+range classification, placement scoring, and the returned distance value.
+Before introducing isolate scheduling, first avoid repeating that work on
+unrelated widget rebuilds: `ARMemoryProjectionCache` now memoizes the completed
+projection for an unchanged memory snapshot and complete pose key.
+
+This is deliberately not an isolate implementation. Moving the calculation to
+an isolate would require serializing the anchor metadata and returning
+projection results asynchronously, with stale-result cancellation and a
+temporary last-known projection policy. That added complexity should be justified
+by device traces showing that cache misses still exceed the frame budget for
+large collections.
 
 ## Automated coverage
 

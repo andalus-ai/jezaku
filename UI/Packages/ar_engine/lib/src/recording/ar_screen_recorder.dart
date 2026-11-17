@@ -205,15 +205,22 @@ class ARRecordingResult {
 /// A custom [ARRecordingFrameSource] can be supplied when the app wants to
 /// encode a composited Flutter surface instead of raw platform snapshots.
 ///
-/// **Platform implementations**
-/// - iOS/macOS: `AVAssetWriter` H.264 video from captured snapshot frames
-/// - Android: `MediaCodec` + `MediaMuxer` H.264 from captured snapshot frames
-/// - Web  : `MediaRecorder` with `canvas.captureStream(fps)`
-/// - Other desktop: pixel-buffer capture + platform encoder when available
+/// **Current platform implementation**
+/// - Android: `MediaCodec` + `MediaMuxer` H.264 MP4 encoding.
+/// - iOS/macOS: `AVAssetWriter` H.264 MP4/MOV encoding.
+/// - Web/Windows: no native video encoder is implemented.
 ///
-/// The Dart layer handles frame pacing and orchestration; actual encoding
-/// is delegated to the platform via the method channel when
-/// `ARCapabilities.supportsRecordingEncode` is true.
+/// The Dart layer captures snapshot frames in memory and delegates encoding
+/// when `ARCapabilities.supportsRecordingEncode` is true. If native encoding
+/// returns `null`, the current Dart fallback returns a placeholder path; it
+/// does not write a playable MP4/MOV. `exportGIF` also remains a placeholder
+/// that returns the latest JPEG frame. Do not treat either fallback as a
+/// production export.
+///
+/// The current native encoders write video only. `includeAudio` is not an
+/// implemented audio track, and `includeUIOverlay` does not capture arbitrary
+/// Flutter widgets. Supply a custom [ARRecordingFrameSource] for composited
+/// frames. Captured frames are buffered in memory until stop/encode.
 ///
 /// Usage:
 /// ```dart

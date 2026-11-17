@@ -11,7 +11,7 @@ import '../models/ar_pose.dart';
 enum ARCloudAnchorState {
   none,
 
-  /// Actively uploading mapping data to Google Cloud Anchors / ARKit backend.
+  /// Hosting with a native cloud-anchor service or the local Dart simulation.
   hosting,
 
   /// Anchor has been hosted; [cloudId] is available.
@@ -53,20 +53,23 @@ class ARCloudAnchor {
 
 // ─── Cloud anchor manager ─────────────────────────────────────────────────────
 
-/// Hosts and resolves Google Cloud Anchors (ARCore) and ARKit collaborative
-/// sessions, enabling persistent AR content shared across devices.
+/// Coordinates native Cloud Anchor operations and a local Dart simulation
+/// fallback.
 ///
-/// **Requirements:**
-/// - Android: `cloudAnchorsEnabled: true` in [ARSessionConfig]; Google Maps
-///   API key in `AndroidManifest.xml` meta-data.
-/// - iOS: ARKit collaborative sessions or Cloud Anchors via plugin bridge.
-/// - Network connectivity during hosting / resolving.
+/// Native Cloud Anchor hosting/resolving is currently implemented by the
+/// Android ARCore adapter only. It requires `cloudAnchorsEnabled: true` in
+/// [ARSessionConfig], the ARCore Cloud Anchors API credential in the host
+/// Android manifest, and network access.
 ///
-/// **Typical flow:**
-/// 1. User taps a surface → hit-test → call [hostAnchor].
-/// 2. Store [ARCloudAnchor.cloudId] in your backend.
-/// 3. Second device calls [resolveAnchor] with the cloud ID.
-/// 4. Attach nodes to [ARCloudAnchor.resolvedAnchor].
+/// When the platform returns `null` (unsupported), this manager simulates
+/// hosting with a generated local ID and resolving with an identity pose after
+/// [hostingDelay]/[resolutionDelay]. That fallback is for demos and tests only:
+/// it is not a cloud service, does not share world maps across devices, and
+/// must not be persisted as a real Cloud Anchor. iOS currently reports cloud
+/// anchors unsupported; no ARKit collaborative-session bridge is implemented.
+///
+/// For real cross-device persistence, check [ARCapabilities.supportsCloudAnchors]
+/// and persist only IDs returned by a supported native backend.
 class ARCloudAnchorManager {
   ARCloudAnchorManager(
     this._controller, {

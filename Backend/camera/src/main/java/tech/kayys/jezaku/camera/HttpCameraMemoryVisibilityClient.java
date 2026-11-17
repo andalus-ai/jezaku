@@ -1,5 +1,6 @@
 package tech.kayys.jezaku.camera;
 
+import tech.kayys.jezaku.auth.ServiceTokenSource;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -64,7 +65,7 @@ class HttpCameraMemoryVisibilityClient {
         }
         HttpRequest httpRequest;
         try {
-            httpRequest = HttpRequest.newBuilder(socialAudienceAccessUri())
+            httpRequest = ServiceTokenSource.request(socialAudienceAccessUri())
                     .timeout(requestTimeout())
                     .header("content-type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(json(request, response)))

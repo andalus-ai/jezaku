@@ -168,6 +168,34 @@ void main() {
     );
   });
 
+  test('reuses the same 3D distance for range and placement output', () {
+    const anchor = JejakuGeoAnchor(
+      id: 'distance',
+      latitude: -6.9174,
+      longitude: 107.6191,
+      altitudeMeters: 703,
+      metadata: <String, Object?>{'gpsAccuracyMeters': 3},
+    );
+    const pose = JejakuViewerPose(
+      origin: origin,
+      maxDistanceMeters: 20,
+    );
+
+    final projection = projector.projectAnchor(
+      viewerPose: pose,
+      anchor: anchor,
+    );
+
+    expect(
+      projection.distanceMeters,
+      closeTo(projection.localPosition.length, 1e-9),
+    );
+    expect(
+      projection.isWithinRange,
+      projection.distanceMeters <= pose.maxDistanceMeters,
+    );
+  });
+
   test('projectAnchors sorts by distance and filters range', () {
     const near = JejakuGeoAnchor(
       id: 'near',

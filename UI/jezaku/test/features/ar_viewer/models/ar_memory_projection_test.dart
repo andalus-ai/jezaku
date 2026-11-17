@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_memory_projection.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
+import 'package:jezaku_ar/jezaku_ar.dart';
 
 void main() {
   group('AnchorMemoryGeoAnchor', () {
@@ -172,6 +173,139 @@ void main() {
         <String>['anchor-2', 'anchor-1'],
       );
       expect(identical(reordered.memoryById['anchor-1'], firstMemory), isTrue);
+    });
+
+    test('reuses completed projections when anchors and pose are unchanged',
+        () {
+      final cache = ARMemoryProjectionCache();
+      final anchorMemory = memory();
+      final pose = JejakuViewerPose(
+        origin: const JejakuGeoOrigin(
+          latitude: -6.9,
+          longitude: 107.6,
+          altitudeMeters: 700,
+        ),
+        headingDegrees: 0,
+      );
+
+      final first = projectAnchorMemories(
+        memories: <AnchorMemory>[anchorMemory],
+        viewerPose: pose,
+        onlyInRange: false,
+        cache: cache,
+      );
+      final second = projectAnchorMemories(
+        memories: <AnchorMemory>[anchorMemory],
+        viewerPose: pose,
+        onlyInRange: false,
+        cache: cache,
+      );
+
+      expect(identical(second, first), isTrue);
+    });
+
+    test('reuses completed projection for 1000 unchanged memories', () {
+      final cache = ARMemoryProjectionCache();
+      final memories = List<AnchorMemory>.generate(
+        1000,
+        (index) => memory(id: 'projected-$index'),
+        growable: false,
+      );
+      const pose = JejakuViewerPose(
+        origin: JejakuGeoOrigin(
+          latitude: -6.9,
+          longitude: 107.6,
+          altitudeMeters: 700,
+        ),
+        maxDistanceMeters: 260,
+      );
+
+      final first = projectAnchorMemories(
+        memories: memories,
+        viewerPose: pose,
+        onlyInRange: false,
+        cache: cache,
+      );
+      final second = projectAnchorMemories(
+        memories: memories,
+        viewerPose: pose,
+        onlyInRange: false,
+        cache: cache,
+      );
+
+      expect(first, hasLength(1000));
+      expect(identical(second, first), isTrue);
+    });
+
+    test('reprojects when any viewer pose input changes', () {
+      final cache = ARMemoryProjectionCache();
+      final anchorMemory = memory();
+      final memories = <AnchorMemory>[anchorMemory];
+      const origin = JejakuGeoOrigin(
+        latitude: -6.9,
+        longitude: 107.6,
+        altitudeMeters: 700,
+      );
+
+      final first = projectAnchorMemories(
+        memories: memories,
+        viewerPose: const JejakuViewerPose(
+          origin: origin,
+          headingDegrees: 0,
+        ),
+        onlyInRange: false,
+        cache: cache,
+      );
+      final changedHeading = projectAnchorMemories(
+        memories: memories,
+        viewerPose: const JejakuViewerPose(
+          origin: origin,
+          headingDegrees: 20,
+        ),
+        onlyInRange: false,
+        cache: cache,
+      );
+      final changedRangeMode = projectAnchorMemories(
+        memories: memories,
+        viewerPose: const JejakuViewerPose(
+          origin: origin,
+          headingDegrees: 20,
+        ),
+        onlyInRange: true,
+        cache: cache,
+      );
+
+      expect(identical(changedHeading, first), isFalse);
+      expect(identical(changedRangeMode, changedHeading), isFalse);
+    });
+
+    test('reprojects when the memory collection changes', () {
+      final cache = ARMemoryProjectionCache();
+      final firstMemory = memory(id: 'anchor-1');
+      final secondMemory = memory(id: 'anchor-2');
+      const pose = JejakuViewerPose(
+        origin: JejakuGeoOrigin(
+          latitude: -6.9,
+          longitude: 107.6,
+          altitudeMeters: 700,
+        ),
+      );
+
+      final first = projectAnchorMemories(
+        memories: <AnchorMemory>[firstMemory],
+        viewerPose: pose,
+        onlyInRange: false,
+        cache: cache,
+      );
+      final second = projectAnchorMemories(
+        memories: <AnchorMemory>[firstMemory, secondMemory],
+        viewerPose: pose,
+        onlyInRange: false,
+        cache: cache,
+      );
+
+      expect(identical(second, first), isFalse);
+      expect(second, hasLength(2));
     });
 
     test('clear forces the next resolve to rebuild its inputs', () {

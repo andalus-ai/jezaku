@@ -11,6 +11,8 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
+import tech.kayys.jezaku.auth.CallerAwareResource;
+import tech.kayys.jezaku.auth.ServiceScopes;
 import tech.kayys.jezaku.social.SocialDtos.SocialAudienceAccessRequest;
 import tech.kayys.jezaku.social.SocialDtos.SocialAudienceAccessResponse;
 import tech.kayys.jezaku.social.SocialDtos.SocialAudienceDecisionBatchRequest;
@@ -30,13 +32,14 @@ import tech.kayys.jezaku.social.SocialDtos.VisibilityDecision;
 
 @Path("/social")
 @Produces(MediaType.APPLICATION_JSON)
-public class SocialGraphResource {
+public class SocialGraphResource extends CallerAwareResource {
     @Inject
     SocialService service;
 
     @GET
     @Path("/graph/{userId}")
     public Uni<SocialGraphResponse> graph(@PathParam("userId") String userId) {
+        selfOrService(userId, ServiceScopes.SOCIAL_AUDIENCE);
         return service.graph(userId);
     }
 
@@ -45,6 +48,7 @@ public class SocialGraphResource {
     public Uni<SocialNetworkResponse> network(
             @PathParam("userId") String userId,
             @QueryParam("maxDepth") @DefaultValue("2") Integer maxDepth) {
+        selfOrService(userId, ServiceScopes.SOCIAL_AUDIENCE);
         return service.network(userId, maxDepth);
     }
 
@@ -54,6 +58,7 @@ public class SocialGraphResource {
             @PathParam("userId") String userId,
             @QueryParam("maxDepth") @DefaultValue("2") Integer maxDepth,
             @QueryParam("limit") @DefaultValue("10") Integer limit) {
+        selfOrService(userId, ServiceScopes.SOCIAL_AUDIENCE);
         return service.neighborhood(userId, maxDepth, limit);
     }
 
@@ -64,6 +69,7 @@ public class SocialGraphResource {
             @QueryParam("scope") @DefaultValue("friends") String scope,
             @QueryParam("targetId") String targetId,
             @QueryParam("limit") @DefaultValue("50") Integer limit) {
+        selfOrService(ownerId, ServiceScopes.SOCIAL_AUDIENCE);
         return service.audiencePreview(ownerId, scope, targetId, limit);
     }
 
@@ -74,6 +80,7 @@ public class SocialGraphResource {
             @QueryParam("viewerId") String viewerId,
             @QueryParam("scope") @DefaultValue("friends") String scope,
             @QueryParam("targetId") String targetId) {
+        requireService(ServiceScopes.SOCIAL_AUDIENCE);
         return service.audienceDecision(ownerId, viewerId, scope, targetId);
     }
 
@@ -82,6 +89,7 @@ public class SocialGraphResource {
     @Consumes(MediaType.APPLICATION_JSON)
     public Uni<SocialAudienceDecisionBatchResponse> audienceDecisions(
             SocialAudienceDecisionBatchRequest request) {
+        requireService(ServiceScopes.SOCIAL_AUDIENCE);
         return service.audienceDecisions(request);
     }
 
@@ -90,12 +98,14 @@ public class SocialGraphResource {
     @Consumes(MediaType.APPLICATION_JSON)
     public Uni<SocialAudienceAccessResponse> audienceAccess(
             SocialAudienceAccessRequest request) {
+        requireService(ServiceScopes.SOCIAL_AUDIENCE);
         return service.audienceAccess(request);
     }
 
     @GET
     @Path("/graph/repository")
     public Uni<SocialGraphRepositoryResponse> repositoryStatus() {
+        requireService(ServiceScopes.SOCIAL_AUDIENCE);
         return service.repositoryStatus();
     }
 
@@ -113,6 +123,7 @@ public class SocialGraphResource {
     public Uni<SocialRelationshipContextResponse> relationshipContext(
             @QueryParam("viewerId") String viewerId,
             @QueryParam("ownerId") String ownerId) {
+        requireService(ServiceScopes.SOCIAL_AUDIENCE);
         return service.relationshipContext(viewerId, ownerId);
     }
 
@@ -121,6 +132,7 @@ public class SocialGraphResource {
     @Consumes(MediaType.APPLICATION_JSON)
     public Uni<SocialRelationshipContextBatchResponse> relationshipContexts(
             SocialRelationshipContextBatchRequest request) {
+        requireService(ServiceScopes.SOCIAL_AUDIENCE);
         return service.relationshipContexts(request);
     }
 
@@ -130,6 +142,7 @@ public class SocialGraphResource {
             @QueryParam("fromUserId") String fromUserId,
             @QueryParam("toUserId") String toUserId,
             @QueryParam("maxDepth") @DefaultValue("3") Integer maxDepth) {
+        selfOrService(fromUserId, ServiceScopes.SOCIAL_AUDIENCE);
         return service.connectionPath(fromUserId, toUserId, maxDepth);
     }
 
@@ -138,6 +151,7 @@ public class SocialGraphResource {
     public Uni<VisibilityDecision> visibility(
             @QueryParam("viewerId") String viewerId,
             @QueryParam("ownerId") String ownerId) {
+        requireService(ServiceScopes.SOCIAL_AUDIENCE);
         return service.visibility(viewerId, ownerId);
     }
 }

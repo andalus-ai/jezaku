@@ -39,6 +39,7 @@ import 'package:jejaku/features/ar_viewer/states/ar_capture_provider.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capability_providers.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_scene_diagnostics_provider.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_placement_quality_chip.dart';
+import 'package:jejaku/features/ar_viewer/widgets/ar_snapshot_review_dialog.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_trail_launch_conflict_dialog.dart';
 import 'package:jejaku/features/camera/models/capture_sensor_snapshot.dart';
 import 'package:jejaku/features/camera/states/capture_session_provider.dart';
@@ -912,6 +913,13 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                         wallTitlesByMemoryId: wallTitlesByMemoryId,
                         totalMemoryCount: anchors.length,
                       ),
+                    // Camera-relative guide follows the view; the persistent
+                    // world pose is resolved from live AR tracking on capture.
+                    const Positioned.fill(
+                      child: IgnorePointer(
+                        child: Center(child: _HangingFrameAimPreview()),
+                      ),
+                    ),
                     // Subtle edge scrims keep controls and status readable
                     // over bright skies without dimming the center camera view.
                     Positioned.fill(
@@ -2185,7 +2193,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     final messenger = ScaffoldMessenger.of(context);
     try {
       await _refreshViewerPoseFromDeviceSensors();
-      final localPose = await _captureHangingPhotoLocalPose();
+      var localPose = await _captureHangingPhotoLocalPose();
       final snapshot = await _captureController.captureSnapshot();
       Uint8List? stagedBytes = snapshot.bytes;
       var stagedAt = snapshot.capturedAt;
@@ -2202,9 +2210,18 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       if (!mounted || stagedBytes == null) {
         return;
       }
-      final accepted = await _confirmARSnapshot(
-        stagedBytes,
+      final reviewCamera = _latestARCamera;
+      final accepted = await showARSnapshotReviewDialog(
+        context: context,
+        bytes: stagedBytes,
         placement: localPose,
+        onPlacementChanged: (updated) => localPose = updated,
+        cameraPosition: reviewCamera?.pose.position,
+        cameraForward: reviewCamera == null
+            ? const ARVector3(0, 0, -1)
+            : reviewCamera.pose.rotation
+                .rotateVector(ARVector3.forward)
+                .normalized,
       );
       if (!mounted || accepted != true) {
         return;
@@ -2212,16 +2229,19 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       messenger
         ..clearSnackBars()
         ..showSnackBar(SnackBar(content: Text(message)));
+      // The review dialog may have replaced the pose; read the final one once
+      // so it promotes to non-null below.
+      final reviewedPose = localPose;
       final diagnostics = _captureDiagnosticsSnapshot(stagedAt);
       ref.read(captureSessionProvider.notifier).stageARSnapshot(
         capturedAt: stagedAt,
         bytes: stagedBytes,
-        localPose: localPose,
+        localPose: reviewedPose,
         arDiagnostics: <String, Object?>{
           ...diagnostics,
-          if (localPose != null) ...{
-            'localSurfacePose': localPose.toMap(),
-            'localSurfacePoseLabel': localPose.surfaceLabel,
+          if (reviewedPose != null) ...{
+            'localSurfacePose': reviewedPose.toMap(),
+            'localSurfacePoseLabel': reviewedPose.surfaceLabel,
           },
         },
       );
@@ -2238,78 +2258,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     }
   }
 
-
-  Future<bool?> _confirmARSnapshot(
-    Uint8List bytes, {
-    required AnchorLocalPose? placement,
-  }) {
-    return showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        final theme = Theme.of(dialogContext);
-        final placementLabel = placement == null
-            ? 'Placement unavailable — the photo can still be published.'
-            : placement.planeId == null
-                ? 'Floating in space • about ${placement.distanceMeters.toStringAsFixed(1)} m ahead'
-                : 'Near a detected vertical surface • about ${placement.distanceMeters.toStringAsFixed(1)} m away';
-        return AlertDialog(
-          key: const ValueKey('ar_snapshot_confirmation_dialog'),
-          title: const Text('Review AR photo'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 320),
-                    child: Image.memory(
-                      bytes,
-                      key: const ValueKey('ar_snapshot_confirmation_image'),
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) => const SizedBox(
-                        height: 120,
-                        child: Center(child: Icon(Icons.broken_image_outlined, size: 40)),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.view_in_ar, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(placementLabel, style: theme.textTheme.bodyMedium)),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'The frame is not wall-bound. It can float at the captured position in your space.',
-                  style: theme.textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              key: const ValueKey('ar_snapshot_retake_button'),
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Retake'),
-            ),
-            FilledButton.icon(
-              key: const ValueKey('ar_snapshot_use_button'),
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              icon: const Icon(Icons.check),
-              label: const Text('Use photo'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   Future<AnchorLocalPose?> _captureHangingPhotoLocalPose() async {
     final controller = _arController;

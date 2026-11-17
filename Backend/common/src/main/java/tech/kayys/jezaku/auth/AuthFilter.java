@@ -25,12 +25,16 @@ import java.util.Optional;
 @Priority(Priorities.AUTHENTICATION)
 public class AuthFilter implements ContainerRequestFilter {
     public static final String USER_PROPERTY = "jezaku.auth.user";
+    public static final String SERVICE_PROPERTY = "jezaku.auth.service";
 
     @ConfigProperty(name = "jezaku.auth.required", defaultValue = "false")
     boolean required;
 
     @ConfigProperty(name = "jezaku.auth.jwt-secret")
     Optional<String> secret;
+
+    @ConfigProperty(name = "jezaku.auth.service-secret")
+    Optional<String> serviceSecret;
 
     @ConfigProperty(name = "jezaku.auth.public")
     Optional<String> publicRules;
@@ -47,6 +51,7 @@ public class AuthFilter implements ContainerRequestFilter {
                 Instant.now());
         switch (decision.outcome()) {
             case AUTHENTICATED -> requestContext.setProperty(USER_PROPERTY, decision.user());
+            case SERVICE -> requestContext.setProperty(SERVICE_PROPERTY, decision.service());
             case ALLOWED_ANONYMOUS -> {
                 // Anonymous access is allowed here; handlers that need a caller use AuthContext.
             }
@@ -67,7 +72,7 @@ public class AuthFilter implements ContainerRequestFilter {
     private AuthPolicy policy() {
         AuthPolicy current = policy;
         if (current == null) {
-            current = new AuthPolicy(required, secret.orElse(null), parseRules(publicRules.orElse("")));
+            current = new AuthPolicy(required, secret.orElse(null), serviceSecret.orElse(null), parseRules(publicRules.orElse("")));
             policy = current;
         }
         return current;

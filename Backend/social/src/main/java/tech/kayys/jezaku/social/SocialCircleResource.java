@@ -1,5 +1,6 @@
 package tech.kayys.jezaku.social;
 
+import tech.kayys.jezaku.auth.CallerAwareResource;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -39,7 +40,7 @@ import tech.kayys.jezaku.social.SocialDtos.SocialGroupResponse;
 
 @Path("/social")
 @Produces(MediaType.APPLICATION_JSON)
-public class SocialCircleResource {
+public class SocialCircleResource extends CallerAwareResource {
     @Inject
     SocialService service;
 
@@ -47,6 +48,7 @@ public class SocialCircleResource {
     @Path("/groups")
     @Consumes(MediaType.APPLICATION_JSON)
     public Uni<Response> createGroup(SocialGroupCreateRequest request) {
+        self(request == null ? null : request.ownerId());
         return service.createGroup(request)
                 .map(created -> Response.status(Response.Status.CREATED).entity(created).build());
     }
@@ -59,6 +61,7 @@ public class SocialCircleResource {
             @QueryParam("q") String query,
             @QueryParam("visibility") @DefaultValue("all") String visibility,
             @QueryParam("viewerId") String viewerId) {
+        viewerId = viewer(viewerId);
         return service.groups(limit, cursor, query, visibility, viewerId);
     }
 
@@ -75,6 +78,7 @@ public class SocialCircleResource {
             @PathParam("groupId") String groupId,
             @QueryParam("actorUserId") String actorUserId,
             MembershipCreateRequest request) {
+        self(actorUserId);
         return service.addGroupMember(groupId, request, actorUserId);
     }
 
@@ -93,6 +97,7 @@ public class SocialCircleResource {
             @PathParam("userId") String userId,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(userId);
         return service.userGroups(userId, limit, cursor);
     }
 
@@ -102,6 +107,7 @@ public class SocialCircleResource {
     public Uni<MembershipResponse> joinGroup(
             @PathParam("groupId") String groupId,
             MembershipJoinRequest request) {
+        self(request == null ? null : request.userId());
         return service.joinGroup(groupId, request);
     }
 
@@ -110,6 +116,7 @@ public class SocialCircleResource {
     public Uni<Response> leaveGroup(
             @PathParam("groupId") String groupId,
             @PathParam("userId") String userId) {
+        self(userId);
         return service.leaveGroup(groupId, userId)
                 .replaceWith(Response.noContent().build());
     }
@@ -120,6 +127,7 @@ public class SocialCircleResource {
     public Uni<Response> requestGroupJoin(
             @PathParam("groupId") String groupId,
             CircleMembershipRequestCreateRequest request) {
+        self(request == null ? null : request.userId());
         return service.requestGroupJoin(groupId, request)
                 .map(created -> Response.status(Response.Status.CREATED).entity(created).build());
     }
@@ -132,6 +140,7 @@ public class SocialCircleResource {
             @QueryParam("status") @DefaultValue("pending") String status,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(actorUserId);
         return service.groupJoinRequests(groupId, actorUserId, status, limit, cursor);
     }
 
@@ -142,6 +151,7 @@ public class SocialCircleResource {
             @PathParam("groupId") String groupId,
             @PathParam("requestId") String requestId,
             CircleMembershipDecisionRequest request) {
+        self(request == null ? null : request.actorUserId());
         return service.decideGroupJoinRequest(groupId, requestId, request);
     }
 
@@ -151,6 +161,7 @@ public class SocialCircleResource {
     public Uni<Response> inviteGroupMember(
             @PathParam("groupId") String groupId,
             CircleMembershipInviteCreateRequest request) {
+        self(request == null ? null : request.inviterId());
         return service.inviteGroupMember(groupId, request)
                 .map(created -> Response.status(Response.Status.CREATED).entity(created).build());
     }
@@ -163,6 +174,7 @@ public class SocialCircleResource {
             @QueryParam("status") @DefaultValue("pending") String status,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(actorUserId);
         return service.groupInvites(groupId, actorUserId, status, limit, cursor);
     }
 
@@ -173,6 +185,7 @@ public class SocialCircleResource {
             @PathParam("groupId") String groupId,
             @PathParam("requestId") String requestId,
             CircleMembershipDecisionRequest request) {
+        self(request == null ? null : request.actorUserId());
         return service.decideGroupInvite(groupId, requestId, request);
     }
 
@@ -182,6 +195,7 @@ public class SocialCircleResource {
             @PathParam("groupId") String groupId,
             @PathParam("memberId") String memberId,
             @QueryParam("actorUserId") String actorUserId) {
+        self(actorUserId);
         return service.removeGroupMember(groupId, memberId, actorUserId)
                 .replaceWith(Response.noContent().build());
     }
@@ -194,6 +208,7 @@ public class SocialCircleResource {
             @PathParam("memberId") String memberId,
             @QueryParam("actorUserId") String actorUserId,
             MembershipRoleUpdateRequest request) {
+        self(actorUserId);
         return service.updateGroupMemberRole(groupId, memberId, request, actorUserId);
     }
 
@@ -203,6 +218,7 @@ public class SocialCircleResource {
     public Uni<CircleOwnershipTransferResponse> transferGroupOwnership(
             @PathParam("groupId") String groupId,
             CircleOwnershipTransferRequest request) {
+        self(request == null ? null : request.actorUserId());
         return service.transferGroupOwnership(groupId, request);
     }
 
@@ -213,6 +229,7 @@ public class SocialCircleResource {
             @QueryParam("viewerId") String viewerId,
             @QueryParam("limit") @DefaultValue("20") Integer limit,
             @QueryParam("cursor") String cursor) {
+        viewerId = viewer(viewerId);
         return service.groupContent(groupId, viewerId, limit, cursor);
     }
 
@@ -223,6 +240,7 @@ public class SocialCircleResource {
             @PathParam("groupId") String groupId,
             @PathParam("contentId") String contentId,
             CircleContentModerationRequest request) {
+        self(request == null ? null : request.actorUserId());
         return service.moderateGroupContent(groupId, contentId, request);
     }
 
@@ -234,6 +252,7 @@ public class SocialCircleResource {
             @QueryParam("status") @DefaultValue("removed") String status,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(actorUserId);
         return service.groupContentModeration(groupId, actorUserId, status, limit, cursor);
     }
 
@@ -241,6 +260,7 @@ public class SocialCircleResource {
     @Path("/communities")
     @Consumes(MediaType.APPLICATION_JSON)
     public Uni<Response> createCommunity(SocialCommunityCreateRequest request) {
+        self(request == null ? null : request.ownerId());
         return service.createCommunity(request)
                 .map(created -> Response.status(Response.Status.CREATED).entity(created).build());
     }
@@ -253,6 +273,7 @@ public class SocialCircleResource {
             @QueryParam("q") String query,
             @QueryParam("visibility") @DefaultValue("all") String visibility,
             @QueryParam("viewerId") String viewerId) {
+        viewerId = viewer(viewerId);
         return service.communities(limit, cursor, query, visibility, viewerId);
     }
 
@@ -269,6 +290,7 @@ public class SocialCircleResource {
             @PathParam("communityId") String communityId,
             @QueryParam("actorUserId") String actorUserId,
             MembershipCreateRequest request) {
+        self(actorUserId);
         return service.addCommunityMember(communityId, request, actorUserId);
     }
 
@@ -287,6 +309,7 @@ public class SocialCircleResource {
             @PathParam("userId") String userId,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(userId);
         return service.userCommunities(userId, limit, cursor);
     }
 
@@ -297,6 +320,7 @@ public class SocialCircleResource {
             @QueryParam("status") @DefaultValue("pending") String status,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(userId);
         return service.userCircleInvites(userId, status, limit, cursor);
     }
 
@@ -307,6 +331,7 @@ public class SocialCircleResource {
             @QueryParam("status") @DefaultValue("pending") String status,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(userId);
         return service.userCircleJoinRequests(userId, status, limit, cursor);
     }
 
@@ -316,6 +341,7 @@ public class SocialCircleResource {
     public Uni<MembershipResponse> joinCommunity(
             @PathParam("communityId") String communityId,
             MembershipJoinRequest request) {
+        self(request == null ? null : request.userId());
         return service.joinCommunity(communityId, request);
     }
 
@@ -324,6 +350,7 @@ public class SocialCircleResource {
     public Uni<Response> leaveCommunity(
             @PathParam("communityId") String communityId,
             @PathParam("userId") String userId) {
+        self(userId);
         return service.leaveCommunity(communityId, userId)
                 .replaceWith(Response.noContent().build());
     }
@@ -334,6 +361,7 @@ public class SocialCircleResource {
     public Uni<Response> requestCommunityJoin(
             @PathParam("communityId") String communityId,
             CircleMembershipRequestCreateRequest request) {
+        self(request == null ? null : request.userId());
         return service.requestCommunityJoin(communityId, request)
                 .map(created -> Response.status(Response.Status.CREATED).entity(created).build());
     }
@@ -346,6 +374,7 @@ public class SocialCircleResource {
             @QueryParam("status") @DefaultValue("pending") String status,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(actorUserId);
         return service.communityJoinRequests(communityId, actorUserId, status, limit, cursor);
     }
 
@@ -356,6 +385,7 @@ public class SocialCircleResource {
             @PathParam("communityId") String communityId,
             @PathParam("requestId") String requestId,
             CircleMembershipDecisionRequest request) {
+        self(request == null ? null : request.actorUserId());
         return service.decideCommunityJoinRequest(communityId, requestId, request);
     }
 
@@ -365,6 +395,7 @@ public class SocialCircleResource {
     public Uni<Response> inviteCommunityMember(
             @PathParam("communityId") String communityId,
             CircleMembershipInviteCreateRequest request) {
+        self(request == null ? null : request.inviterId());
         return service.inviteCommunityMember(communityId, request)
                 .map(created -> Response.status(Response.Status.CREATED).entity(created).build());
     }
@@ -377,6 +408,7 @@ public class SocialCircleResource {
             @QueryParam("status") @DefaultValue("pending") String status,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(actorUserId);
         return service.communityInvites(communityId, actorUserId, status, limit, cursor);
     }
 
@@ -387,6 +419,7 @@ public class SocialCircleResource {
             @PathParam("communityId") String communityId,
             @PathParam("requestId") String requestId,
             CircleMembershipDecisionRequest request) {
+        self(request == null ? null : request.actorUserId());
         return service.decideCommunityInvite(communityId, requestId, request);
     }
 
@@ -396,6 +429,7 @@ public class SocialCircleResource {
             @PathParam("communityId") String communityId,
             @PathParam("memberId") String memberId,
             @QueryParam("actorUserId") String actorUserId) {
+        self(actorUserId);
         return service.removeCommunityMember(communityId, memberId, actorUserId)
                 .replaceWith(Response.noContent().build());
     }
@@ -408,6 +442,7 @@ public class SocialCircleResource {
             @PathParam("memberId") String memberId,
             @QueryParam("actorUserId") String actorUserId,
             MembershipRoleUpdateRequest request) {
+        self(actorUserId);
         return service.updateCommunityMemberRole(communityId, memberId, request, actorUserId);
     }
 
@@ -417,6 +452,7 @@ public class SocialCircleResource {
     public Uni<CircleOwnershipTransferResponse> transferCommunityOwnership(
             @PathParam("communityId") String communityId,
             CircleOwnershipTransferRequest request) {
+        self(request == null ? null : request.actorUserId());
         return service.transferCommunityOwnership(communityId, request);
     }
 
@@ -427,6 +463,7 @@ public class SocialCircleResource {
             @QueryParam("viewerId") String viewerId,
             @QueryParam("limit") @DefaultValue("20") Integer limit,
             @QueryParam("cursor") String cursor) {
+        viewerId = viewer(viewerId);
         return service.communityContent(communityId, viewerId, limit, cursor);
     }
 
@@ -437,6 +474,7 @@ public class SocialCircleResource {
             @PathParam("communityId") String communityId,
             @PathParam("contentId") String contentId,
             CircleContentModerationRequest request) {
+        self(request == null ? null : request.actorUserId());
         return service.moderateCommunityContent(communityId, contentId, request);
     }
 
@@ -448,6 +486,7 @@ public class SocialCircleResource {
             @QueryParam("status") @DefaultValue("removed") String status,
             @QueryParam("limit") @DefaultValue("50") Integer limit,
             @QueryParam("cursor") String cursor) {
+        self(actorUserId);
         return service.communityContentModeration(communityId, actorUserId, status, limit, cursor);
     }
 }

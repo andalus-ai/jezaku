@@ -1,5 +1,6 @@
 package tech.kayys.jezaku.spatial;
 
+import tech.kayys.jezaku.auth.CallerAwareResource;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.inject.Inject;
@@ -24,13 +25,14 @@ import java.util.List;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Blocking
-public class TrailResource {
+public class TrailResource extends CallerAwareResource {
     @Inject
     SpatialService service;
 
     @POST
     @Path("/completions")
     public Uni<Response> recordCompletion(TrailCompletionRequest request) {
+        self(request == null ? null : request.userId());
         return service.recordTrailCompletion(request)
                 .map(trail -> Response
                         .created(URI.create("/trails/history/" + trail.userId() + "/" + trail.id()))
@@ -41,24 +43,28 @@ public class TrailResource {
     @GET
     @Path("/history/{userId}")
     public Uni<TrailHistoryResponse> history(@PathParam("userId") String userId) {
+        self(userId);
         return service.trailHistory(userId);
     }
 
     @DELETE
     @Path("/history/{userId}")
     public Uni<TrailHistoryResponse> clearHistory(@PathParam("userId") String userId) {
+        self(userId);
         return service.clearTrailHistory(userId);
     }
 
     @POST
     @Path("/saved")
     public Uni<TrailHistoryEntry> saveTrail(SaveTrailRequest request) {
+        self(request == null ? null : request.userId());
         return service.saveTrail(request.userId(), request.trailId());
     }
 
     @GET
     @Path("/saved/{userId}")
     public Uni<List<TrailHistoryEntry>> savedTrails(@PathParam("userId") String userId) {
+        self(userId);
         return service.savedTrails(userId);
     }
 
@@ -67,6 +73,7 @@ public class TrailResource {
     public Uni<Response> unsaveTrail(
             @PathParam("userId") String userId,
             @PathParam("trailId") String trailId) {
+        self(userId);
         return service.unsaveTrail(userId, trailId)
                 .replaceWith(Response.noContent().build());
     }

@@ -164,6 +164,9 @@ class JejakuViewProjector {
       origin: viewerPose.origin,
       anchor: anchor,
     );
+    // Compute the 3D magnitude once; range checks, placement scoring and
+    // the returned projection all consume this same value.
+    final distanceMeters = position.length;
     final horizontalDistance =
         math.sqrt(position.x * position.x + position.z * position.z);
     final isColocated = horizontalDistance < 0.05;
@@ -185,10 +188,11 @@ class JejakuViewProjector {
     final isWithinFov = isInFront &&
         relativeHeading.abs() <= halfHorizontalFov &&
         relativePitch.abs() <= halfVerticalFov;
-    final isWithinRange = position.length <= viewerPose.maxDistanceMeters;
+    final isWithinRange = distanceMeters <= viewerPose.maxDistanceMeters;
     final assessment = _assessPlacement(
       anchor: anchor,
       position: position,
+      distanceMeters: distanceMeters,
       viewerPose: viewerPose,
       isInFront: isInFront,
       isWithinFov: isWithinFov,
@@ -198,7 +202,7 @@ class JejakuViewProjector {
     return JejakuAnchorProjection(
       anchor: anchor,
       localPosition: position,
-      distanceMeters: position.length,
+      distanceMeters: distanceMeters,
       horizontalDistanceMeters: horizontalDistance,
       bearingDegrees: bearing,
       relativeHeadingDegrees: relativeHeading,
@@ -246,6 +250,7 @@ class JejakuViewProjector {
   JejakuPlacementAssessment _assessPlacement({
     required JejakuGeoAnchor anchor,
     required ARVector3 position,
+    required double distanceMeters,
     required JejakuViewerPose viewerPose,
     required bool isInFront,
     required bool isWithinFov,
@@ -293,7 +298,7 @@ class JejakuViewProjector {
     } else {
       final rangeRatio = viewerPose.maxDistanceMeters <= 0
           ? 1.0
-          : (position.length / viewerPose.maxDistanceMeters).clamp(0.0, 1.0);
+          : (distanceMeters / viewerPose.maxDistanceMeters).clamp(0.0, 1.0);
       score -= rangeRatio * 0.18;
       if (rangeRatio > 0.72) {
         reasons.add('far from viewer');
