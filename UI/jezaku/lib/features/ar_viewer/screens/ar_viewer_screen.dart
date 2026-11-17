@@ -2229,16 +2229,19 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       messenger
         ..clearSnackBars()
         ..showSnackBar(SnackBar(content: Text(message)));
+      // The review dialog may have replaced the pose; read the final one once
+      // so it promotes to non-null below.
+      final reviewedPose = localPose;
       final diagnostics = _captureDiagnosticsSnapshot(stagedAt);
       ref.read(captureSessionProvider.notifier).stageARSnapshot(
         capturedAt: stagedAt,
         bytes: stagedBytes,
-        localPose: localPose,
+        localPose: reviewedPose,
         arDiagnostics: <String, Object?>{
           ...diagnostics,
-          if (localPose != null) ...{
-            'localSurfacePose': localPose.toMap(),
-            'localSurfacePoseLabel': localPose.surfaceLabel,
+          if (reviewedPose != null) ...{
+            'localSurfacePose': reviewedPose.toMap(),
+            'localSurfacePoseLabel': reviewedPose.surfaceLabel,
           },
         },
       );

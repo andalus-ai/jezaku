@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_memory_projection.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
+import 'package:jezaku_ar/jezaku_ar.dart';
 
 void main() {
   group('AnchorMemoryGeoAnchor', () {
