@@ -94,20 +94,13 @@ class ARSpatialAudioSource {
 
 // ─── Spatial audio manager ────────────────────────────────────────────────────
 
-/// Manages spatial audio sources positioned in the AR world.
+/// Manages source state and computes spatial-audio parameters from the AR
+/// camera pose, including distance attenuation, stereo pan and Doppler shift.
 ///
-/// Updates platform-level gain and panning each tick based on the camera pose,
-/// applying distance attenuation, stereo panning, and optional Doppler shift.
-///
-/// Native implementation delegates to:
-/// - **iOS**: `AVAudioEnvironmentNode` + `AVAudioPlayerNode`
-/// - **Android**: `Oboe` + `SoundPool` for low-latency; or `AudioTrack`
-/// - **Web**: `Web Audio API` `PannerNode` + `AudioBufferSourceNode`
-/// - **Desktop**: `miniaudio` via FFI
-///
-/// The Dart layer handles the spatial math; the platform channel handles
-/// actual PCM decoding and DSP. Use the `'setSpatialAudioGain'` channel method
-/// to push gain/pitch updates to the native audio engine each tick.
+/// The current implementation is Dart-side only: `_sendCommand` does not call
+/// a platform channel and `_pushSpatialUpdate` only emits the observation
+/// stream. No native PCM decoder, audio player or platform audio bridge is
+/// wired, so `play()` and `playOneShot()` do not currently produce sound.
 class ARSpatialAudioManager {
   final ARController _controller;
 

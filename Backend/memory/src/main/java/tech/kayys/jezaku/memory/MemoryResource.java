@@ -72,6 +72,14 @@ public class MemoryResource {
         return service.get(id, lat, lng, caller());
     }
 
+    /** Internal: other services resolve a memory's owner here; users have no use for it. */
+    @GET
+    @Path("/{id}/owner")
+    public Uni<MemoryDtos.MemoryOwnerResponse> owner(@PathParam("id") String id) {
+        AuthContext.requireService(requestContext, ServiceScopes.MEMORY_READ);
+        return service.owner(id);
+    }
+
     @PATCH
     @Path("/{id}/anchor")
     public Uni<MemoryResponse> updateAnchor(

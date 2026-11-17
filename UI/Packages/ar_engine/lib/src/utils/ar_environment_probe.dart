@@ -58,17 +58,12 @@ class AREnvironmentProbeResult {
 
 // ─── Environment probe ────────────────────────────────────────────────────────
 
-/// Captures the real-world environment as a cubemap for image-based lighting
-/// (IBL), and estimates sky / sun / ground colors.
+/// Provides environment-probe scheduling, result streams and a lightweight
+/// estimate based on the current camera pose and light-estimate stream.
 ///
-/// On **iOS (LiDAR or ARKit 4+)**: uses `AREnvironmentProbeAnchor` to request
-/// a spherical-harmonics HDR environment capture.
-///
-/// On **Android (ARCore)**: uses the Environmental HDR light estimation API
-/// which provides SH coefficients and a cubemap.
-///
-/// On **Web / Desktop**: samples recent camera frames to produce a rough
-/// hemispherical color estimate (no true cubemap).
+/// The current capture path uses fixed fallback sky/ground colors and returns
+/// `cubeFaces: null`. Native cubemap or spherical-harmonics capture is not wired
+/// on iOS, Android, Web or desktop yet; this API is not currently an IBL source.
 class AREnvironmentProbe {
   final ARController _controller;
 

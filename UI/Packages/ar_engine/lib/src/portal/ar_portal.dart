@@ -87,17 +87,13 @@ class ARPortal {
 
 // ─── ARPortalManager ─────────────────────────────────────────────────────────
 
-/// Creates and manages AR portals — stencil-clipped windows that reveal a
-/// separate virtual world behind them.
+/// Manages portal-like frame and inner-world node groups in the AR scene.
 ///
-/// **Rendering technique (native side)**
-/// Pass 1 — Write portal frame silhouette into the stencil buffer.
-/// Pass 2 — Draw inner-world content only where stencil == 1.
-/// Pass 3 — Draw portal frame overlay / edge glow.
-///
-/// The Dart layer exposes the portal lifecycle, inner-world node management,
-/// and frame-scale animations. The `portalId` and `portalRole` metadata keys
-/// are used by the native renderer to sort draw calls.
+/// The current implementation creates an anchor, tags frame/inner nodes with
+/// `portalId` and `portalRole` metadata, and animates the frame scale. Native
+/// renderers do not currently consume those tags for stencil clipping or
+/// inner-world compositing, so this is a scene-graph scaffold rather than a
+/// functional portal window.
 class ARPortalManager {
   final ARController _controller;
 

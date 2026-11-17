@@ -41,7 +41,11 @@ abstract class ArEnginePlatform extends PlatformInterface {
   /// Detailed feature support for optional AR systems.
   ///
   /// Backends that do not expose native capability discovery inherit a
-  /// conservative core-session fallback derived from [isARSupported].
+  /// compatibility map derived only from [isARSupported].
+  ///
+  /// This fallback marks several optional features as supported and is not a
+  /// reliable optional-feature probe. Production backends should override this
+  /// method with an explicit capability map.
   Future<ARCapabilities> getCapabilities() async {
     final supported = await isARSupported();
     return ARCapabilities(
