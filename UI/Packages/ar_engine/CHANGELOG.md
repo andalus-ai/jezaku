@@ -8,6 +8,9 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Status clarification
+- **ARPortalManager**, **AREnvironmentProbe** and **ARSpatialAudioManager** currently provide Dart-side scaffolding only. Native stencil-clipped portals, cubemap/spherical-harmonics capture and spatial audio playback are not wired; see the package README for verified status.
+
 ### Added
 - Geospatial quality API: `ARController.getGeospatialStatus()` returns `ARGeospatialStatus` (Earth state, tracking flag, camera `ARGeospatialPose` with horizontal, vertical and heading accuracy), and `ARController.checkVpsAvailability()` returns `ARVpsAvailability`. Android (ARCore) implements both; other backends report unsupported.
 - Geospatial anchor API: `ARGeoOrigin`, `ARGeospatialAnchor`, `ARGeospatialProjector`, and `ARController.addGeospatialAnchor()` provide a portable WGS84-to-AR path with native ARCore Earth / ARKit GeoAnchor attempts and local projection fallback.

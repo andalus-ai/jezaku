@@ -1,11 +1,15 @@
-/// AR Engine — Multi-platform Augmented Reality plugin for Flutter (v0.4.0).
+/// Generic Flutter AR runtime and platform contract (v0.4.0).
 ///
-/// Supported platforms:
-/// - Android: ARCore 1.44+  (GLES 3, PBR renderer, ARCore Depth)
-/// - iOS:     ARKit / Metal  (MTKView, PBR shaders, LiDAR occlusion)
-/// - Web:     WebXR Device API (immersive-ar, hit-test, plane detection)
-/// - macOS:   Webcam + visual-odometry + AppKit platform view
-/// - Windows / Linux: Webcam + visual-odometry + pixel-buffer texture
+/// Registered plugin targets:
+/// - Android: ARCore native adapter.
+/// - iOS: ARKit native adapter.
+/// - Web: WebXR immersive-AR adapter.
+/// - macOS: webcam input with synthetic world pose/plane/hit-test data.
+/// - Windows: experimental synthetic preview/demo adapter, not physical AR.
+///
+/// Linux is not registered in this package's Flutter plugin manifest. Target
+/// registration does not imply equivalent feature support or tracking fidelity;
+/// query capabilities and consult the package README before enabling features.
 library ar_engine;
 
 // ── Core session ──────────────────────────────────────────────────────────────

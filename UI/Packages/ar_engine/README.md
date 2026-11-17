@@ -1,318 +1,159 @@
 # ar_engine
 
-A **production-grade multi-platform Augmented Reality plugin for Flutter** (v0.4.0).
+**ar_engine** is the generic Flutter AR runtime package in this repository. It owns the shared session/controller contract, platform bridge, scene primitives, spatial math, and reusable scene helpers. Its public API is product-neutral: no Jejaku memory, account, social, or backend domain model.
 
-| Platform | Backend | Min version |
-|---|---|---|
-| Android | ARCore 1.44 · GLES 3.0 PBR renderer | API 24 (Android 7.0) |
-| iOS | ARKit + Metal PBR shaders | iOS 14.0 |
-| Web | WebXR Device API (immersive-ar) | Chrome 90+, Edge 90+ |
-| Windows | DirectX 11 + webcam visual odometry | Windows 10 |
-| macOS | AVCapture + webcam visual odometry | macOS 10.15 |
-| Linux | V4L2 + OpenGL software renderer | Ubuntu 20.04 |
+This README describes checked-in behavior, not a target-platform roadmap. Plugin registration does not imply equivalent AR fidelity on every target.
 
----
+## Responsibility and non-goals
 
-## Features
+**Owns:** session creation/reconfiguration/pause/resume/disposal; capability reporting; camera, plane, anchor, light and hit-test contracts; generic nodes/materials/model descriptors; scene management, animation, physics, measurement, gestures and spatial helpers; generic geospatial/cloud-anchor contracts; snapshots, recording orchestration, diagnostics and health monitoring.
 
-### Core AR
-- **Plane detection** — horizontal & vertical, polygon boundary, area, perimeter, point-in-polygon test
-- **Hit testing** — raycast from screen tap to world surface, distance-sorted results
-- **Anchors** — world-locked attachment with metadata field, isTracked/isStopped getters
-- **Session config** — live reconfigure, occlusion, LiDAR depth, image targets, iOS native body tracking, geospatial tracking
-- **Capabilities** — query optional feature support before enabling depth, occlusion, body tracking, geospatial, cloud anchors, snapshots, or native recording encode
-- **Snapshot capture** — JPEG bytes on Android, iOS, web, and macOS webcam sessions
-- **Depth sampling** — query native scene depth in meters at normalized screen coordinates when ARCore Depth or ARKit SceneDepth is available
-- **Cloud anchors** — host and resolve persistent anchors through ARCore when native support is available, with a deterministic Dart fallback elsewhere
-- **Screen recording pipeline** — validated recording config, serializable results, native H.264 encoders, platform encoder hook, and deterministic Dart fallback
+**Does not own:** product-specific memory/geotagging (that belongs in **jezaku_ar**); model download/cache directory policy or retention (that belongs in **ar_model_cache**); backend persistence, user authorization, privacy policy or permission prompts; or a guarantee that every target has physical-camera world tracking.
 
-### Scene Graph
-- **AR nodes** — 7 primitive shapes (cube/sphere/cylinder/capsule/plane/torus/cone), GLTF/GLB/OBJ, visibility flag, render order, full `copyWith`, `fromMap`
-- **PBR materials** — baseColor, metallic, roughness, AO, emission intensity+color, opacity, blendMode, 6 texture map slots; `metal()`/`matte()`/`glass()`/`emissive()` factories; `lerp()`
-- **Material colors** — `fromARGB`, `fromHex`, `lerp`, `withOpacity`, `*`, `toARGB`, named constructors
-- **Lights** — ambient, directional, point, spot, area; shadow maps (resolution+softness); `colorFromTemperature(K)`; `fromMap`/`copyWith`
+## Public API
 
-### Mathematics
-- **ARVector3** — full arithmetic, cross/dot, `reflect`, `projectOnto`, `rejectFrom`, `clamp`, `clampLength`, `abs`, `min/max`, `moveTowards`, `lerpUnclamped`, `smoothDamp` (mutable velocity ref), `angleTo`, `signedAngleTo`, component-wise `scale`
-- **ARQuaternion** — axisAngle, euler, `lookRotation`, `fromToRotation`, `toEuler`, `rotateTowards`, slerp, `dot`, `angle/axis` getters, `toList`, `==`
-- **ARMatrix4** — TRS, lookAt, perspective, orthographic, fromScale, `inverse`, `transposed`, `rotation/scale` getters, `transformPoint`, `transformDirection`
-- **ARPose** — `inverse`, `lookAt` factory, `lerp`, `transformedBy`, `copyWith`, `distanceTo`, `isIdentity`, `==`
+Import the supported barrel:
 
-### Animation
-- **Tracks** — `ARTrack<T>` with position, rotation, scale, material color; custom easing per keyframe
-- **Curves** — linear, easeIn/Out/InOut, bounceOut, elasticOut, spring (stiffness+damping), stepped
-- **Clips** — `moveTo`, `hover`, `spin`, `popIn`, `popOut`, `colorTo`, `colorPulse`; `withDelay()`, `withSpeed()`
-- **Player** — `play`, `pause`, `resume`, `stop`, `playAll` (parallel), `playSequence` (Future chain), delay before first tick
+~~~dart
+import 'package:ar_engine/ar_engine.dart';
+~~~
 
-### Physics
-- **Bodies** — sphere/box/capsule colliders, mass, restitution, friction, linear/angular damping, `kineticEnergy`, `speed`, `reset()`, `wakeUp()`
-- **Integration** — semi-implicit Euler, 4 sub-steps, sleep system
-- **Constraints** — spring-damper joints (stiffness + damping)
-- **Collision** — sphere-sphere, Baumgarte position correction, friction impulse, `relativeSpeed` in `ARCollision`
-- **World** — `pause()`/`resume()`, `setGravity()`, `queryBodiesInRadius()`, `bodyCount`, `onCollision` stream
+The **lib/ar_engine.dart** barrel exports these areas:
 
-### Measurement
-- Distance (direct + path), area (XZ shoelace + 3D cross-product), angle, box volume
-- `heightDifference`, `horizontalDistance`, `polygon3DArea`, `perimeter`
-- Metric (mm/cm/m/km) and imperial (ft′ in″, ft²/ac) formatting
-- `toJSON()` full metrics map, `toSVGPath()` 2D floor-plan SVG
-- `addPointAt(ARVector3)` — place points without hit-testing
-
-### Ray Casting
-- `ARRay.fromScreen()`, `ARRay.fromPose()`
-- `closestPointToPoint()`, `distanceToPoint()`, `isParallelTo()`
-- `ARIntersection` — raySphere, rayBox (with normal), rayPlane, rayTriangle (Möller–Trumbore), rayCapsule
-- `ARFrustum` — `testSphere()`, `testAABB()`, `containsPoint()`
-
-### Gestures
-- Tap, doubleTap, longPress, 1-finger drag (XZ world translation), pinch scale, twist rotate
-- `autoTransform: true` applies changes in real-time
-- `ARGestureEvent` — entityId, screen point, delta, cumulative scaleFactor & rotationRadians
-
-### Advanced Systems
-
-| System | Description |
+| Area | Principal public types |
 |---|---|
-| `ARGeospatialAnchor` | WGS84 anchors with native ARCore Earth / ARKit GeoAnchor attempts and deterministic local fallback |
-| `ARImageTracker` | Register targets → auto-attach overlay nodes on detection |
-| `ARBodyTracker` | iOS ARKit skeleton anchors streamed through `ARAnchor.metadata`; Android requires an external ML Kit/MediaPipe pose bridge |
-| `ARCloudAnchorManager` | Host (TTL-aware) and resolve Google Cloud Anchors |
-| `ARPortalManager` | Stencil-clipped portals with animated open/close and inner world nodes |
-| `AROcclusionManager` | Switch environment / human occlusion modes live |
-| `ARScreenRecorder` | Record to MP4, pause/resume, export GIF; `ARRecordingResult` |
-| `ARLODManager` | Distance-based geometry LOD group switching at 10 Hz |
-| `AREnvironmentProbe` | IBL cubemap capture (once/realtime/onMovement), sky/ground color |
-| `ARSpatialAudio` | Positional audio: inverse-square/linear/log attenuation, Doppler, panning |
+| Session | **ARWidget**, **ARController**, **ARResolvedSession**, **ARSessionConfig**, **ARCapabilities**, **ARSessionConfigResolution**, **ARSessionFeature** |
+| Health/diagnostics | **ARSessionHealthSnapshot**, **ARSessionHealthAssessment**, **ARSessionHealthMonitor**, **ARRuntimeDiagnostics**, diagnostics timeline/report types |
+| Scene data | **ARNode**, **ARModelAsset**, **ARModelAssetValidationReport**, **ARAnchor**, **ARPlane**, **ARCamera**, **ARHitTestResult**, **ARLight** |
+| Scene orchestration | **ARSceneManager**, **ARSceneEntity** |
+| Math | **ARVector3**, **ARQuaternion**, **ARMatrix4**, **ARPose** |
+| Spatial systems | **ARGeospatialAnchor**, **ARGeoOrigin**, **ARGeospatialProjector**, **ARGeospatialStatus**, **ARVpsAvailability**, **ARCloudAnchorManager** |
+| Scene/spatial systems | **ARAnimationPlayer**, **ARPhysicsWorld**, **ARMeasurement**, **ARRay**, **ARGestureHandler**, **ARImageTracker**, **ARPortal**, **ARPortalManager**, **AROcclusionManager**, **ARDepthFrame**, **ARBodyTracker**, **AREnvironmentProbe**, **ARLODManager**, **ARSpatialAudioManager** |
+| Debug/utilities | **ARDebugOverlay**, **ARMiniMap**, **ARPerformanceProfiler**, **ARNodeBuilder**, **ARSceneSerializer** |
+| Capture | **ARScreenRecorder**, **ARRecordingConfig**, **ARRecordingResult**, **ARRecordingState** |
+| Platform/errors | **ArEnginePlatform**, **ArEngineMethodChannel**, and the **AR*Exception** types |
 
-### Debug
-- `ARDebugOverlay` — 8 toggleable layers: planes, FPS, pose+Euler, tracking badge, entity count, light estimate (lux), anchor markers, node bounding boxes
-- `ARPerformanceProfiler` — avg FPS, min FPS, p99 frame time
+**lib/ar_engine_web.dart** is the registered web plugin entrypoint, not the application import barrel.
 
----
+## Dependencies and package relationships
 
-## Installation
+The package depends on Flutter, **plugin_platform_interface**, **web**, **flutter_web_plugins**, **collection**, **meta**, and **mime**. It does not depend on **ar_model_cache**, **ar_engine_testkit**, or **jezaku_ar**.
 
-```yaml
-dependencies:
-  ar_engine: ^0.4.0
-```
+~~~text
+ar_engine_testkit ──test-only──> ar_engine
+ar_model_cache ────────────────> ar_engine
+jezaku_ar ─────────────────────> ar_engine + ar_model_cache
+UI/jezaku ─────────────────────> ar_engine + ar_model_cache + jezaku_ar
+~~~
 
-### Android
+Keep product semantics above this package. **ARModelAsset** is a generic descriptor; it does not make the engine responsible for fetching or retaining bytes.
 
-`android/app/src/main/AndroidManifest.xml`:
-```xml
-<uses-permission android:name="android.permission.CAMERA" />
-<uses-feature android:name="android.hardware.camera.ar" android:required="false" />
-<application>
-    <meta-data android:name="com.google.ar.core" android:value="optional" />
-</application>
-```
+## Implemented platform support
 
-`android/app/build.gradle`:
-```groovy
-defaultConfig { minSdkVersion 24 }
-```
+The Flutter plugin manifest registers Android, iOS, Web, macOS and Windows. There is no Linux plugin registration or **linux/** implementation.
 
-For Cloud Anchors, add your Maps API key:
-```xml
-<meta-data android:name="com.google.android.ar.API_KEY" android:value="YOUR_KEY" />
-```
+| Target | Checked-in implementation | Capability and fidelity notes |
+|---|---|---|
+| Android | ARCore plugin; minimum SDK 24; ARCore dependency 1.44.0 | Native session, camera/plane/anchor streams, hit testing, image tracking, light estimates, snapshots, and MediaCodec/MediaMuxer video encoding. Scene depth and geospatial support are queried per device/session. Human occlusion and body tracking are reported false. Cloud anchors use ARCore but require **cloudAnchorsEnabled**, valid Cloud Anchors API credentials/configuration, and network access. |
+| iOS | ARKit plugin; minimum iOS 14 | Native world tracking, planes, hit tests, image tracking and light estimates. Scene depth, person occlusion, body tracking and GeoTracking depend on device/OS support. Snapshots and AVAssetWriter video encoding are implemented. **supportsCloudAnchors** is explicitly false; there is no ARKit cloud-anchor bridge. |
+| Web | WebXR **immersive-ar** backend using WebGL2 | Requires browser/device WebXR immersive AR and WebGL2, normally in a secure context. **hit-test** and **local-floor** are requested as required features; plane detection, light estimation and anchors are optional. The current capability map is coarse: it derives world tracking, plane detection, hit testing, light estimation and snapshot support from `immersive-ar` availability rather than independently probing each optional feature. Plane detection and light estimation may still be unavailable. The session requests `hit-test` and `local-floor` as required features, so `isARSupported()` alone does not guarantee that session creation will succeed. No geospatial anchors, cloud anchors, depth, body tracking or native video encoder. Model rendering can use optional Three.js globals/loaders; they are not bundled as a guaranteed renderer. |
+| macOS | AppKit view and AVFoundation webcam capture; minimum macOS 10.15 | Webcam frames are real when camera access is granted, but world pose, plane, hit-test and light-estimate data are synthetic/demo values. The backend reports several base capabilities true but is not spatially accurate visual odometry. Snapshot and AVAssetWriter video paths exist. Geospatial, cloud anchors, depth, body tracking and image tracking are false. |
+| Windows | Windows plugin and pixel-buffer texture target | Experimental synthetic demo, not physical AR: the frame loop generates a gradient, pose uses sinusoidal drift, and the renderer is a minimal software wireframe renderer. The plugin does not implement camera/plane/anchor/light EventChannel streams or a native capability map. **isARSupported** returns true unconditionally, so the inherited capability map is optimistic. Do not ship as production camera/world tracking. |
+| Linux | Not registered | No Linux plugin implementation. A Linux conditional include in Windows C++ source does not constitute a Linux target. |
 
-### iOS
+### Host application requirements
 
-`ios/Runner/Info.plist`:
-```xml
-<key>NSCameraUsageDescription</key>
-<string>Camera access is required for Augmented Reality.</string>
-<key>NSMicrophoneUsageDescription</key>
-<string>Microphone access is used for AR audio recording.</string>
-```
+The package does not expose a Dart permission API or permission-rationale UI. Permission behavior differs by adapter; the host app remains responsible for explaining access, supplying platform configuration, handling revocation, and deciding when to retry or reconfigure:
 
-Minimum deployment target: iOS 14.0.
+- Android: the plugin manifest contributes **CAMERA** permission and optional ARCore feature metadata, but does not declare location permissions. During `initSession`, the native adapter calls `Activity.requestPermissions` for a missing camera permission and then returns **CAMERA_PERMISSION_DENIED** for that attempt; retry session creation after the user grants it. If geospatial mode was requested without fine/coarse location permission, the adapter requests location permission but disables geospatial for that session. Declare **ACCESS_FINE_LOCATION** and/or **ACCESS_COARSE_LOCATION** in the host manifest when using GeoTracking, then reconfigure or recreate the session after authorization if native geospatial tracking is required. Cloud Anchors need network and the configured ARCore credential (documented manifest key: **com.google.android.ar.API_KEY**).
+- iOS: provide **NSCameraUsageDescription** for the ARKit camera prompt. GeoTracking also requires Core Location usage configuration and authorization; the package does not implement a `CLLocationManager` permission flow. Handle ARKit GeoTracking availability/localization state.
+- macOS: provide **NSCameraUsageDescription** for AVFoundation webcam access; the operating system handles the camera authorization prompt.
+- Web: serve from a secure origin and check browser/device WebXR availability.
 
-### Web
+The manifest and Info.plist in **UI/jezaku/** are app-specific examples, not automatic configuration for every consumer.
 
-Optionally expose Three.js for WebGL node rendering. `GLTFLoader` and
-`OBJLoader` enable model-backed nodes on web; without them, `ar_engine` keeps
-using primitive fallbacks.
-```html
-<script type="module">
-  const threeVersion = '0.160.0';
-  const threeBaseUrl = `https://cdn.jsdelivr.net/npm/three@${threeVersion}`;
-  const [threeModule, gltfModule, objModule] = await Promise.all([
-    import(`${threeBaseUrl}/build/three.module.js`),
-    import(`${threeBaseUrl}/examples/jsm/loaders/GLTFLoader.js`),
-    import(`${threeBaseUrl}/examples/jsm/loaders/OBJLoader.js`),
-  ]);
-  window.THREE = threeModule;
-  window.THREE.GLTFLoader = gltfModule.GLTFLoader;
-  window.THREE.OBJLoader = objModule.OBJLoader;
-</script>
-```
+## Lifecycle and resource ownership
 
-WebXR requires **HTTPS**. Local testing:
-```bash
-flutter run -d chrome --web-browser-flag "--enable-features=WebXR,WebXRARModule"
-```
+- **ARWidget** creates and owns its **ARController**, observes app lifecycle, pauses while inactive/paused, attempts resume (recreating after failure), and disposes the controller when removed.
+- With **ARController.create** or **createResolved**, the caller owns the controller and must call **dispose()**. **ARResolvedSession.dispose()** delegates to it.
+- Treat Android camera/ARCore as one active session per Flutter engine; do not mount competing viewers.
+- **ARSceneManager** owns animation/physics subsystems and stream subscriptions. Prefer **await scene.close()**; **dispose()** schedules close without awaiting it. **close()** does not remove native nodes/anchors, so call **clearAll()** first when those resources should be removed.
+- **ARScreenRecorder** owns timers, captured frames and broadcast streams; dispose it after stop/cancel.
+- **ARCloudAnchorManager** owns its operation state/streams, not the controller. Dispose manager and controller separately.
+- Web reconfiguration ends and restarts the WebXR session.
 
----
+## Capability checks and fallback behavior
 
-## Session ownership and lifecycle
+Use **ARController.queryCapabilities()**, **ARController.createResolved(config)**, or **ARWidget(resolveConfigAgainstCapabilities: true)** to filter optional features before session creation. **ARWidget.resolveConfigAgainstCapabilities** defaults to **false**; otherwise the requested config is passed to the backend and unsupported native options can fail during initialization/reconfiguration.
 
-The native Android backend currently exposes one active ARCore camera session per
-Flutter engine. Treat an `ARWidget` as the exclusive owner of that session:
+- Android/iOS geospatial tracking is native only when device/platform support and session configuration allow it. The platform interface has a local WGS84-to-session projection fallback. It is tied to the current AR origin, not VPS localization or a globally stable anchor.
+- **sampleDepth** returns **null** when depth is unsupported, disabled or unavailable in the current frame.
+- Native Cloud Anchor hosting/resolving is currently Android ARCore only. iOS reports unsupported. When the platform returns **null**, generic **ARCloudAnchorManager** simulates a generated local ID and identity-pose resolution after a delay. This is demo/test behavior, not a cloud service or shared cross-device map; never persist it as a real Cloud Anchor.
+- Native video encoding exists on Android MediaCodec/MediaMuxer and iOS/macOS AVAssetWriter. Web and Windows have no native encoder. The Dart fallback captures frames but returns a placeholder path, not a playable MP4/MOV. **ARRecordingResult.succeeded** alone does not prove a real file when fallback was used.
+- Native encoders write video only. **includeAudio** is not an implemented audio track; **includeUIOverlay** does not capture arbitrary Flutter widgets. Supply a custom **ARRecordingFrameSource** for composited frames. Android writes MP4; iOS/macOS accept MP4 or MOV. **exportGIF** is a placeholder returning the latest JPEG, not an animated GIF.
+- Recording buffers frames in memory until encoding. Bound recording duration and move valid temporary/cache output to app-owned durable storage if it must survive cache cleanup.
 
-- Keep only one mounted `ARWidget` for a camera session at a time.
-- Dispose the current widget/controller before mounting another AR viewer.
-- Do not use multiple independent viewers as if they had isolated cameras or
-  scene state; the Android backend rejects a competing initialization with
-  `SESSION_ALREADY_ACTIVE`.
-- Backgrounding pauses the session. On resume, the plugin reports native
-  failures to Flutter so the widget can recreate a reclaimed session.
-- Changing `ARSessionConfig` on the owning widget reconfigures its existing
-  session; it does not create an independent session.
+The default **ArEnginePlatform.getCapabilities()** fallback is derived only from **isARSupported()** and marks several optional features supported. It is not a reliable optional-feature probe. Production backends should override capability discovery; this is especially important for Windows.
 
-This is an explicit single-session contract, not multi-viewer support. A future
-multi-viewer implementation requires a session broker with ownership tokens,
-reference-counted teardown, and well-defined platform-view attachment rules.
+## Exported helpers that are still scaffolds
 
----
+The following public APIs have useful Dart-side state and lifecycle behavior, but their advertised native/rendering effects are not implemented yet:
 
-## Quick Start
+- **ARPortalManager** creates an anchor, frame node and inner-world nodes, then animates the frame. Current native renderers do not consume its `portalId`/`portalRole` metadata for stencil clipping or inner-world compositing, so this is not yet a functional portal window.
+- **AREnvironmentProbe** owns scheduling and result streams and can sample the controller's light-estimate stream. Its current capture path uses fixed sky/ground fallback colors and returns `cubeFaces: null`; native cubemap or spherical-harmonics capture is not wired.
+- **ARSpatialAudioManager** tracks sources and computes attenuation, Doppler pitch and stereo pan. Its command/update bridge is stubbed; `play()` and `playOneShot()` do not currently produce audio output.
 
-```dart
+Treat these as API scaffolds/algorithm helpers, not production portal rendering, image-based lighting or spatial audio playback.
+
+## Errors and failure modes
+
+Session creation can throw **ARNotSupportedException**, **ARCameraPermissionException**, or **ARSessionInitException**. Native calls can surface **PlatformException** with backend codes. Invalid coordinates/configuration can throw **ArgumentError** or **RangeError**; use after disposal and invalid recorder/scene state can throw **StateError**. Cloud-anchor and recording operations can return **null** when unsupported or when no frame/result is available. Do not treat null, simulated fallback and native failure as equivalent.
+
+## Minimal controller/scene example
+
+~~~dart
 import 'package:ar_engine/ar_engine.dart';
 
-// 1. Display the AR camera
-ARWidget(
-  config: const ARSessionConfig(detectHorizontalPlanes: true),
-  onARViewCreated: (ctrl) {
-    _ctrl = ctrl;
-    _scene = ARSceneManager(ctrl);
-  },
-)
+Future<void> placeDemoEntity() async {
+  final session = await ARController.createResolved(
+    const ARSessionConfig(detectHorizontalPlanes: true),
+  );
+  final scene = ARSceneManager(session.controller);
 
-// 2. Place an object on tap
-final hits = await _ctrl!.hitTest(nx, ny);
-final entity = await _scene!.placeEntity(
-  node: ARNode(
-    id: 'box',
-    primitiveShape: ARPrimitiveShape.cube,
-    scale: const ARVector3(0.1, 0.1, 0.1),
-    material: ARMaterial.metal(),
-  ),
-  at: hits.first,
-);
-_scene!.hover(entity.id);   // gentle levitation loop
-_scene!.spin(entity.id);    // Y-axis spin loop
-
-// 3. Drop physics bodies
-_scene!.physicsWorld.addBody(ARPhysicsBody(
-  nodeId: entity.id,
-  initialPosition: entity.currentNode.position,
-  mass: 0.5, restitution: 0.6,
-));
-
-// 4. Animate colors in sequence
-await _scene!.animationPlayer.playSequence([
-  ARAnimation.colorTo(nodeId: entity.id,
-    from: const ARMaterialColor.blue(),
-    to:   const ARMaterialColor.red(),
-    duration: 0.8),
-  ARAnimation.popOut(nodeId: entity.id),
-]);
-
-// 5. Capture a snapshot
-final jpeg = await _ctrl!.captureSnapshot();
-```
-
----
-
-## Demo App (example/)
-
-Seven runnable demo screens:
-
-| Screen | Features demonstrated |
-|---|---|
-| Place & Animate | Shape selector, color picker, hover+spin animations |
-| Physics Sandbox | Random spawning, spring joints, explosion impulse |
-| Measurement | Tap-to-measure, metric/imperial toggle, JSON + SVG export |
-| Gesture Interaction | Drag, pinch-scale, twist-rotate with autoTransform |
-| Color Animations | colorTo, colorPulse, stopAnimations |
-| Snapshot & Record | JPEG preview, MP4 recording with status display |
-| Debug Overlay | All 8 debug layers toggled individually |
-
----
-
-## Architecture
-
-```
-lib/
-├── ar_engine.dart           # Barrel — exports all 25 public systems
-├── ar_engine_web.dart       # WebXR backend (web-only)
-└── src/
-    ├── ar_controller.dart   # Session + node/anchor/plane caches, getNode()
-    ├── ar_widget.dart       # Flutter widget — all 5 platform paths
-    ├── ar_anchor.dart       ├── ar_camera.dart  ├── ar_plane.dart
-    ├── ar_hit_test.dart     ├── ar_node.dart    ├── ar_light.dart
-    ├── ar_session_config.dart  ├── ar_measurement.dart  ├── ar_ray.dart
-    ├── ar_scene_manager.dart
-    ├── models/              # ARVector3, ARQuaternion, ARMatrix4, ARPose
-    ├── animation/           # ARAnimation, ARAnimationPlayer, ARCurve
-    ├── physics/             # ARPhysicsBody, ARPhysicsWorld, ARSpringJoint
-    ├── gestures/            # ARGestureHandler
-    ├── image_tracking/      # ARImageTracker
-    ├── portal/              # ARPortalManager
-    ├── occlusion/           # AROcclusionManager
-    ├── cloud_anchors/       # ARCloudAnchorManager
-    ├── recording/           # ARScreenRecorder
-    ├── utils/               # ARLODManager, AREnvironmentProbe, ARSpatialAudio
-    ├── debug/               # ARDebugOverlay, ARPerformanceProfiler
-    ├── platform/            # ArEnginePlatform, ArEngineMethodChannel
-    └── exceptions/          # 10 typed AR exception classes
-
-android/    Kotlin · ARCore 1.44 · GLES 3.0 · PBR renderer · shadow maps
-ios/        Swift  · ARKit  · Metal PBR shaders · LiDAR depth/body tracking
-macos/      Swift  · AVCapture + synthetic pose estimation
-windows/    C++    · DirectX 11 · pixel-buffer Flutter texture
-test/       150+ unit tests covering all subsystems
-example/    7 demo screens
-```
-
----
-
-## Custom Platform Backend
-
-Subclass `ArEnginePlatform` and register before `runApp`:
-
-```dart
-class MyARBackend extends ArEnginePlatform {
-  @override Future<bool> isARSupported() async => true;
-  @override Future<void> initSession(ARSessionConfig c) async { ... }
-  @override Future<void> reconfigureSession(ARSessionConfig c) async { ... }
-  @override Future<Uint8List?> captureSnapshot() async => null;
-  @override Future<ARAnchor> addAnchorAtPose(ARPoseInput p) async { ... }
-  // ... all other abstract members
+  try {
+    final hits = await session.controller.hitTest(0.5, 0.5);
+    if (hits.isNotEmpty) {
+      final entity = await scene.placeEntity(
+        node: const ARNode(
+          id: 'demo-box',
+          primitiveShape: ARPrimitiveShape.cube,
+          scale: ARVector3(0.1, 0.1, 0.1),
+        ),
+        at: hits.first,
+      );
+      scene.spin(entity.id);
+    }
+  } finally {
+    await scene.clearAll();
+    await scene.close();
+    await session.dispose();
+  }
 }
+~~~
 
-void main() {
-  ArEnginePlatform.instance = MyARBackend();
-  runApp(const MyApp());
-}
-```
+For widget-driven apps, use **ARWidget** and retain its callback controller only while mounted; do not dispose a controller that **ARWidget** owns.
 
----
+## Tests and known gaps
 
-## Tests
+There are 28 **\*_test.dart** files under **test/**. They cover controller lifecycle/caches, capability/config resolution, fake method-channel behavior, widget lifecycle, diagnostics/health, geospatial fallback, cloud-anchor manager behavior, recording orchestration and generic scene helpers.
 
-```bash
-flutter test
-# verbose:
-flutter test --reporter expanded
-```
+These are Dart/Flutter tests using fakes. No native device integration suites prove ARCore/ARKit tracking, WebXR browser/device behavior, camera permission flows, or macOS/Windows preview fidelity. Hardware/browser validation remains necessary.
 
----
+## Metadata and maintenance notes
 
-## License
+- **pubspec.yaml** still describes desktop as webcam plus visual odometry and points homepage/repository/issue URLs at **yourorg**; those metadata claims are stale.
+- The iOS podspec version is **0.1.0**, while Dart package version is **0.4.0**.
+- Windows is registered but synthetic; Linux is not registered.
+- Generated Gradle/cache artifacts are present under the Android package directory. Review tracking/ignore rules separately; they are not part of this documentation update.
 
-MIT
+See the [UI package catalog](../../docs/package-catalog.md).

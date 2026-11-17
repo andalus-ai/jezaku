@@ -1,7 +1,9 @@
 package tech.kayys.jezaku.engagement;
 
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
@@ -38,6 +40,10 @@ public class EngagementService {
     private final Map<String, ReactionRecord> reactions = new ConcurrentHashMap<>();
     private final Map<String, CommentRecord> comments = new ConcurrentHashMap<>();
     private final Map<String, BookmarkRecord> bookmarks = new ConcurrentHashMap<>();
+
+    /** Friends-only rules for comments on photo frames; absent when the service is built without CDI. */
+    @Inject
+    FrameCommentAccess frameAccess;
 
     public EngagementService() {
         seed();
@@ -76,8 +82,11 @@ public class EngagementService {
     }
 
     public Uni<CommentResponse> comment(CommentCreateRequest request) {
-        return Uni.createFrom().item(() -> {
+        return blockingWhenFrame(request == null ? null : request.targetType(), Uni.createFrom().item(() -> {
             validateComment(request);
+            if (framesApply(request.targetType())) {
+                frameAccess.requireMayComment(request.userId().trim(), request.targetId().trim());
+            }
             Instant now = Instant.now();
             CommentRecord record = new CommentRecord(
                     "comment_" + UUID.randomUUID(),
@@ -90,11 +99,16 @@ public class EngagementService {
                     now);
             comments.put(record.commentId(), record);
             return toResponse(record);
-        });
+        }));
     }
 
     public Uni<CommentListResponse> comments(String targetType, String targetId) {
-        return Uni.createFrom().item(() -> {
+        return comments(targetType, targetId, null);
+    }
+
+    /** {@code viewerId} is the caller; for a photo frame it decides which comments are visible. */
+    public Uni<CommentListResponse> comments(String targetType, String targetId, String viewerId) {
+        return blockingWhenFrame(targetType, Uni.createFrom().item(() -> {
             String normalizedTargetType = normalizeTargetType(targetType);
             String normalizedTargetId = requireText(targetId, "targetId");
             List<CommentResponse> result = comments.values().stream()
@@ -104,8 +118,21 @@ public class EngagementService {
                     .sorted(Comparator.comparing(CommentRecord::createdAt))
                     .map(this::toResponse)
                     .toList();
+            if (framesApply(normalizedTargetType)) {
+                result = frameAccess.visibleComments(viewerId, normalizedTargetId, result);
+            }
             return new CommentListResponse(normalizedTargetType, normalizedTargetId, result.size(), result);
-        });
+        }));
+    }
+
+    private boolean framesApply(String targetType) {
+        return frameAccess != null && frameAccess.applies(normalizeTargetType(targetType));
+    }
+
+    /** Frame checks call other services, so they must not run on the event loop. */
+    private <T> Uni<T> blockingWhenFrame(String targetType, Uni<T> work) {
+        boolean frame = targetType != null && "memory".equalsIgnoreCase(targetType.trim()) && frameAccess != null;
+        return frame ? work.runSubscriptionOn(Infrastructure.getDefaultWorkerPool()) : work;
     }
 
     public Uni<Void> deleteComment(String commentId, String userId) {

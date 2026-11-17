@@ -21,6 +21,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import tech.kayys.jezaku.auth.AuthContext;
 import tech.kayys.jezaku.auth.AuthenticatedUser;
+import tech.kayys.jezaku.auth.ServiceScopes;
 import tech.kayys.jezaku.contract.MediaMemorySnapshotContracts.MemoryMediaSnapshotApplyResponse;
 import tech.kayys.jezaku.contract.MediaMemorySnapshotContracts.MemoryMediaSnapshotBatchRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryAnchorHistoryResponse;
@@ -71,6 +72,14 @@ public class MemoryResource {
         return service.get(id, lat, lng, caller());
     }
 
+    /** Internal: other services resolve a memory's owner here; users have no use for it. */
+    @GET
+    @Path("/{id}/owner")
+    public Uni<MemoryDtos.MemoryOwnerResponse> owner(@PathParam("id") String id) {
+        AuthContext.requireService(requestContext, ServiceScopes.MEMORY_READ);
+        return service.owner(id);
+    }
+
     @PATCH
     @Path("/{id}/anchor")
     public Uni<MemoryResponse> updateAnchor(
@@ -94,6 +103,7 @@ public class MemoryResource {
     public Uni<MemoryMediaSnapshotUpdateResponse> updateMediaSnapshot(
             @PathParam("mediaId") String mediaId,
             MemoryMediaSnapshotUpdateRequest request) {
+        AuthContext.requireService(requestContext, ServiceScopes.MEMORY_MEDIA_SYNC);
         return service.updateMediaSnapshot(mediaId, request);
     }
 
@@ -101,6 +111,7 @@ public class MemoryResource {
     @Path("/media/snapshots")
     public Uni<MemoryMediaSnapshotApplyResponse<MemoryMediaSnapshotUpdateResponse>> updateMediaSnapshots(
             MemoryMediaSnapshotBatchRequest request) {
+        AuthContext.requireService(requestContext, ServiceScopes.MEMORY_MEDIA_SYNC);
         return service.updateMediaSnapshots(request);
     }
 

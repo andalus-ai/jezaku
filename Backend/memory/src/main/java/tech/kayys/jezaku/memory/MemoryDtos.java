@@ -188,6 +188,10 @@ public final class MemoryDtos {
             String representativeThumbnailUrl) {
     }
 
+    /** Who owns a memory; used by other services to decide who may interact with it. */
+    public record MemoryOwnerResponse(String memoryId, String ownerId) {
+    }
+
     public record MemoryMinimapResponse(
             GeoPoint center,
             Double headingDegrees,
