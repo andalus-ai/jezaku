@@ -410,6 +410,7 @@ class ARViewerCaptureController extends Notifier<ARViewerCaptureState>
     }
   }
 
+  @override
   Future<void> startRecording({
     ARRecordingConfig config = const ARRecordingConfig(),
     ARRecordingFrameSource? frameSource,
@@ -455,6 +456,7 @@ class ARViewerCaptureController extends Notifier<ARViewerCaptureState>
     }
   }
 
+  @override
   Future<void> pauseRecording() async {
     final manager = _requireManager();
     final epoch = _attachEpoch;
@@ -483,6 +485,7 @@ class ARViewerCaptureController extends Notifier<ARViewerCaptureState>
     }
   }
 
+  @override
   Future<void> resumeRecording() async {
     final manager = _requireManager();
     final epoch = _attachEpoch;
@@ -511,6 +514,7 @@ class ARViewerCaptureController extends Notifier<ARViewerCaptureState>
     }
   }
 
+  @override
   Future<JejakuARRecordingCapture> stopRecording() async {
     final manager = _requireManager();
     final epoch = _attachEpoch;
@@ -545,6 +549,7 @@ class ARViewerCaptureController extends Notifier<ARViewerCaptureState>
     }
   }
 
+  @override
   Future<void> cancelRecording() async {
     final manager = _requireManager();
     final epoch = _attachEpoch;

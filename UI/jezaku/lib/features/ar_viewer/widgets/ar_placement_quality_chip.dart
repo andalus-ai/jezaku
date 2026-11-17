@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:jezaku_ar/jezaku_ar.dart';
 
 /// HUD chip that tells the user whether memories are placed precisely

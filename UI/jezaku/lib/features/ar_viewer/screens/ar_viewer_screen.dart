@@ -6,7 +6,7 @@ import 'dart:ui' as ui;
 
 import 'package:ar_engine/ar_engine.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -922,10 +922,10 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                     ),
                     // Subtle edge scrims keep controls and status readable
                     // over bright skies without dimming the center camera view.
-                    Positioned.fill(
+                    const Positioned.fill(
                       child: IgnorePointer(
                         child: DecoratedBox(
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             gradient: LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
@@ -3063,7 +3063,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     if (_isRelocalizing()) {
       return 'ARCore is trying to relocalize. Heading temporarily uses compass/GPS fallback; keep the camera pointed at a well-lit area with recognizable features.';
     }
-    return 'ARCore camera pose is stale (${ageMs} ms). Heading currently uses compass/GPS fallback.';
+    return 'ARCore camera pose is stale ($ageMs ms). Heading currently uses compass/GPS fallback.';
   }
 
   ARMemoryProjection? _focusedAnchor(List<ARMemoryProjection> anchors) {

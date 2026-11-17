@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/app/app_error_handling.dart';
@@ -31,7 +31,7 @@ Future<void> _start() async {
     await _bootstrapAndRun();
   } on Object catch (error, stackTrace) {
     appErrorBuffer.record(error, stackTrace, source: 'startup');
-    runApp(StartupFailureApp(onRetry: _start));
+    runApp(const StartupFailureApp(onRetry: _start));
   }
 }
 

@@ -179,8 +179,8 @@ void main() {
         () {
       final cache = ARMemoryProjectionCache();
       final anchorMemory = memory();
-      final pose = JejakuViewerPose(
-        origin: const JejakuGeoOrigin(
+      const pose = JejakuViewerPose(
+        origin: JejakuGeoOrigin(
           latitude: -6.9,
           longitude: 107.6,
           altitudeMeters: 700,

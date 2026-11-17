@@ -29,9 +29,9 @@ const _accelerometerChannel = EventChannel(
 
 List<double> _accelerometerForDefaultPose() {
   const gravity = 9.80665;
-  final pitch = -2 * math.pi / 180;
-  final roll = 0.4 * math.pi / 180;
-  final planar = gravity;
+  const pitch = -2 * math.pi / 180;
+  const roll = 0.4 * math.pi / 180;
+  const planar = gravity;
   return <double>[
     -math.tan(pitch) * planar,
     planar * math.sin(roll),

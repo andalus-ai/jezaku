@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:jejaku/features/trails/models/ar_trail_session.dart';
 
 class ActiveARTrailBanner extends StatelessWidget {

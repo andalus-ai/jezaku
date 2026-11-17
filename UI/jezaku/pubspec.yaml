@@ -49,6 +49,7 @@ dependencies:
   uuid: ^4.2.1
   flutter_launcher_icons: ^0.14.4
 
+  material_ui: any
 dev_dependencies:
   flutter_test:
     sdk: flutter

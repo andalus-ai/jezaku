@@ -1,5 +1,5 @@
 import 'package:ar_engine/ar_engine.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_memory_scene_diagnostics.dart';
 
 /// Compares session diagnostics reports and maps the outcome to a tone.

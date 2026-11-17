@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:jejaku/features/virtual_wall/models/ar_wall.dart';
 import 'package:jejaku/features/virtual_wall/models/wall_trail_preview.dart';
 
