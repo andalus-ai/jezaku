@@ -12,7 +12,7 @@ const defaultMaxLines = 1800;
 const knownLargeFiles = <String, int>{
   // Still holds the ~4,000-line _ARViewerScreenState. Splitting that class
   // (e.g. into mixins on ConsumerState) is the next step.
-  'lib/features/ar_viewer/screens/ar_viewer_screen.dart': 3300,
+  'lib/features/ar_viewer/screens/ar_viewer_screen.dart': 3260,
 };
 
 void main() {

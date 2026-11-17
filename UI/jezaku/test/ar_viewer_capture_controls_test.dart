@@ -73,6 +73,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(captureController.snapshotCalls, 1);
+    expect(
+      find.byKey(const ValueKey('ar_snapshot_confirmation_dialog')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('ar_snapshot_use_button')));
+    await tester.pumpAndSettle();
     expect(find.text('Publish Memory'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('publish_capture_preview_image')),
