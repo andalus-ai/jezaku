@@ -43,6 +43,8 @@ Two public abstractions need particular care:
 
 The default **ArEnginePlatform.getCapabilities()** fallback is based only on **isARSupported()** and sets optional flags such as image tracking, light estimation and snapshot capture. It is not a trustworthy optional-feature probe. The WebXR adapter also uses `isSessionSupported('immersive-ar')` as a coarse proxy for optional plane-detection and light-estimation support; those features are requested as optional WebXR features and are not independently verified by its capability map. Production backends should provide an explicit capability map.
 
+The exported **ARPortalManager**, **AREnvironmentProbe** and **ARSpatialAudioManager** APIs are still Dart-side scaffolds: native stencil clipping, cubemap/spherical-harmonics capture and audio playback are not implemented by the current renderers/platform adapters. Their lifecycle and algorithm helpers should not be interpreted as end-to-end rendering/audio capabilities.
+
 ### ar_engine_testkit: test-only boundary
 
 The package is marked **publish_to: none**, depends only on **ar_engine**, and is a dev dependency of the app and **jezaku_ar**. It installs a process-global platform fake, records calls, emits fake streams, gates async operations and injects errors. It has no native implementation and does not emulate physical AR. Tests must dispose controllers and restore the global platform in teardown; **restore()** alone does not close fake streams.

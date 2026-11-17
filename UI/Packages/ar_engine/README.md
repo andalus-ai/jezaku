@@ -95,6 +95,16 @@ Use **ARController.queryCapabilities()**, **ARController.createResolved(config)*
 
 The default **ArEnginePlatform.getCapabilities()** fallback is derived only from **isARSupported()** and marks several optional features supported. It is not a reliable optional-feature probe. Production backends should override capability discovery; this is especially important for Windows.
 
+## Exported helpers that are still scaffolds
+
+The following public APIs have useful Dart-side state and lifecycle behavior, but their advertised native/rendering effects are not implemented yet:
+
+- **ARPortalManager** creates an anchor, frame node and inner-world nodes, then animates the frame. Current native renderers do not consume its `portalId`/`portalRole` metadata for stencil clipping or inner-world compositing, so this is not yet a functional portal window.
+- **AREnvironmentProbe** owns scheduling and result streams and can sample the controller's light-estimate stream. Its current capture path uses fixed sky/ground fallback colors and returns `cubeFaces: null`; native cubemap or spherical-harmonics capture is not wired.
+- **ARSpatialAudioManager** tracks sources and computes attenuation, Doppler pitch and stereo pan. Its command/update bridge is stubbed; `play()` and `playOneShot()` do not currently produce audio output.
+
+Treat these as API scaffolds/algorithm helpers, not production portal rendering, image-based lighting or spatial audio playback.
+
 ## Errors and failure modes
 
 Session creation can throw **ARNotSupportedException**, **ARCameraPermissionException**, or **ARSessionInitException**. Native calls can surface **PlatformException** with backend codes. Invalid coordinates/configuration can throw **ArgumentError** or **RangeError**; use after disposal and invalid recorder/scene state can throw **StateError**. Cloud-anchor and recording operations can return **null** when unsupported or when no frame/result is available. Do not treat null, simulated fallback and native failure as equivalent.
