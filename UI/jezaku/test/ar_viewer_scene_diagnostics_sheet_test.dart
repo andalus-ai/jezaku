@@ -1301,7 +1301,8 @@ void main() {
 
       final diagnostics = container.read(arMemorySceneDiagnosticsProvider);
       expect(diagnostics.hasSyncedScene, isTrue);
-      expect(diagnostics.activeMemoryCount, 0);
+      // Frames are placed in the native scene despite low light and no planes.
+      expect(diagnostics.activeMemoryCount, greaterThan(0));
       expect(diagnostics.sessionHealth?.status, ARSessionHealthStatus.tracking);
       // Saved frames only need a healthy camera and tracking. Low light and a
       // missing tracked plane must not pause native placement.
