@@ -46,6 +46,63 @@ class AppSettings {
     );
   }
 
+  /// What gets persisted. [cachedMediaMb] is left out on purpose: it is a
+  /// measurement of the cache, not a preference.
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'nearbyNotifications': nearbyNotifications,
+      'privateByDefault': privateByDefault,
+      'highAccuracyMode': highAccuracyMode,
+      'familyLocationAlerts': familyLocationAlerts,
+      'weeklyGuardianDigest': weeklyGuardianDigest,
+      'approvalReminders': approvalReminders,
+      'sharePreciseLocation': sharePreciseLocation,
+      'commentsEnabledByDefault': commentsEnabledByDefault,
+      'profileDiscoverable': profileDiscoverable,
+      'blockedAccounts': blockedAccounts,
+    };
+  }
+
+  /// Reads persisted settings, taking [fallback] for any key that is missing
+  /// or has the wrong type, so adding a setting later never discards the rest.
+  factory AppSettings.fromJson(
+    Map<Object?, Object?> json, {
+    required AppSettings fallback,
+  }) {
+    bool flag(String key, bool fallbackValue) {
+      final value = json[key];
+      return value is bool ? value : fallbackValue;
+    }
+
+    final rawBlocked = json['blockedAccounts'];
+    final blocked = rawBlocked is List
+        ? <String>[
+            for (final entry in rawBlocked)
+              if (entry is String && entry.trim().isNotEmpty) entry.trim(),
+          ]
+        : fallback.blockedAccounts;
+
+    return AppSettings(
+      nearbyNotifications:
+          flag('nearbyNotifications', fallback.nearbyNotifications),
+      privateByDefault: flag('privateByDefault', fallback.privateByDefault),
+      highAccuracyMode: flag('highAccuracyMode', fallback.highAccuracyMode),
+      familyLocationAlerts:
+          flag('familyLocationAlerts', fallback.familyLocationAlerts),
+      weeklyGuardianDigest:
+          flag('weeklyGuardianDigest', fallback.weeklyGuardianDigest),
+      approvalReminders: flag('approvalReminders', fallback.approvalReminders),
+      cachedMediaMb: fallback.cachedMediaMb,
+      sharePreciseLocation:
+          flag('sharePreciseLocation', fallback.sharePreciseLocation),
+      commentsEnabledByDefault:
+          flag('commentsEnabledByDefault', fallback.commentsEnabledByDefault),
+      profileDiscoverable:
+          flag('profileDiscoverable', fallback.profileDiscoverable),
+      blockedAccounts: List.unmodifiable(blocked),
+    );
+  }
+
   AppSettings copyWith({
     bool? nearbyNotifications,
     bool? privateByDefault,

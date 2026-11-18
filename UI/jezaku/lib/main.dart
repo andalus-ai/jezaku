@@ -12,6 +12,8 @@ import 'package:jejaku/features/home/services/anchor_media_repository_bootstrap.
 import 'package:jejaku/features/home/services/anchor_memory_store.dart';
 import 'package:jejaku/features/home/services/viewer_location.dart';
 import 'package:jejaku/features/home/states/viewer_location_provider.dart';
+import 'package:jejaku/features/profile/services/user_profile_store.dart';
+import 'package:jejaku/features/settings/services/app_settings_store.dart';
 import 'package:jejaku/features/sync/services/anchor_sync_delivery_log_store.dart';
 import 'package:jejaku/features/sync/services/anchor_media_upload_queue_store.dart';
 import 'package:jejaku/features/trails/services/ar_trail_progress_store.dart';
@@ -72,6 +74,12 @@ Future<void> _bootstrapAndRun() async {
           preferences: preferences,
         ),
         persistentARTrailProgressStoreOverride(
+          preferences: preferences,
+        ),
+        persistentAppSettingsStoreOverride(
+          preferences: preferences,
+        ),
+        persistentUserProfileStoreOverride(
           preferences: preferences,
         ),
         persistentARMemorySceneDiagnosticsStoreOverride(

@@ -6,6 +6,7 @@ import 'package:jejaku/features/home/services/anchor_geo_service.dart';
 import 'package:jejaku/features/home/services/viewer_location.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
 import 'package:jejaku/features/home/states/viewer_location_provider.dart';
+import 'package:jejaku/features/profile/models/profile_rules.dart';
 import 'package:jejaku/features/profile/models/user_profile.dart';
 import 'package:jejaku/features/profile/states/profile_providers.dart';
 import 'package:jejaku/features/trails/models/ar_trail_route.dart';
