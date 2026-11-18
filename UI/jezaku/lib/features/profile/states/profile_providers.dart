@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:jejaku/features/profile/models/profile_rules.dart';
 import 'package:jejaku/features/profile/models/user_profile.dart';
+import 'package:jejaku/features/profile/services/user_profile_store.dart';
 
 final userProfileProvider =
     NotifierProvider<UserProfileController, UserProfile>(
@@ -7,36 +9,35 @@ final userProfileProvider =
 );
 
 class UserProfileController extends Notifier<UserProfile> {
+  static const _defaultProfile = UserProfile(
+    displayName: 'Jejaku Explorer',
+    handle: '@jejaku.explorer',
+  );
+
   @override
   UserProfile build() {
-    return const UserProfile(
-      displayName: 'Jejaku Explorer',
-      handle: '@jejaku.explorer',
-    );
+    return ref.read(userProfileStoreProvider).load() ?? _defaultProfile;
   }
 
+  /// Applies an edit. Blank or invalid fields keep their current value, so a
+  /// bad edit can never leave the profile empty; the edit dialog reports the
+  /// reasons through [ProfileRules] before it gets here.
   void updateProfile({
     required String displayName,
     required String handle,
   }) {
-    final nextName = displayName.trim();
-    final nextHandle = _normalizeHandle(handle);
+    // Over-long names are shortened rather than refused: the dialog already
+    // stops typing at the limit, so this only guards other callers.
+    final nextName = ProfileRules.truncateDisplayName(displayName);
+    final nextHandle = ProfileRules.handleError(handle) == null
+        ? ProfileRules.normalizeHandle(handle)
+        : '';
 
-    state = state.copyWith(
+    final next = state.copyWith(
       displayName: nextName.isEmpty ? state.displayName : nextName,
       handle: nextHandle.isEmpty ? state.handle : nextHandle,
     );
-  }
-
-  String _normalizeHandle(String value) {
-    final trimmed = value.trim().toLowerCase();
-    final withoutAt = trimmed.startsWith('@') ? trimmed.substring(1) : trimmed;
-    final dotted = withoutAt.replaceAll(RegExp(r'\s+'), '.');
-    final normalized = dotted.replaceAll(RegExp(r'[^a-z0-9._]'), '');
-
-    if (normalized.isEmpty) {
-      return '';
-    }
-    return '@$normalized';
+    state = next;
+    ref.read(userProfileStoreProvider).save(next);
   }
 }

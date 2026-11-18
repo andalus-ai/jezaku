@@ -84,7 +84,8 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
   late final _handleController = TextEditingController(
     text: widget.profile.handle,
   );
-  var _showNameError = false;
+  String? _nameError;
+  String? _handleError;
 
   @override
   void dispose() {
@@ -105,11 +106,14 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
             controller: _nameController,
             decoration: InputDecoration(
               labelText: 'Display name',
-              errorText: _showNameError ? 'Name required' : null,
+              errorText: _nameError,
+              counterText: '',
             ),
+            maxLength: ProfileRules.maxDisplayNameLength,
+            textInputAction: TextInputAction.next,
             onChanged: (_) {
-              if (_showNameError) {
-                setState(() => _showNameError = false);
+              if (_nameError != null) {
+                setState(() => _nameError = null);
               }
             },
           ),
@@ -117,7 +121,19 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
           TextField(
             key: const ValueKey('profile_handle_field'),
             controller: _handleController,
-            decoration: const InputDecoration(labelText: 'Handle'),
+            decoration: InputDecoration(
+              labelText: 'Handle',
+              errorText: _handleError,
+              helperText: 'Letters, numbers, dots and underscores',
+            ),
+            autocorrect: false,
+            textInputAction: TextInputAction.done,
+            onChanged: (_) {
+              if (_handleError != null) {
+                setState(() => _handleError = null);
+              }
+            },
+            onSubmitted: (_) => _saveProfile(),
           ),
         ],
       ),
@@ -136,8 +152,13 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
 
   void _saveProfile() {
     final displayName = _nameController.text.trim();
-    if (displayName.isEmpty) {
-      setState(() => _showNameError = true);
+    final nameError = ProfileRules.displayNameError(displayName);
+    final handleError = ProfileRules.handleError(_handleController.text);
+    if (nameError != null || handleError != null) {
+      setState(() {
+        _nameError = nameError;
+        _handleError = handleError;
+      });
       return;
     }
 
