@@ -13,7 +13,6 @@ import 'package:jejaku/features/ar_viewer/screens/ar_viewer_screen.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_scene_sync_service.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capability_providers.dart';
-import 'package:jejaku/features/ar_viewer/states/ar_capture_provider.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_scene_diagnostics_provider.dart';
 import 'package:jejaku/features/camera/states/capture_session_provider.dart';
 import 'package:jezaku_ar/jezaku_ar.dart';
@@ -1249,7 +1248,8 @@ void main() {
     }
   });
 
-  testWidgets('viewer applies low-light and plane-tracking health policy',
+  testWidgets(
+      'viewer keeps saved frames placeable in low light without tracked planes',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     const engine = ARCapabilities(
@@ -1301,53 +1301,23 @@ void main() {
 
       final diagnostics = container.read(arMemorySceneDiagnosticsProvider);
       expect(diagnostics.hasSyncedScene, isTrue);
-      expect(diagnostics.activeMemoryCount, 0);
-      expect(diagnostics.isNativePlacementDeferred, isTrue);
+      // Frames are placed in the native scene despite low light and no planes.
+      expect(diagnostics.activeMemoryCount, greaterThan(0));
       expect(diagnostics.sessionHealth?.status, ARSessionHealthStatus.tracking);
+      // Saved frames only need a healthy camera and tracking. Low light and a
+      // missing tracked plane must not pause native placement.
       expect(
         diagnostics.sessionHealthAssessment?.issues,
-        containsAll(<ARSessionHealthIssue>[
-          ARSessionHealthIssue.lowLight,
-          ARSessionHealthIssue.noTrackedPlanes,
-        ]),
+        isNot(contains(ARSessionHealthIssue.lowLight)),
       );
-      expect(diagnostics.sessionHealthHudLabel, 'Low light');
-      expect(diagnostics.sessionReadinessLabel, 'Limited: Low light');
-      expect(diagnostics.isSessionReadyForPlacement, isFalse);
       expect(
-        diagnostics.sessionHealthStatusLabel,
-        startsWith('Low light; 0/1 planes'),
+        diagnostics.sessionHealthAssessment?.issues,
+        isNot(contains(ARSessionHealthIssue.noTrackedPlanes)),
       );
-      expect(diagnostics.sessionHealthStatusLabel, contains('anchors'));
-      expect(diagnostics.sessionHealthDetailLabel, contains('12 lux'));
-      expect(platform.geospatialFallbackAnchors, isEmpty);
-      expect(platform.resolveCloudAnchorRequests, isEmpty);
-      expect(find.text('Low light'), findsOneWidget);
-      expect(find.text('Place paused'), findsOneWidget);
-
-      await _showRecordingPanel(tester);
-
-      expect(find.byKey(const ValueKey('ar_capture_controls')), findsOneWidget);
-      final captureState = container.read(arViewerCaptureProvider);
-      expect(captureState.captureCapability.hasReadinessWarning, isTrue);
-      expect(
-        find.byKey(const ValueKey('ar_capture_readiness_action_label')),
-        findsOneWidget,
-      );
-      expect(captureState.captureCapability.readinessActionLabel, isNotNull);
-      expect(
-        find.byKey(const ValueKey('ar_capture_readiness_detail_label')),
-        findsOneWidget,
-      );
-      expect(captureState.captureCapability.readinessDetailLabel, isNotNull);
-
-      await tester.tap(find.byKey(const ValueKey('ar_scene_diagnostics_hud')));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Tracking'), findsOneWidget);
-      expect(find.text('Readiness'), findsOneWidget);
-      expect(find.text('Placement'), findsOneWidget);
-      expect(find.text('Guidance'), findsOneWidget);
+      expect(diagnostics.isSessionReadyForPlacement, isTrue);
+      expect(diagnostics.isNativePlacementDeferred, isFalse);
+      expect(find.text('Low light'), findsNothing);
+      expect(find.text('Place paused'), findsNothing);
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }
@@ -1356,15 +1326,6 @@ void main() {
 
 _disableLivePoseTracking() {
   return arViewerLivePoseTrackingProvider.overrideWithValue(false);
-}
-
-Future<void> _showRecordingPanel(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('ar_hud_settings_button')));
-  await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('ar_hud_recording_switch')));
-  await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('ar_hud_settings_done_button')));
-  await tester.pumpAndSettle();
 }
 
 class _FixedSceneDiagnosticsController

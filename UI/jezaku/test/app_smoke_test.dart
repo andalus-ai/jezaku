@@ -3640,9 +3640,11 @@ void main() {
       find.byKey(const ValueKey('ar_anchor_bubble_stop_anchor_courtyard')),
       findsOneWidget,
     );
+    // Off-screen anchors get no 2D card any more; the radar and list cover
+    // them.
     expect(
       find.byKey(const ValueKey('ar_anchor_bubble_stop_anchor_private')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.byKey(const ValueKey('ar_anchor_bubble_stop_anchor_rooftop')),
