@@ -7,6 +7,7 @@ import 'package:jejaku/features/gallery/screens/gallery_screen.dart';
 import 'package:jejaku/features/home/screens/memory_calibration_screen.dart';
 import 'package:jejaku/features/home/screens/memory_detail_screen.dart';
 import 'package:jejaku/features/home/screens/memory_search_screen.dart';
+import 'package:jejaku/features/legal/screens/legal_document_screen.dart';
 import 'package:jejaku/features/moderation/screens/moderation_queue_screen.dart';
 import 'package:jejaku/features/parent/screens/parent_dashboard_screen.dart';
 import 'package:jejaku/features/publish/screens/publish_screen.dart';
@@ -26,6 +27,7 @@ class AppRoutes {
   static const calibrationReview = '/calibration-review';
   static const camera = '/camera';
   static const gallery = '/gallery';
+  static const legal = '/legal';
   static const memoryCalibration = '/memory-calibration';
   static const memoryDetails = '/memory-details';
   static const memorySearch = '/memory-search';
@@ -79,6 +81,7 @@ class AppRoutes {
           }
           return const MemorySearchScreen();
         },
+      legal => (_) => const LegalHubScreen(),
       moderationQueue => (_) => const ModerationQueueScreen(),
       parentDashboard => (_) => const ParentDashboardScreen(),
       publish => (_) => const PublishScreen(),
