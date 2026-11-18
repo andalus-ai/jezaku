@@ -65,6 +65,19 @@ The package currently provides these frame presets through `JejakuHangingPhotoFr
 
 For each preset, validate front/back material visibility, border proportions, photo recess, depth, transparency where applicable, and behavior at different viewing angles. Test frames at multiple world-space positions and rotations, including positions with no detected plane nearby. A local fixture gallery that creates these frames without account-backed memory records is a follow-up implementation task; the current launcher does not seed sample memories automatically.
 
+#### Saved-frame visibility and HUD (check on a device)
+
+The viewer places saved frames in the native AR scene using a viewing health policy (`ARViewerHealthPolicy.viewing`). Low light and "no tracked planes" no longer block placement of frames that already have a stored pose; camera, tracking and session-lifecycle problems still do. Capture flows that create new anchors keep the stricter `ARSessionHealthPolicy.placementReadiness`. Frames already placed natively get no 2D card; at most three 2D fallback cards appear for on-screen memories the scene has not placed.
+
+These behaviours are covered by unit tests only. They have **not** been validated on a physical device. Record the result of each check below before treating the issue as fixed.
+
+- [ ] In a dim room and facing a blank wall, saved frames still appear in the camera view and stay put when you walk around them (world-anchored, not screen-fixed).
+- [ ] The HUD "native anchors" count matches the number of saved frames in range.
+- [ ] At most three 2D fallback cards are shown, and none for frames visible in AR.
+- [ ] The "Hide HUD" button (layers icon, top left) hides chips, radar, tracking hints and the info dashboard, and keeps Back, HUD settings, anchor visibility, List and Capture available; tapping it again restores them.
+- [ ] Top-bar buttons no longer overlap the status chips on a narrow phone and at a large text scale.
+- [ ] If frames are still missing, collect `adb logcat | grep -E "AR_HANGING_FRAME|AREngine/ARCoreGLRenderer"` and attach it to the issue.
+
 ### 4. Snapshot and recording
 
 - [ ] Capture an AR snapshot after tracking stabilizes.

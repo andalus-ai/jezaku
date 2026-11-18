@@ -172,18 +172,37 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
   }
 }
 
-class _ProfileStats extends StatelessWidget {
+class _ProfileStats extends ConsumerWidget {
   const _ProfileStats();
 
   @override
-  Widget build(BuildContext context) {
-    return const Row(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final stats = ref.watch(profileStatsProvider);
+    return Row(
       children: [
-        Expanded(child: _StatCard(label: 'Memories', value: '128')),
-        SizedBox(width: 10),
-        Expanded(child: _StatCard(label: 'Walls', value: '12')),
-        SizedBox(width: 10),
-        Expanded(child: _StatCard(label: 'Friends', value: '430')),
+        Expanded(
+          child: _StatCard(
+            key: const ValueKey('profile_stat_memories'),
+            label: 'Memories',
+            value: '${stats.memories}',
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _StatCard(
+            key: const ValueKey('profile_stat_walls'),
+            label: 'Walls',
+            value: '${stats.walls}',
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _StatCard(
+            key: const ValueKey('profile_stat_pending_sync'),
+            label: 'To sync',
+            value: '${stats.pendingSync}',
+          ),
+        ),
       ],
     );
   }
@@ -191,6 +210,7 @@ class _ProfileStats extends StatelessWidget {
 
 class _StatCard extends StatelessWidget {
   const _StatCard({
+    super.key,
     required this.label,
     required this.value,
   });

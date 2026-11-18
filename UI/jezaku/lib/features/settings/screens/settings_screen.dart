@@ -4,6 +4,7 @@ import 'package:ar_engine/ar_engine.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_scene_diagnostics_export_bundle.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_scene_diagnostics_export_bundle_cache.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
@@ -184,6 +185,18 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               );
             },
+          ),
+          const Divider(),
+          const _SettingsSectionHeader(title: 'About'),
+          ListTile(
+            key: const ValueKey('legal_tile'),
+            leading: const Icon(Icons.gavel_outlined),
+            title: const Text('Terms and policies'),
+            subtitle: const Text(
+              'Terms of use, privacy policy, community guidelines',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).pushNamed(AppRoutes.legal),
           ),
         ],
       ),

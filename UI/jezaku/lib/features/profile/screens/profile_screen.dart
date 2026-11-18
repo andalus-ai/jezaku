@@ -226,6 +226,14 @@ class ProfileScreen extends ConsumerWidget {
               Navigator.pushNamed(context, AppRoutes.privacySafety);
             },
           ),
+          _FeatureTile(
+            icon: Icons.gavel_outlined,
+            title: 'Terms and policies',
+            subtitle: 'Terms of use, privacy policy, community guidelines',
+            onTap: () {
+              Navigator.pushNamed(context, AppRoutes.legal);
+            },
+          ),
         ],
       ),
     );
