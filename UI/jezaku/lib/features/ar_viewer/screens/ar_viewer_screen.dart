@@ -20,6 +20,8 @@ import 'package:jejaku/features/ar_viewer/presentation/ar_diagnostics_labels.dar
 import 'package:jejaku/features/ar_viewer/presentation/ar_session_report_comparison.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_scene_diagnostics_export_bundle.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
+import 'package:jejaku/features/ar_viewer/services/ar_overlay_anchor_selector.dart';
+import 'package:jejaku/features/ar_viewer/services/ar_viewer_health_policy.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_hosting_service.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_recording_coordinator.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_visual_frame_capturer.dart';
@@ -83,11 +85,11 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     includeUIOverlay: true,
     outputFormat: 'mp4',
   );
-  static const _nativeSessionHealthPolicy =
-      ARSessionHealthPolicy.placementReadiness;
+  static const _nativeSessionHealthPolicy = ARViewerHealthPolicy.viewing;
   static const _screenRecordingMaxPixelRatio = 1.5;
   static int _diagnosticsSessionSerial = 0;
 
+  bool _isHudVisible = true;
   bool _showAnchors = true;
   bool _showRadar = true;
   bool _showInfoDashboard = true;
@@ -960,38 +962,53 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                             onPressed: () => _showHudSettingsSheet(context),
                           ),
                           const SizedBox(width: 8),
-                          ValueListenableBuilder<JejakuGeospatialAssessment>(
-                            valueListenable: _placementAssessment,
-                            builder: (context, assessment, _) {
-                              return Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ARPlacementQualityChip(
-                                    key: const ValueKey('ar_placement_quality_chip'),
-                                    assessment: assessment,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  _HudPill(
-                                    key: const ValueKey('ar_pose_source_status'),
-                                    icon: _poseSourceIcon(),
-                                    label: _poseSourceShortLabel(),
-                                    color: _poseSourceColor(Theme.of(context).colorScheme),
-                                    tooltip: _poseSourceDetailLabel(),
-                                  ),
-                                ],
-                              );
-                            },
+                          _GlassIconButton(
+                            key: const ValueKey('ar_hud_visibility_button'),
+                            tooltip: _isHudVisible ? 'Hide HUD' : 'Show HUD',
+                            icon: _isHudVisible
+                                ? Icons.layers_clear_outlined
+                                : Icons.layers_outlined,
+                            onPressed: () =>
+                                setState(() => _isHudVisible = !_isHudVisible),
                           ),
                         ],
                       ),
                     ),
+                    if (_isHudVisible)
+                      Positioned(
+                        top: 68,
+                        left: 16,
+                        right: 16,
+                        child: ValueListenableBuilder<JejakuGeospatialAssessment>(
+                          valueListenable: _placementAssessment,
+                          builder: (context, assessment, _) {
+                            return Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                ARPlacementQualityChip(
+                                  key: const ValueKey('ar_placement_quality_chip'),
+                                  assessment: assessment,
+                                ),
+                                _HudPill(
+                                  key: const ValueKey('ar_pose_source_status'),
+                                  icon: _poseSourceIcon(),
+                                  label: _poseSourceShortLabel(),
+                                  color: _poseSourceColor(Theme.of(context).colorScheme),
+                                  tooltip: _poseSourceDetailLabel(),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
                     if ((_isResumingARSession && _arController != null) ||
                         _arResumeError != null)
                       Positioned(
                         key: const ValueKey('ar_session_interruption_panel'),
                         left: 16,
                         right: 16,
-                        top: 76,
+                        top: 112,
                         child: Center(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 360),
@@ -1070,10 +1087,12 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                           ),
                         ),
                       ),
-                    if (_arController != null && !_hasFreshARPose())
+                    if (_isHudVisible &&
+                        _arController != null &&
+                        !_hasFreshARPose())
                       Positioned(
                         key: const ValueKey('ar_tracking_recovery_guidance'),
-                        top: 72,
+                        top: 112,
                         right: 16,
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 224),
@@ -1157,9 +1176,9 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                         ],
                       ),
                     ),
-                    if (_showRadar)
+                    if (_isHudVisible && _showRadar)
                       Positioned(
-                        top: 72,
+                        top: 112,
                         left: 16,
                         child: _ARRadar(
                           anchors: activeProjectedAnchors,
@@ -1202,7 +1221,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                             arCapture,
                             sceneDiagnostics,
                             trailProgress,
-                            showInfoDashboard: _showInfoDashboard,
+                            showInfoDashboard: _isHudVisible && _showInfoDashboard,
                             showRecordingPanel: _showRecordingPanel,
                           ),
                         ),
@@ -1990,44 +2009,27 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     required int totalMemoryCount,
   }) {
     final overlayStopwatch = kDebugMode ? (Stopwatch()..start()) : null;
-    // Keep every on-screen anchor and the focused anchor, but bound
-    // off-screen bubbles to the eight nearest memories. The radar and list
-    // still expose the complete collection; this only limits expensive
-    // floating widgets and the collision-avoidance work on a dense map.
-    final visibleAnchors = <ARMemoryProjection>[];
-    final offScreenAnchors = <ARMemoryProjection>[];
-    for (final anchor in anchors) {
-      if (anchor.projection.isVisible ||
-          anchor.memory.id == focusedMemoryId) {
-        visibleAnchors.add(anchor);
-      } else {
-        offScreenAnchors.add(anchor);
-      }
-    }
-    offScreenAnchors.sort(
-      (a, b) => a.projection.distanceMeters.compareTo(
-        b.projection.distanceMeters,
-      ),
+    // Frames the native scene already placed are rendered by the AR
+    // renderer at their real pose, so they get no 2D card. Fallback cards are
+    // limited to a few on-screen anchors; the radar and list still expose the
+    // complete collection.
+    final nativelyPlacedIds = <String>{
+      for (final placed
+          in _nativeMemoryScene?.placedMemories ??
+              const <JejakuPlacedMemory>[])
+        placed.memory.id,
+    };
+    final visibleAnchors = anchors
+        .where((anchor) => anchor.projection.isVisible)
+        .toList(growable: false);
+    final orderedAnchors = AROverlayAnchorSelector.select<ARMemoryProjection>(
+      anchors,
+      idOf: (anchor) => anchor.memory.id,
+      distanceMetersOf: (anchor) => anchor.projection.distanceMeters,
+      isVisibleOf: (anchor) => anchor.projection.isVisible,
+      focusedId: focusedMemoryId,
+      nativelyPlacedIds: nativelyPlacedIds,
     );
-    final orderedAnchors = <ARMemoryProjection>[
-      ...visibleAnchors,
-      ...offScreenAnchors.take(8),
-    ]..sort((a, b) {
-        final aFocused = a.memory.id == focusedMemoryId;
-        final bFocused = b.memory.id == focusedMemoryId;
-        if (aFocused != bFocused) {
-          return aFocused ? -1 : 1;
-        }
-        if (a.projection.isVisible != b.projection.isVisible) {
-          return a.projection.isVisible ? -1 : 1;
-        }
-        final distanceOrder = a.projection.distanceMeters.compareTo(
-          b.projection.distanceMeters,
-        );
-        return distanceOrder != 0
-            ? distanceOrder
-            : a.memory.id.compareTo(b.memory.id);
-      });
 
     final placedAlignments = <Alignment>[];
     final overlays = <Widget>[];
