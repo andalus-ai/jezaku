@@ -26,9 +26,9 @@ class UserProfileController extends Notifier<UserProfile> {
     required String displayName,
     required String handle,
   }) {
-    final nextName = ProfileRules.displayNameError(displayName) == null
-        ? ProfileRules.truncateDisplayName(displayName)
-        : '';
+    // Over-long names are shortened rather than refused: the dialog already
+    // stops typing at the limit, so this only guards other callers.
+    final nextName = ProfileRules.truncateDisplayName(displayName);
     final nextHandle = ProfileRules.handleError(handle) == null
         ? ProfileRules.normalizeHandle(handle)
         : '';
