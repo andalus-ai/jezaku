@@ -70,6 +70,7 @@ part 'ar_viewer_parts/ar_viewer_next_stop_cue.dart';
 part 'ar_viewer_parts/ar_viewer_scene_diagnostics_sheet.dart';
 part 'ar_viewer_parts/ar_viewer_radar.dart';
 part 'ar_viewer_parts/ar_viewer_screen_widget.dart';
+part 'ar_viewer_parts/ar_viewer_top_bar.dart';
 part 'ar_viewer_parts/ar_viewer_trail_progress.dart';
 
 class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
@@ -954,66 +955,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                           ),
                         ),
                       ),
-                    Positioned(
-                      top: 16,
-                      left: 16,
-                      child: Row(
-                        children: [
-                          _GlassIconButton(
-                            tooltip: 'Back',
-                            icon: Icons.arrow_back,
-                            onPressed: () => Navigator.maybePop(context),
-                          ),
-                          const SizedBox(width: 8),
-                          _GlassPillButton(
-                            key: const ValueKey('ar_hud_visibility_button'),
-                            label: _isHudVisible ? 'Hide UI' : 'Show UI',
-                            icon: _isHudVisible
-                                ? Icons.fullscreen
-                                : Icons.fullscreen_exit,
-                            onPressed: () =>
-                                setState(() => _isHudVisible = !_isHudVisible),
-                          ),
-                          if (_isHudVisible) ...[
-                            const SizedBox(width: 8),
-                            _GlassIconButton(
-                              key: const ValueKey('ar_hud_settings_button'),
-                              tooltip: 'HUD settings',
-                              icon: Icons.tune,
-                              onPressed: () => _showHudSettingsSheet(context),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    if (_isHudVisible)
-                      Positioned(
-                        top: 68,
-                        left: 16,
-                        right: 16,
-                        child: ValueListenableBuilder<JejakuGeospatialAssessment>(
-                          valueListenable: _placementAssessment,
-                          builder: (context, assessment, _) {
-                            return Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                ARPlacementQualityChip(
-                                  key: const ValueKey('ar_placement_quality_chip'),
-                                  assessment: assessment,
-                                ),
-                                _HudPill(
-                                  key: const ValueKey('ar_pose_source_status'),
-                                  icon: _poseSourceIcon(),
-                                  label: _poseSourceShortLabel(),
-                                  color: _poseSourceColor(Theme.of(context).colorScheme),
-                                  tooltip: _poseSourceDetailLabel(),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
+                    _buildTopLeftControls(context),
+                    if (_isHudVisible) _buildStatusChips(),
                     if ((_isResumingARSession && _arController != null) ||
                         _arResumeError != null)
                       Positioned(
@@ -1166,29 +1109,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                         ),
                       ),
                     if (_isHudVisible)
-                      Positioned(
-                        top: 16,
-                        right: 16,
-                        child: Row(
-                          children: [
-                            _GlassIconButton(
-                              tooltip: 'Recenter anchors',
-                              icon: Icons.my_location,
-                              onPressed: () =>
-                                  _recenterOnNearest(activeProjectedAnchors),
-                            ),
-                            const SizedBox(width: 8),
-                            _GlassIconButton(
-                              tooltip: _showAnchors ? 'Hide photo cards' : 'Show photo cards',
-                              icon: _showAnchors
-                                  ? Icons.filter_frame
-                                  : Icons.hide_image_outlined,
-                              onPressed: () =>
-                                  setState(() => _showAnchors = !_showAnchors),
-                            ),
-                          ],
-                        ),
-                      ),
+                      _buildTopRightControls(activeProjectedAnchors),
                     if (_isHudVisible && _showRadar)
                       Positioned(
                         top: 112,
@@ -1355,6 +1276,11 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       },
     );
   }
+
+  // setState is protected, so the top-bar extension calls these instead.
+  void _toggleHudVisibility() => setState(() => _isHudVisible = !_isHudVisible);
+
+  void _toggleAnchorCards() => setState(() => _showAnchors = !_showAnchors);
 
   void _handleNativeARViewCreated(ARController controller) {
     if (!mounted) {
