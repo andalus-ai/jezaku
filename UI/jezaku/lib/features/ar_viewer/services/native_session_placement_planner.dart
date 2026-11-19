@@ -121,19 +121,27 @@ class NativeSessionPlacementPlanner {
   }
 }
 
-/// Picks the few memories worth rendering natively: the focused one first,
-/// then others in view, never more than [limit].
+/// Picks the memories to render natively: the focused one first, then every
+/// pinned one (up to [pinnedLimit]), then others in view until [limit] items
+/// are selected.
+///
+/// Pinned items have a pose that is valid in the current AR session, so they
+/// are kept whatever the GPS-based "in front" test says; otherwise GPS jitter
+/// would make a frame the user just hung vanish.
 List<T> selectNativeSceneItems<T>(
   List<T> items, {
   required String Function(T item) idOf,
   required bool Function(T item) isInFront,
   required String? focusedId,
+  bool Function(T item)? isPinned,
   int limit = 3,
+  int pinnedLimit = 8,
 }) {
   if (items.isEmpty) {
     return List<T>.unmodifiable(const []);
   }
   final selected = <T>[];
+  bool isSelected(T item) => selected.any((c) => idOf(c) == idOf(item));
   if (focusedId != null) {
     for (final item in items) {
       if (idOf(item) == focusedId) {
@@ -142,11 +150,21 @@ List<T> selectNativeSceneItems<T>(
       }
     }
   }
+  if (isPinned != null) {
+    for (final item in items) {
+      if (selected.length >= pinnedLimit) {
+        break;
+      }
+      if (!isSelected(item) && isPinned(item)) {
+        selected.add(item);
+      }
+    }
+  }
   for (final item in items) {
     if (selected.length >= limit) {
       break;
     }
-    if (selected.any((chosen) => idOf(chosen) == idOf(item))) {
+    if (isSelected(item)) {
       continue;
     }
     if (isInFront(item) || selected.isEmpty) {

@@ -65,6 +65,26 @@ The package currently provides these frame presets through `JejakuHangingPhotoFr
 
 For each preset, validate front/back material visibility, border proportions, photo recess, depth, transparency where applicable, and behavior at different viewing angles. Test frames at multiple world-space positions and rotations, including positions with no detected plane nearby. A local fixture gallery that creates these frames without account-backed memory records is a follow-up implementation task; the current launcher does not seed sample memories automatically.
 
+#### AR debug log (for wireless debugging that keeps disconnecting)
+
+The viewer has an opt-in debug log. Every line goes to the terminal (`debugPrint`, prefix `[ARDBG]`, visible in `flutter run` and `adb logcat | rg ARDBG`) **and** is appended to a file on the phone, so nothing is lost when the connection drops. The file is capped at 512 KB (plus one rotated copy). Lines contain memory ids, counts and session-relative poses only; no photos, captions, user ids or coordinates.
+
+Turn it on with either:
+
+- `--dart-define=AR_DEBUG_LOG=true` (already set by `scripts/run_demo_android.sh` and `run_android_device.sh --ar-offline`), or
+- the **Record AR debug log** switch in the AR diagnostics sheet (tap the "native anchors" chip at the bottom of the viewer).
+
+Get the log back:
+
+- In the app: diagnostics sheet, **Copy debug log**, then paste it where you need it. **Clear** empties it. This always works.
+- From a computer after reconnecting: `./scripts/pull_ar_debug_log.sh [output-file]` (reads `/sdcard/Android/data/tech.kayys.jezaku/files/`, falling back to `run-as` on debuggable builds).
+
+What it records, one line each: `session` (native view created), `lifecycle`, `health` (placement readiness and issues, on change), `select` (focused / native / pinned frame ids, on change), `planner` (GPS-placed frame ids, on change), `origin` (viewer moved more than 10 m), `scene` (every native sync: added, updated, removed, active ids, how each frame was placed, `took=` milliseconds), `frame` (hanging-frame capture) and `rehang`.
+
+When frames vanish, look at the `scene` lines around that moment: `removed=[...]` names the frame, and `select`, `origin` and `session` lines just before it show why. Long `took=` values point at lag.
+
+Status: unit-tested only; not yet exercised on a physical device or on a real file system on Android.
+
 #### Saved-frame visibility and HUD (check on a device)
 
 The viewer places saved frames in the native AR scene using a viewing health policy (`ARViewerHealthPolicy.viewing`). Low light and "no tracked planes" no longer block placement of frames that already have a stored pose; camera, tracking and session-lifecycle problems still do. Capture flows that create new anchors keep the stricter `ARSessionHealthPolicy.placementReadiness`. Frames already placed natively get no 2D card; at most three 2D fallback cards appear for on-screen memories the scene has not placed.

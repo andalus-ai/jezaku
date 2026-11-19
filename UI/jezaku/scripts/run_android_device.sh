@@ -167,6 +167,7 @@ ENABLE_FCM_PUSH="${ENABLE_FCM_PUSH:-true}"
 if [[ "$AR_OFFLINE_MODE" == "true" ]]; then
   ENABLE_FCM_PUSH=false
   USER_DART_DEFINES+=(--dart-define=JEZAKU_AR_TEST_MODE=true)
+  USER_DART_DEFINES+=(--dart-define=AR_DEBUG_LOG=true)
 fi
 
 firebase_android_define_keys=(
@@ -327,7 +328,7 @@ if [[ "$INSTALL_START" == "true" ]]; then
   echo "[INFO] Starting tech.kayys.jezaku/.MainActivity"
   adb -s "$DEVICE_ID" shell am start -n tech.kayys.jezaku/.MainActivity
   echo "[INFO] To read AR frame diagnostics:"
-  echo "       adb -s $DEVICE_ID logcat -v time | rg 'AR_HANGING_FRAME|AREngine/ARCoreGLRenderer|AndroidRuntime|Fatal signal'"
+  echo "       adb -s $DEVICE_ID logcat -v time | rg 'ARDBG|AR_HANGING_FRAME|AREngine/ARCoreGLRenderer|AndroidRuntime|Fatal signal'"
   exit 0
 fi
 

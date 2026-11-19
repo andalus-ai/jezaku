@@ -15,6 +15,10 @@ extension _ARViewerRehang on _ARViewerScreenState {
   Future<void> _rehangMemory(AnchorMemory memory) async {
     final messenger = ScaffoldMessenger.of(context);
     final pose = await _captureHangingPhotoLocalPose();
+    _debugLog.log(
+      'rehang',
+      '${memory.id} pose=${pose != null ? 'captured' : 'unavailable'}',
+    );
     if (!mounted) {
       return;
     }
