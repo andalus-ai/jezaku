@@ -1,6 +1,7 @@
 # UI Documentation
 
 - [AR Device Demo Lab](ar-device-demo-lab.md) — offline-first physical-device testing workflow for AR runtime, placement, photo frames, snapshots and recording.
+- [AR frame persistence plan](ar-frame-persistence-plan.md) — why frames only hang within one AR session, what the ar-core backend can and cannot do, and the staged plan.
 
 
 This directory documents the Flutter client, main application, reusable Dart packages, and shared UI/UX standards.
