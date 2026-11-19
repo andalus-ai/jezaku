@@ -21,6 +21,7 @@ import 'package:jejaku/features/ar_viewer/presentation/ar_session_report_compari
 import 'package:jejaku/features/ar_viewer/models/ar_scene_diagnostics_export_bundle.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_overlay_anchor_selector.dart';
+import 'package:jejaku/features/ar_viewer/services/local_pose_validity.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_viewer_health_policy.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_hosting_service.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_recording_coordinator.dart';
@@ -113,6 +114,13 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       const ARRuntimePermissionService();
   late final String _diagnosticsSessionId = _createDiagnosticsSessionId();
   late final DateTime _diagnosticsSessionStartedAt = DateTime.now().toUtc();
+
+  /// When the current *native* AR session started. A stored local pose is only
+  /// valid in the coordinate frame of the session that captured it, so this is
+  /// reset every time the native view (and with it the ARCore session) is
+  /// recreated, e.g. after an interruption retry. The diagnostics start time
+  /// above intentionally stays fixed for the lifetime of the screen.
+  DateTime _nativeSessionStartedAt = DateTime.now().toUtc();
   late final ARMemorySceneDiagnosticsController _diagnosticsController;
   late Future<ARRuntimePermissions> _arPermissionsFuture;
   bool _didAutoRequestARPermissions = false;
@@ -917,33 +925,35 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                       ),
                     // Camera-relative guide follows the view; the persistent
                     // world pose is resolved from live AR tracking on capture.
-                    const Positioned.fill(
-                      child: IgnorePointer(
-                        child: Center(child: _HangingFrameAimPreview()),
+                    if (_isHudVisible)
+                      const Positioned.fill(
+                        child: IgnorePointer(
+                          child: Center(child: _HangingFrameAimPreview()),
+                        ),
                       ),
-                    ),
                     // Subtle edge scrims keep controls and status readable
                     // over bright skies without dimming the center camera view.
-                    const Positioned.fill(
-                      child: IgnorePointer(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Color(0x66000000),
-                                Color(0x12000000),
-                                Color(0x00000000),
-                                Color(0x18000000),
-                                Color(0x99000000),
-                              ],
-                              stops: [0, 0.18, 0.48, 0.72, 1],
+                    if (_isHudVisible)
+                      const Positioned.fill(
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Color(0x66000000),
+                                  Color(0x12000000),
+                                  Color(0x00000000),
+                                  Color(0x18000000),
+                                  Color(0x99000000),
+                                ],
+                                stops: [0, 0.18, 0.48, 0.72, 1],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
                     Positioned(
                       top: 16,
                       left: 16,
@@ -955,22 +965,24 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                             onPressed: () => Navigator.maybePop(context),
                           ),
                           const SizedBox(width: 8),
-                          _GlassIconButton(
-                            key: const ValueKey('ar_hud_settings_button'),
-                            tooltip: 'HUD settings',
-                            icon: Icons.tune,
-                            onPressed: () => _showHudSettingsSheet(context),
-                          ),
-                          const SizedBox(width: 8),
-                          _GlassIconButton(
+                          _GlassPillButton(
                             key: const ValueKey('ar_hud_visibility_button'),
-                            tooltip: _isHudVisible ? 'Hide HUD' : 'Show HUD',
+                            label: _isHudVisible ? 'Hide UI' : 'Show UI',
                             icon: _isHudVisible
-                                ? Icons.layers_clear_outlined
-                                : Icons.layers_outlined,
+                                ? Icons.fullscreen
+                                : Icons.fullscreen_exit,
                             onPressed: () =>
                                 setState(() => _isHudVisible = !_isHudVisible),
                           ),
+                          if (_isHudVisible) ...[
+                            const SizedBox(width: 8),
+                            _GlassIconButton(
+                              key: const ValueKey('ar_hud_settings_button'),
+                              tooltip: 'HUD settings',
+                              icon: Icons.tune,
+                              onPressed: () => _showHudSettingsSheet(context),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -1153,29 +1165,30 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                           ),
                         ),
                       ),
-                    Positioned(
-                      top: 16,
-                      right: 16,
-                      child: Row(
-                        children: [
-                          _GlassIconButton(
-                            tooltip: 'Recenter anchors',
-                            icon: Icons.my_location,
-                            onPressed: () =>
-                                _recenterOnNearest(activeProjectedAnchors),
-                          ),
-                          const SizedBox(width: 8),
-                          _GlassIconButton(
-                            tooltip: 'Toggle anchors',
-                            icon: _showAnchors
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                            onPressed: () =>
-                                setState(() => _showAnchors = !_showAnchors),
-                          ),
-                        ],
+                    if (_isHudVisible)
+                      Positioned(
+                        top: 16,
+                        right: 16,
+                        child: Row(
+                          children: [
+                            _GlassIconButton(
+                              tooltip: 'Recenter anchors',
+                              icon: Icons.my_location,
+                              onPressed: () =>
+                                  _recenterOnNearest(activeProjectedAnchors),
+                            ),
+                            const SizedBox(width: 8),
+                            _GlassIconButton(
+                              tooltip: _showAnchors ? 'Hide photo cards' : 'Show photo cards',
+                              icon: _showAnchors
+                                  ? Icons.filter_frame
+                                  : Icons.hide_image_outlined,
+                              onPressed: () =>
+                                  setState(() => _showAnchors = !_showAnchors),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                     if (_isHudVisible && _showRadar)
                       Positioned(
                         top: 112,
@@ -1194,7 +1207,11 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                           onFocus: _recenterOnAnchor,
                         ),
                       ),
-                    Positioned(
+                    // Controls stay reachable while a recording is running so it
+                    // can always be stopped, even with the rest of the UI hidden.
+                    if (_isHudVisible ||
+                        arCapture.recordingState != ARRecordingState.idle)
+                      Positioned(
                       left: 16,
                       right: 16,
                       bottom: 20,
@@ -1355,6 +1372,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     );
     unawaited(_captureController.attachController(controller));
     setState(() {
+      _nativeSessionStartedAt = DateTime.now().toUtc();
       _arController = controller;
       _nativeMemoryScene = JejakuMemoryARScene(
         controller: controller,
@@ -1525,13 +1543,10 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   }
 
   bool _hasSameSessionLocalPose(AnchorMemory memory) {
-    final capturedAt = memory.captureMetadata.localAnchorPose?.capturedAt;
-    if (capturedAt == null) {
-      return false;
-    }
-    return !capturedAt.toUtc().isBefore(
-          _diagnosticsSessionStartedAt.subtract(const Duration(seconds: 5)),
-        );
+    return LocalPoseValidity.isValidInSession(
+      poseCapturedAt: memory.captureMetadata.localAnchorPose?.capturedAt,
+      sessionStartedAt: _nativeSessionStartedAt,
+    );
   }
 
   void _maybeScheduleNativeSceneSync(
@@ -1612,7 +1627,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       mediaPreviewBytesByMemoryId: mediaPreviewBytesByMemoryId,
       mediaIdsByMemoryId: mediaIdsByMemoryId,
       sessionPlacementsByMemoryId: sessionPlacementsByMemoryId,
-      nativeSessionStartedAt: _diagnosticsSessionStartedAt,
+      nativeSessionStartedAt: _nativeSessionStartedAt,
     );
     if (_isNativePlacementPaused) {
       _nativeMemoryPlacementAllowed = true;
@@ -1681,7 +1696,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       mediaPreviewBytesByMemoryId: mediaPreviewBytesByMemoryId,
       mediaIdsByMemoryId: mediaIdsByMemoryId,
       sessionPlacementsByMemoryId: sessionPlacementsByMemoryId,
-      nativeSessionStartedAt: _diagnosticsSessionStartedAt,
+      nativeSessionStartedAt: _nativeSessionStartedAt,
     );
     return NativeSceneSyncAttempt(
       fingerprint: fingerprint,
@@ -1719,7 +1734,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       mediaIdsByMemoryId: mediaIdsByMemoryId,
       sessionPlacementsByMemoryId: sessionPlacementsByMemoryId,
       modelPreflight: ref.read(arMemoryModelPreflightProvider),
-      nativeSessionStartedAt: _diagnosticsSessionStartedAt,
+      nativeSessionStartedAt: _nativeSessionStartedAt,
     );
     if (!mounted || scene != _nativeMemoryScene) {
       return false;

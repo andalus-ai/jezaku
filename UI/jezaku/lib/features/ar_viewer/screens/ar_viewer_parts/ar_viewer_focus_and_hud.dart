@@ -332,6 +332,38 @@ class _GlassIconButton extends StatelessWidget {
   }
 }
 
+/// Labelled variant of [_GlassIconButton] for actions that must be
+/// discoverable by text, such as hiding and showing the whole HUD.
+class _GlassPillButton extends StatelessWidget {
+  const _GlassPillButton({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 20),
+      label: Text(label),
+      style: TextButton.styleFrom(
+        foregroundColor: Colors.white,
+        backgroundColor: Colors.black.withValues(alpha: 0.35),
+        minimumSize: const Size(48, 48),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        shape: const StadiumBorder(),
+        textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+      ),
+    );
+  }
+}
+
 class _HudPill extends StatelessWidget {
   const _HudPill({
     super.key,
