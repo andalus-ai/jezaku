@@ -1489,7 +1489,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _latestNativeSceneProjections = List<ARMemoryProjection>.unmodifiable(
       nativeProjections,
     );
-    if (!ViewerGeo.sameOrigin(_latestNativeSceneOrigin, viewerOrigin)) {
+    if (!ViewerGeo.isSameScenePlace(_latestNativeSceneOrigin, viewerOrigin)) {
       _latestNativeSceneOrigin = viewerOrigin;
       _placementPlanner.clear();
       _sceneSync.invalidate();
@@ -1586,6 +1586,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       anchors,
       idOf: (anchor) => anchor.memory.id,
       isInFront: (anchor) => anchor.projection.isInFront,
+      // Frames hung in this session keep their pose whatever GPS says.
+      isPinned: (anchor) => _hasSameSessionLocalPose(anchor.memory),
       focusedId: _focusedMemoryId,
     );
   }
