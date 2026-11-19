@@ -24,6 +24,7 @@ class _FocusedAnchorPanel extends StatelessWidget {
     required this.onCalibrate,
     required this.onOpenWall,
     required this.onRecenter,
+    this.onRehang,
   });
 
   final ARMemoryProjection anchor;
@@ -32,6 +33,10 @@ class _FocusedAnchorPanel extends StatelessWidget {
   final VoidCallback onCalibrate;
   final ValueChanged<ARWall> onOpenWall;
   final VoidCallback onRecenter;
+
+  /// Non-null when the frame is only placed from GPS in this session and can
+  /// be re-hung on the wall the camera is aimed at.
+  final VoidCallback? onRehang;
 
   @override
   Widget build(BuildContext context) {
@@ -138,6 +143,10 @@ class _FocusedAnchorPanel extends StatelessWidget {
                 ),
               ),
             ),
+            if (onRehang != null) ...[
+              const SizedBox(height: 8),
+              _RehangPrompt(onRehang: onRehang!),
+            ],
             if (memory.needsCalibrationReview ||
                 memory.captureMetadata.hasManualCorrection) ...[
               const SizedBox(height: 8),
@@ -221,6 +230,47 @@ class _FocusedAnchorPanel extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Explains that a frame is placed from GPS only and offers to pin it to the
+/// wall the camera is aimed at.
+class _RehangPrompt extends StatelessWidget {
+  const _RehangPrompt({required this.onRehang});
+
+  final VoidCallback onRehang;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      key: const ValueKey('focused_anchor_rehang_prompt'),
+      children: [
+        Icon(
+          Icons.location_searching,
+          color: Colors.amberAccent.shade100,
+          size: 18,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            'Placed from GPS, so it may not sit on the wall. '
+            'Aim at the wall and re-hang it.',
+            style: TextStyle(
+              color: Colors.amberAccent.shade100,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        FilledButton.tonalIcon(
+          key: const ValueKey('focused_anchor_rehang_button'),
+          onPressed: onRehang,
+          icon: const Icon(Icons.push_pin_outlined, size: 18),
+          label: const Text('Re-hang here'),
+        ),
+      ],
     );
   }
 }
