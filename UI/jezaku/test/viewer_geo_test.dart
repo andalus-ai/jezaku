@@ -87,4 +87,38 @@ void main() {
       expect(ViewerGeo.usesDeviceOrientation(_snapshot(heading: double.nan)), isFalse);
     });
   });
+
+  group('isSameScenePlace', () {
+    const origin = JejakuGeoOrigin(
+      latitude: -6.2,
+      longitude: 106.8,
+      altitudeMeters: 10,
+    );
+    JejakuGeoOrigin shifted(double northMeters) => JejakuGeoOrigin(
+          latitude: origin.latitude + northMeters / 111320,
+          longitude: origin.longitude,
+          altitudeMeters: origin.altitudeMeters,
+        );
+
+    test('ignores indoor GPS jitter that sameOrigin would flag', () {
+      final jittered = shifted(4);
+
+      expect(ViewerGeo.sameOrigin(origin, jittered), isFalse);
+      expect(ViewerGeo.isSameScenePlace(origin, jittered), isTrue);
+    });
+
+    test('detects real movement', () {
+      expect(ViewerGeo.isSameScenePlace(origin, shifted(25)), isFalse);
+    });
+
+    test('detects a large altitude change', () {
+      final higher = JejakuGeoOrigin(
+        latitude: origin.latitude,
+        longitude: origin.longitude,
+        altitudeMeters: origin.altitudeMeters + 15,
+      );
+
+      expect(ViewerGeo.isSameScenePlace(origin, higher), isFalse);
+    });
+  });
 }

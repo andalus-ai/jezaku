@@ -522,6 +522,7 @@ void main() {
     expect(find.byKey(const ValueKey('ar_capture_controls')), findsNothing);
 
     // The master toggle hides the whole HUD in one tap and restores it.
+    expect(find.text('Hide UI'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('ar_hud_visibility_button')));
     await tester.pumpAndSettle();
 
@@ -530,7 +531,13 @@ void main() {
         find.byKey(const ValueKey('ar_scene_diagnostics_hud')), findsNothing);
     expect(
         find.byKey(const ValueKey('ar_placement_quality_chip')), findsNothing);
-    expect(find.byKey(const ValueKey('ar_hud_settings_button')), findsOneWidget);
+    expect(find.byKey(const ValueKey('ar_hud_settings_button')), findsNothing);
+    expect(find.text('Capture'), findsNothing);
+    expect(find.text('List'), findsNothing);
+    // Only Back and the Show UI button remain.
+    expect(find.byKey(const ValueKey('ar_hud_visibility_button')),
+        findsOneWidget);
+    expect(find.text('Show UI'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('ar_hud_visibility_button')));
     await tester.pumpAndSettle();
@@ -538,6 +545,8 @@ void main() {
     expect(find.byKey(const ValueKey('ar_anchor_radar')), findsOneWidget);
     expect(
         find.byKey(const ValueKey('ar_scene_diagnostics_hud')), findsOneWidget);
+    expect(find.byKey(const ValueKey('ar_hud_settings_button')), findsOneWidget);
+    expect(find.text('Capture'), findsOneWidget);
   });
 }
 

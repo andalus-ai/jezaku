@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:ar_engine/ar_engine.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_memory_projection.dart';
+import 'package:jejaku/features/ar_viewer/services/local_pose_validity.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jezaku_ar/jezaku_ar.dart';
 
@@ -259,16 +260,9 @@ class ARMemorySceneSyncService {
     AnchorMemory memory, {
     required DateTime? nativeSessionStartedAt,
   }) {
-    final localPose = memory.captureMetadata.localAnchorPose;
-    final poseCapturedAt = localPose?.capturedAt?.toUtc();
-    final sessionStartedAt = nativeSessionStartedAt?.toUtc();
-    if (localPose == null ||
-        poseCapturedAt == null ||
-        sessionStartedAt == null) {
-      return false;
-    }
-    return !poseCapturedAt.isBefore(
-      sessionStartedAt.subtract(const Duration(seconds: 5)),
+    return LocalPoseValidity.isValidInSession(
+      poseCapturedAt: memory.captureMetadata.localAnchorPose?.capturedAt,
+      sessionStartedAt: nativeSessionStartedAt,
     );
   }
 

@@ -11,8 +11,23 @@ abstract final class ViewerGeo {
   /// place as far as re-syncing the native scene is concerned.
   static const double sameOriginToleranceMeters = 1.5;
 
+  /// Tolerance for deciding whether the *viewer moved* enough to throw away
+  /// session placements and re-sync the native scene. GPS jitter indoors is
+  /// several metres, so a tight tolerance made frames jump and be re-created
+  /// constantly (visible as lag and disappearing frames). Real movement of
+  /// this size is tracked by the AR session itself.
+  static const double sceneResyncToleranceMeters = 10;
+
   /// Headings that differ by less than this are treated as no movement.
   static const double headingNoiseDegrees = 0.5;
+
+  /// True while the viewer has not moved far enough to justify re-placing the
+  /// native scene (see [sceneResyncToleranceMeters]).
+  static bool isSameScenePlace(JejakuGeoOrigin left, JejakuGeoOrigin right) {
+    return originDistanceMeters(left, right) < sceneResyncToleranceMeters &&
+        (left.altitudeMeters - right.altitudeMeters).abs() <
+            sceneResyncToleranceMeters;
+  }
 
   static bool sameOrigin(JejakuGeoOrigin left, JejakuGeoOrigin right) {
     return originDistanceMeters(left, right) < sameOriginToleranceMeters &&

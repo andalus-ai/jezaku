@@ -19,8 +19,12 @@ import 'package:jejaku/features/ar_viewer/presentation/ar_capture_readiness_tren
 import 'package:jejaku/features/ar_viewer/presentation/ar_diagnostics_labels.dart';
 import 'package:jejaku/features/ar_viewer/presentation/ar_session_report_comparison.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_scene_diagnostics_export_bundle.dart';
+import 'package:jejaku/features/ar_viewer/services/ar_debug_log.dart';
+import 'package:jejaku/features/ar_viewer/services/ar_debug_log_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_overlay_anchor_selector.dart';
+import 'package:jejaku/features/ar_viewer/services/local_pose_validity.dart';
+import 'package:jejaku/features/ar_viewer/services/rehang_policy.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_viewer_health_policy.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_hosting_service.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_recording_coordinator.dart';
@@ -40,6 +44,7 @@ import 'package:jejaku/features/ar_viewer/services/ar_runtime_permission_service
 import 'package:jejaku/features/ar_viewer/states/ar_capture_provider.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capability_providers.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_scene_diagnostics_provider.dart';
+import 'package:jejaku/features/ar_viewer/widgets/ar_debug_log_controls.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_placement_quality_chip.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_snapshot_review_dialog.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_trail_launch_conflict_dialog.dart';
@@ -68,7 +73,11 @@ part 'ar_viewer_parts/ar_viewer_journey_panel.dart';
 part 'ar_viewer_parts/ar_viewer_next_stop_cue.dart';
 part 'ar_viewer_parts/ar_viewer_scene_diagnostics_sheet.dart';
 part 'ar_viewer_parts/ar_viewer_radar.dart';
+part 'ar_viewer_parts/ar_viewer_debug_hooks.dart';
+part 'ar_viewer_parts/ar_viewer_diagnostics_export.dart';
+part 'ar_viewer_parts/ar_viewer_rehang.dart';
 part 'ar_viewer_parts/ar_viewer_screen_widget.dart';
+part 'ar_viewer_parts/ar_viewer_top_bar.dart';
 part 'ar_viewer_parts/ar_viewer_trail_progress.dart';
 
 class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
@@ -113,6 +122,13 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       const ARRuntimePermissionService();
   late final String _diagnosticsSessionId = _createDiagnosticsSessionId();
   late final DateTime _diagnosticsSessionStartedAt = DateTime.now().toUtc();
+
+  /// When the current *native* AR session started. A stored local pose is only
+  /// valid in the coordinate frame of the session that captured it, so this is
+  /// reset every time the native view (and with it the ARCore session) is
+  /// recreated, e.g. after an interruption retry. The diagnostics start time
+  /// above intentionally stays fixed for the lifetime of the screen.
+  DateTime _nativeSessionStartedAt = DateTime.now().toUtc();
   late final ARMemorySceneDiagnosticsController _diagnosticsController;
   late Future<ARRuntimePermissions> _arPermissionsFuture;
   bool _didAutoRequestARPermissions = false;
@@ -434,6 +450,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   /// permission dialog is showing, and pausing then would fight the prompt.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _logLifecycle(state);
     if (state == AppLifecycleState.paused) {
       _pauseLiveTracking();
     } else if (state == AppLifecycleState.resumed) {
@@ -917,91 +934,37 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                       ),
                     // Camera-relative guide follows the view; the persistent
                     // world pose is resolved from live AR tracking on capture.
-                    const Positioned.fill(
-                      child: IgnorePointer(
-                        child: Center(child: _HangingFrameAimPreview()),
+                    if (_isHudVisible)
+                      const Positioned.fill(
+                        child: IgnorePointer(
+                          child: Center(child: _HangingFrameAimPreview()),
+                        ),
                       ),
-                    ),
                     // Subtle edge scrims keep controls and status readable
                     // over bright skies without dimming the center camera view.
-                    const Positioned.fill(
-                      child: IgnorePointer(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Color(0x66000000),
-                                Color(0x12000000),
-                                Color(0x00000000),
-                                Color(0x18000000),
-                                Color(0x99000000),
-                              ],
-                              stops: [0, 0.18, 0.48, 0.72, 1],
+                    if (_isHudVisible)
+                      const Positioned.fill(
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Color(0x66000000),
+                                  Color(0x12000000),
+                                  Color(0x00000000),
+                                  Color(0x18000000),
+                                  Color(0x99000000),
+                                ],
+                                stops: [0, 0.18, 0.48, 0.72, 1],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    Positioned(
-                      top: 16,
-                      left: 16,
-                      child: Row(
-                        children: [
-                          _GlassIconButton(
-                            tooltip: 'Back',
-                            icon: Icons.arrow_back,
-                            onPressed: () => Navigator.maybePop(context),
-                          ),
-                          const SizedBox(width: 8),
-                          _GlassIconButton(
-                            key: const ValueKey('ar_hud_settings_button'),
-                            tooltip: 'HUD settings',
-                            icon: Icons.tune,
-                            onPressed: () => _showHudSettingsSheet(context),
-                          ),
-                          const SizedBox(width: 8),
-                          _GlassIconButton(
-                            key: const ValueKey('ar_hud_visibility_button'),
-                            tooltip: _isHudVisible ? 'Hide HUD' : 'Show HUD',
-                            icon: _isHudVisible
-                                ? Icons.layers_clear_outlined
-                                : Icons.layers_outlined,
-                            onPressed: () =>
-                                setState(() => _isHudVisible = !_isHudVisible),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (_isHudVisible)
-                      Positioned(
-                        top: 68,
-                        left: 16,
-                        right: 16,
-                        child: ValueListenableBuilder<JejakuGeospatialAssessment>(
-                          valueListenable: _placementAssessment,
-                          builder: (context, assessment, _) {
-                            return Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                ARPlacementQualityChip(
-                                  key: const ValueKey('ar_placement_quality_chip'),
-                                  assessment: assessment,
-                                ),
-                                _HudPill(
-                                  key: const ValueKey('ar_pose_source_status'),
-                                  icon: _poseSourceIcon(),
-                                  label: _poseSourceShortLabel(),
-                                  color: _poseSourceColor(Theme.of(context).colorScheme),
-                                  tooltip: _poseSourceDetailLabel(),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
+                    _buildTopLeftControls(context),
+                    if (_isHudVisible) _buildStatusChips(),
                     if ((_isResumingARSession && _arController != null) ||
                         _arResumeError != null)
                       Positioned(
@@ -1153,29 +1116,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                           ),
                         ),
                       ),
-                    Positioned(
-                      top: 16,
-                      right: 16,
-                      child: Row(
-                        children: [
-                          _GlassIconButton(
-                            tooltip: 'Recenter anchors',
-                            icon: Icons.my_location,
-                            onPressed: () =>
-                                _recenterOnNearest(activeProjectedAnchors),
-                          ),
-                          const SizedBox(width: 8),
-                          _GlassIconButton(
-                            tooltip: 'Toggle anchors',
-                            icon: _showAnchors
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                            onPressed: () =>
-                                setState(() => _showAnchors = !_showAnchors),
-                          ),
-                        ],
-                      ),
-                    ),
+                    if (_isHudVisible)
+                      _buildTopRightControls(activeProjectedAnchors),
                     if (_isHudVisible && _showRadar)
                       Positioned(
                         top: 112,
@@ -1194,7 +1136,11 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                           onFocus: _recenterOnAnchor,
                         ),
                       ),
-                    Positioned(
+                    // Controls stay reachable while a recording is running so it
+                    // can always be stopped, even with the rest of the UI hidden.
+                    if (_isHudVisible ||
+                        arCapture.recordingState != ARRecordingState.idle)
+                      Positioned(
                       left: 16,
                       right: 16,
                       bottom: 20,
@@ -1339,6 +1285,11 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     );
   }
 
+  // setState is protected, so the top-bar extension calls these instead.
+  void _toggleHudVisibility() => setState(() => _isHudVisible = !_isHudVisible);
+
+  void _toggleAnchorCards() => setState(() => _showAnchors = !_showAnchors);
+
   void _handleNativeARViewCreated(ARController controller) {
     if (!mounted) {
       return;
@@ -1355,6 +1306,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     );
     unawaited(_captureController.attachController(controller));
     setState(() {
+      _nativeSessionStartedAt = DateTime.now().toUtc();
       _arController = controller;
       _nativeMemoryScene = JejakuMemoryARScene(
         controller: controller,
@@ -1368,6 +1320,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       _sceneSync.invalidate();
     });
     _placementPlanner.clear();
+    _logSessionCreated();
     _lastARHeadingUpdateAt = null;
     _startGeospatialQualityMonitor(controller);
     _sceneSync.schedule();
@@ -1449,6 +1402,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   void _handleNativeSessionHealthAssessmentChanged(
     ARSessionHealthAssessment assessment,
   ) {
+    _logReadiness(assessment);
     final readiness = assessment.readiness;
     final didReadinessChange = _latestSessionReadiness != readiness;
     _latestSessionReadiness = readiness;
@@ -1504,7 +1458,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   Map<String, ARMemorySessionPlacement> _nativeSessionPlacementsByMemoryId(
     Iterable<ARMemoryProjection> projections,
   ) {
-    return _placementPlanner.plan(
+    final placements = _placementPlanner.plan(
       [
         for (final projected in projections)
           PlacementCandidate(
@@ -1522,16 +1476,15 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       lastFrameAt: _lastARCameraFrameAt,
       focusedMemoryId: _focusedMemoryId,
     );
+    _logPlanner(placements);
+    return placements;
   }
 
   bool _hasSameSessionLocalPose(AnchorMemory memory) {
-    final capturedAt = memory.captureMetadata.localAnchorPose?.capturedAt;
-    if (capturedAt == null) {
-      return false;
-    }
-    return !capturedAt.toUtc().isBefore(
-          _diagnosticsSessionStartedAt.subtract(const Duration(seconds: 5)),
-        );
+    return LocalPoseValidity.isValidInSession(
+      poseCapturedAt: memory.captureMetadata.localAnchorPose?.capturedAt,
+      sessionStartedAt: _nativeSessionStartedAt,
+    );
   }
 
   void _maybeScheduleNativeSceneSync(
@@ -1546,7 +1499,9 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _latestNativeSceneProjections = List<ARMemoryProjection>.unmodifiable(
       nativeProjections,
     );
-    if (!ViewerGeo.sameOrigin(_latestNativeSceneOrigin, viewerOrigin)) {
+    _logSelection(anchors, nativeProjections);
+    if (!ViewerGeo.isSameScenePlace(_latestNativeSceneOrigin, viewerOrigin)) {
+      _logOriginMoved(_latestNativeSceneOrigin, viewerOrigin);
       _latestNativeSceneOrigin = viewerOrigin;
       _placementPlanner.clear();
       _sceneSync.invalidate();
@@ -1612,7 +1567,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       mediaPreviewBytesByMemoryId: mediaPreviewBytesByMemoryId,
       mediaIdsByMemoryId: mediaIdsByMemoryId,
       sessionPlacementsByMemoryId: sessionPlacementsByMemoryId,
-      nativeSessionStartedAt: _diagnosticsSessionStartedAt,
+      nativeSessionStartedAt: _nativeSessionStartedAt,
     );
     if (_isNativePlacementPaused) {
       _nativeMemoryPlacementAllowed = true;
@@ -1643,6 +1598,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       anchors,
       idOf: (anchor) => anchor.memory.id,
       isInFront: (anchor) => anchor.projection.isInFront,
+      // Frames hung in this session keep their pose whatever GPS says.
+      isPinned: (anchor) => _hasSameSessionLocalPose(anchor.memory),
       focusedId: _focusedMemoryId,
     );
   }
@@ -1681,7 +1638,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       mediaPreviewBytesByMemoryId: mediaPreviewBytesByMemoryId,
       mediaIdsByMemoryId: mediaIdsByMemoryId,
       sessionPlacementsByMemoryId: sessionPlacementsByMemoryId,
-      nativeSessionStartedAt: _diagnosticsSessionStartedAt,
+      nativeSessionStartedAt: _nativeSessionStartedAt,
     );
     return NativeSceneSyncAttempt(
       fingerprint: fingerprint,
@@ -1708,6 +1665,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         sessionPlacementsByMemoryId,
   }) async {
     final placementReadiness = _nativeScenePlacementReadinessForSync();
+    final syncTimer = Stopwatch()..start();
     final outcome = await _nativeSceneSyncService.sync(
       scene: scene,
       origin: origin,
@@ -1719,7 +1677,13 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       mediaIdsByMemoryId: mediaIdsByMemoryId,
       sessionPlacementsByMemoryId: sessionPlacementsByMemoryId,
       modelPreflight: ref.read(arMemoryModelPreflightProvider),
-      nativeSessionStartedAt: _diagnosticsSessionStartedAt,
+      nativeSessionStartedAt: _nativeSessionStartedAt,
+    );
+    _logSceneSync(
+      scene: outcome.scene,
+      memories: memories,
+      sessionPlacements: sessionPlacementsByMemoryId,
+      tookMs: syncTimer.elapsedMilliseconds,
     );
     if (!mounted || scene != _nativeMemoryScene) {
       return false;
@@ -2265,8 +2229,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     final controller = _arController;
     final camera = _latestARCamera;
     if (controller == null || camera == null || !camera.isTracking) {
-      debugPrint(
-        '[AR_HANGING_FRAME] capture_pose skipped: '
+      _logFrame(
+        'capture_pose skipped: '
         'controller=${controller != null} camera=${camera != null} '
         'tracking=${camera?.isTracking}',
       );
@@ -2286,8 +2250,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       // pitch. This lets a frame float above or below eye level instead of
       // being flattened onto the camera's horizontal heading.
       if (cameraForward.lengthSquared < 0.000001) {
-        debugPrint(
-          '[AR_HANGING_FRAME] capture_pose skipped: '
+        _logFrame(
+          'capture_pose skipped: '
           'camera forward vector too small '
           'forward=${ARDiagnosticsLabels.vector(cameraForward)}',
         );
@@ -2304,8 +2268,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       final distance = useSurfacePosition
           ? hit.distance
           : ARVector3.distance(cameraPosition, position);
-      debugPrint(
-        '[AR_HANGING_FRAME] capture_pose saved '
+      _logFrame(
+        'capture_pose saved '
         'hits=${hits.length} '
         'selected=${HangingFrameHitSelector.describe(hit)} '
         'usedVerticalSurface=$useSurfacePosition '
@@ -2332,7 +2296,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         capturedAt: DateTime.now().toUtc(),
       );
     } on Object catch (error) {
-      debugPrint('[AR_HANGING_FRAME] capture_pose failed: $error');
+      _logFrame('capture_pose failed: $error');
       return null;
     }
   }
@@ -2688,83 +2652,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         ),
       ],
     );
-  }
-
-  Future<void> _copySceneDiagnosticsBundle(
-    ARMemorySceneDiagnostics diagnostics, {
-    ARCaptureDiagnostics? latestCaptureDiagnostics,
-  }) async {
-    final bundle = ARSceneDiagnosticsExportBundle.fromDiagnostics(
-      sceneDiagnostics: diagnostics,
-      latestCaptureDiagnostics: latestCaptureDiagnostics,
-    );
-    final payload = const JsonEncoder.withIndent('  ').convert(
-      bundle.toMap(),
-    );
-    await Clipboard.setData(ClipboardData(text: payload));
-    ref.read(arSceneDiagnosticsExportBundleCacheStoreProvider).saveBundle(
-          bundle,
-        );
-    ref.invalidate(arSceneDiagnosticsExportBundleCacheProvider);
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        const SnackBar(content: Text('AR diagnostics bundle copied')),
-      );
-  }
-
-  Future<void> _copySceneDiagnostics(
-    ARMemorySceneDiagnostics diagnostics,
-  ) async {
-    final payload = const JsonEncoder.withIndent('  ').convert(
-      diagnostics.toMap(),
-    );
-    await Clipboard.setData(ClipboardData(text: payload));
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        const SnackBar(content: Text('AR diagnostics copied')),
-      );
-  }
-
-  Future<void> _copyCaptureDiagnostics(
-    ARCaptureDiagnostics diagnostics,
-  ) async {
-    final payload = const JsonEncoder.withIndent('  ').convert(
-      diagnostics.toSyncableMap() ?? diagnostics.toMap(),
-    );
-    await Clipboard.setData(ClipboardData(text: payload));
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        const SnackBar(content: Text('AR capture diagnostics copied')),
-      );
-  }
-
-  Future<void> _copySessionDiagnosticsReport(
-    ARDiagnosticsReport report,
-  ) async {
-    final payload = const JsonEncoder.withIndent('  ').convert(
-      report.toSyncableMap(),
-    );
-    await Clipboard.setData(ClipboardData(text: payload));
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        const SnackBar(content: Text('AR session report copied')),
-      );
   }
 
   String? _captureDiagnosticsExtraString(

@@ -201,6 +201,9 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
               arguments: wall.id,
             ),
             onRecenter: () => _recenterOnAnchor(focusedAnchor),
+            onRehang: _canOfferRehang(focusedAnchor.memory)
+                ? () => _rehangMemory(focusedAnchor.memory)
+                : null,
           ),
           const SizedBox(height: 12),
         ],
