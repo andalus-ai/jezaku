@@ -244,6 +244,42 @@ void main() {
       expect(pick(items, limit: 2), ['a', 'b']);
     });
 
+    test('keeps pinned items even when GPS says they are behind the user', () {
+      final items = [
+        item('a'),
+        item('b'),
+        item('pinned', front: false),
+        item('c'),
+      ];
+      List<String> withPinned(Set<String> pinned, {String? focused}) {
+        return selectNativeSceneItems(
+          items,
+          idOf: (i) => i.id,
+          isInFront: (i) => i.front,
+          isPinned: (i) => pinned.contains(i.id),
+          focusedId: focused,
+        ).map((i) => i.id).toList();
+      }
+
+      expect(withPinned({'pinned'}), ['pinned', 'a', 'b']);
+      expect(withPinned({'pinned'}, focused: 'c'), ['c', 'pinned', 'a']);
+      expect(withPinned(const {}), ['a', 'b', 'c']);
+    });
+
+    test('pinned items may exceed the normal limit but not the pinned cap', () {
+      final items = [for (var i = 0; i < 12; i++) item('p$i')];
+      final picked = selectNativeSceneItems(
+        items,
+        idOf: (i) => i.id,
+        isInFront: (i) => i.front,
+        isPinned: (_) => true,
+        focusedId: null,
+        pinnedLimit: 5,
+      );
+
+      expect(picked.map((i) => i.id), ['p0', 'p1', 'p2', 'p3', 'p4']);
+    });
+
     test('skips items behind the user but never returns an empty scene', () {
       expect(
         pick([item('a', front: false), item('b'), item('c', front: false)]),
