@@ -74,9 +74,16 @@ These behaviours are covered by unit tests only. They have **not** been validate
 - [ ] In a dim room and facing a blank wall, saved frames still appear in the camera view and stay put when you walk around them (world-anchored, not screen-fixed).
 - [ ] The HUD "native anchors" count matches the number of saved frames in range.
 - [ ] At most three 2D fallback cards are shown, and none for frames visible in AR.
-- [ ] The "Hide HUD" button (layers icon, top left) hides chips, radar, tracking hints and the info dashboard, and keeps Back, HUD settings, anchor visibility, List and Capture available; tapping it again restores them.
+- [ ] The "Hide UI" button (top left, next to Back) hides everything except Back and "Show UI": chips, radar, tracking hints, info dashboard, HUD settings, photo-card toggle, aim guide, List and Capture. Tapping "Show UI" restores them. While a recording is running its controls stay visible so it can be stopped.
 - [ ] Top-bar buttons no longer overlap the status chips on a narrow phone and at a large text scale.
 - [ ] If frames are still missing, collect `adb logcat | grep -E "AR_HANGING_FRAME|AREngine/ARCoreGLRenderer"` and attach it to the issue.
+
+#### Frames across AR sessions (known limitation)
+
+A frame's stored AR pose (`localAnchorPose`) is expressed in the coordinate frame of the native AR session that captured it. It is used only while that same session is running (`LocalPoseValidity`); closing the viewer, or any restart of the native AR view, invalidates it. Frames from earlier sessions fall back to GPS/compass placement, which is inaccurate indoors and is **not** a wall-fixed hanging frame. Cloud Anchors, which would persist poses across sessions, are currently disabled (`_resolvedSessionCloudAnchorsEnabled = false`).
+
+- [ ] Capture and publish a frame, stay in the viewer: it hangs on the wall.
+- [ ] Leave and reopen the viewer: record whether the frame is still on the wall (expected today: it is not).
 
 ### 4. Snapshot and recording
 
