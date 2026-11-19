@@ -510,6 +510,12 @@ extension _ARViewerSceneDiagnosticsSheet on _ARViewerScreenState {
                         ),
                       ],
                     ],
+                    sectionHeading('DEBUG LOG'),
+                    ARDebugLogControls(
+                      log: ref.read(arDebugLogProvider),
+                      onCopy: _copyDebugLog,
+                      onClear: _clearDebugLog,
+                    ),
                     sectionHeading('ACTIONS & EXPORT'),
                     SizedBox(
                       width: double.infinity,
