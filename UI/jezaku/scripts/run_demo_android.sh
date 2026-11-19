@@ -13,4 +13,5 @@ exec "$SCRIPT_DIR/run_android_device.sh" \
   --dart-define=PROFILE_MODE=demo \
   --dart-define=USE_DUMMY_DATA=true \
   --dart-define=OFFLINE_MODE=true \
+  --dart-define=AR_DEBUG_LOG=true \
   "$@"
