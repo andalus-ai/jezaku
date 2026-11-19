@@ -19,9 +19,12 @@ import 'package:jejaku/features/ar_viewer/presentation/ar_capture_readiness_tren
 import 'package:jejaku/features/ar_viewer/presentation/ar_diagnostics_labels.dart';
 import 'package:jejaku/features/ar_viewer/presentation/ar_session_report_comparison.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_scene_diagnostics_export_bundle.dart';
+import 'package:jejaku/features/ar_viewer/services/ar_debug_log.dart';
+import 'package:jejaku/features/ar_viewer/services/ar_debug_log_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_overlay_anchor_selector.dart';
 import 'package:jejaku/features/ar_viewer/services/local_pose_validity.dart';
+import 'package:jejaku/features/ar_viewer/services/rehang_policy.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_viewer_health_policy.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_hosting_service.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_recording_coordinator.dart';
@@ -41,6 +44,7 @@ import 'package:jejaku/features/ar_viewer/services/ar_runtime_permission_service
 import 'package:jejaku/features/ar_viewer/states/ar_capture_provider.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capability_providers.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_scene_diagnostics_provider.dart';
+import 'package:jejaku/features/ar_viewer/widgets/ar_debug_log_controls.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_placement_quality_chip.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_snapshot_review_dialog.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_trail_launch_conflict_dialog.dart';
@@ -69,6 +73,9 @@ part 'ar_viewer_parts/ar_viewer_journey_panel.dart';
 part 'ar_viewer_parts/ar_viewer_next_stop_cue.dart';
 part 'ar_viewer_parts/ar_viewer_scene_diagnostics_sheet.dart';
 part 'ar_viewer_parts/ar_viewer_radar.dart';
+part 'ar_viewer_parts/ar_viewer_debug_hooks.dart';
+part 'ar_viewer_parts/ar_viewer_diagnostics_export.dart';
+part 'ar_viewer_parts/ar_viewer_rehang.dart';
 part 'ar_viewer_parts/ar_viewer_screen_widget.dart';
 part 'ar_viewer_parts/ar_viewer_top_bar.dart';
 part 'ar_viewer_parts/ar_viewer_trail_progress.dart';
@@ -443,6 +450,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   /// permission dialog is showing, and pausing then would fight the prompt.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _logLifecycle(state);
     if (state == AppLifecycleState.paused) {
       _pauseLiveTracking();
     } else if (state == AppLifecycleState.resumed) {
@@ -1312,6 +1320,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       _sceneSync.invalidate();
     });
     _placementPlanner.clear();
+    _logSessionCreated();
     _lastARHeadingUpdateAt = null;
     _startGeospatialQualityMonitor(controller);
     _sceneSync.schedule();
@@ -1393,6 +1402,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   void _handleNativeSessionHealthAssessmentChanged(
     ARSessionHealthAssessment assessment,
   ) {
+    _logReadiness(assessment);
     final readiness = assessment.readiness;
     final didReadinessChange = _latestSessionReadiness != readiness;
     _latestSessionReadiness = readiness;
@@ -1448,7 +1458,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   Map<String, ARMemorySessionPlacement> _nativeSessionPlacementsByMemoryId(
     Iterable<ARMemoryProjection> projections,
   ) {
-    return _placementPlanner.plan(
+    final placements = _placementPlanner.plan(
       [
         for (final projected in projections)
           PlacementCandidate(
@@ -1466,6 +1476,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       lastFrameAt: _lastARCameraFrameAt,
       focusedMemoryId: _focusedMemoryId,
     );
+    _logPlanner(placements);
+    return placements;
   }
 
   bool _hasSameSessionLocalPose(AnchorMemory memory) {
@@ -1487,7 +1499,9 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _latestNativeSceneProjections = List<ARMemoryProjection>.unmodifiable(
       nativeProjections,
     );
-    if (!ViewerGeo.sameOrigin(_latestNativeSceneOrigin, viewerOrigin)) {
+    _logSelection(anchors, nativeProjections);
+    if (!ViewerGeo.isSameScenePlace(_latestNativeSceneOrigin, viewerOrigin)) {
+      _logOriginMoved(_latestNativeSceneOrigin, viewerOrigin);
       _latestNativeSceneOrigin = viewerOrigin;
       _placementPlanner.clear();
       _sceneSync.invalidate();
@@ -1584,6 +1598,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       anchors,
       idOf: (anchor) => anchor.memory.id,
       isInFront: (anchor) => anchor.projection.isInFront,
+      // Frames hung in this session keep their pose whatever GPS says.
+      isPinned: (anchor) => _hasSameSessionLocalPose(anchor.memory),
       focusedId: _focusedMemoryId,
     );
   }
@@ -1649,6 +1665,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         sessionPlacementsByMemoryId,
   }) async {
     final placementReadiness = _nativeScenePlacementReadinessForSync();
+    final syncTimer = Stopwatch()..start();
     final outcome = await _nativeSceneSyncService.sync(
       scene: scene,
       origin: origin,
@@ -1661,6 +1678,12 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       sessionPlacementsByMemoryId: sessionPlacementsByMemoryId,
       modelPreflight: ref.read(arMemoryModelPreflightProvider),
       nativeSessionStartedAt: _nativeSessionStartedAt,
+    );
+    _logSceneSync(
+      scene: outcome.scene,
+      memories: memories,
+      sessionPlacements: sessionPlacementsByMemoryId,
+      tookMs: syncTimer.elapsedMilliseconds,
     );
     if (!mounted || scene != _nativeMemoryScene) {
       return false;
@@ -2206,8 +2229,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     final controller = _arController;
     final camera = _latestARCamera;
     if (controller == null || camera == null || !camera.isTracking) {
-      debugPrint(
-        '[AR_HANGING_FRAME] capture_pose skipped: '
+      _logFrame(
+        'capture_pose skipped: '
         'controller=${controller != null} camera=${camera != null} '
         'tracking=${camera?.isTracking}',
       );
@@ -2227,8 +2250,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       // pitch. This lets a frame float above or below eye level instead of
       // being flattened onto the camera's horizontal heading.
       if (cameraForward.lengthSquared < 0.000001) {
-        debugPrint(
-          '[AR_HANGING_FRAME] capture_pose skipped: '
+        _logFrame(
+          'capture_pose skipped: '
           'camera forward vector too small '
           'forward=${ARDiagnosticsLabels.vector(cameraForward)}',
         );
@@ -2245,8 +2268,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       final distance = useSurfacePosition
           ? hit.distance
           : ARVector3.distance(cameraPosition, position);
-      debugPrint(
-        '[AR_HANGING_FRAME] capture_pose saved '
+      _logFrame(
+        'capture_pose saved '
         'hits=${hits.length} '
         'selected=${HangingFrameHitSelector.describe(hit)} '
         'usedVerticalSurface=$useSurfacePosition '
@@ -2273,7 +2296,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         capturedAt: DateTime.now().toUtc(),
       );
     } on Object catch (error) {
-      debugPrint('[AR_HANGING_FRAME] capture_pose failed: $error');
+      _logFrame('capture_pose failed: $error');
       return null;
     }
   }
@@ -2629,83 +2652,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         ),
       ],
     );
-  }
-
-  Future<void> _copySceneDiagnosticsBundle(
-    ARMemorySceneDiagnostics diagnostics, {
-    ARCaptureDiagnostics? latestCaptureDiagnostics,
-  }) async {
-    final bundle = ARSceneDiagnosticsExportBundle.fromDiagnostics(
-      sceneDiagnostics: diagnostics,
-      latestCaptureDiagnostics: latestCaptureDiagnostics,
-    );
-    final payload = const JsonEncoder.withIndent('  ').convert(
-      bundle.toMap(),
-    );
-    await Clipboard.setData(ClipboardData(text: payload));
-    ref.read(arSceneDiagnosticsExportBundleCacheStoreProvider).saveBundle(
-          bundle,
-        );
-    ref.invalidate(arSceneDiagnosticsExportBundleCacheProvider);
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        const SnackBar(content: Text('AR diagnostics bundle copied')),
-      );
-  }
-
-  Future<void> _copySceneDiagnostics(
-    ARMemorySceneDiagnostics diagnostics,
-  ) async {
-    final payload = const JsonEncoder.withIndent('  ').convert(
-      diagnostics.toMap(),
-    );
-    await Clipboard.setData(ClipboardData(text: payload));
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        const SnackBar(content: Text('AR diagnostics copied')),
-      );
-  }
-
-  Future<void> _copyCaptureDiagnostics(
-    ARCaptureDiagnostics diagnostics,
-  ) async {
-    final payload = const JsonEncoder.withIndent('  ').convert(
-      diagnostics.toSyncableMap() ?? diagnostics.toMap(),
-    );
-    await Clipboard.setData(ClipboardData(text: payload));
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        const SnackBar(content: Text('AR capture diagnostics copied')),
-      );
-  }
-
-  Future<void> _copySessionDiagnosticsReport(
-    ARDiagnosticsReport report,
-  ) async {
-    final payload = const JsonEncoder.withIndent('  ').convert(
-      report.toSyncableMap(),
-    );
-    await Clipboard.setData(ClipboardData(text: payload));
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        const SnackBar(content: Text('AR session report copied')),
-      );
   }
 
   String? _captureDiagnosticsExtraString(
