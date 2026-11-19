@@ -1,8 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
-import 'package:jejaku/features/social/models/social_post.dart';
-import 'package:jejaku/features/social/states/social_providers.dart';
+
+import '../models/social_notification.dart';
+import '../states/social_notification_provider.dart';
 
 enum _NotificationFilter { all, unread }
 

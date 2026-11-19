@@ -1,7 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jejaku/features/settings/states/settings_providers.dart';
-import 'package:jejaku/features/social/states/social_providers.dart';
+import 'package:jejaku/features/social/states/chat_message_provider.dart';
+import 'package:jejaku/features/social/states/social_comment_provider.dart';
+import 'package:jejaku/features/social/states/social_notification_provider.dart';
+import 'package:jejaku/features/social/states/social_post_providers.dart';
+import 'package:jejaku/features/social/states/social_post_report_provider.dart';
 
 void main() {
   test('chat controller appends trimmed outgoing messages', () {

@@ -40,6 +40,12 @@ dependencies {
     implementation("com.google.android.gms:play-services-location:21.0.1")
 }
 
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
 flutter {
     source = "../.."
 }
