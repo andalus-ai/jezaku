@@ -22,6 +22,7 @@ import 'package:jejaku/features/ar_viewer/models/ar_scene_diagnostics_export_bun
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_overlay_anchor_selector.dart';
 import 'package:jejaku/features/ar_viewer/services/local_pose_validity.dart';
+import 'package:jejaku/features/ar_viewer/services/rehang_policy.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_viewer_health_policy.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_hosting_service.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_recording_coordinator.dart';
@@ -69,6 +70,7 @@ part 'ar_viewer_parts/ar_viewer_journey_panel.dart';
 part 'ar_viewer_parts/ar_viewer_next_stop_cue.dart';
 part 'ar_viewer_parts/ar_viewer_scene_diagnostics_sheet.dart';
 part 'ar_viewer_parts/ar_viewer_radar.dart';
+part 'ar_viewer_parts/ar_viewer_rehang.dart';
 part 'ar_viewer_parts/ar_viewer_screen_widget.dart';
 part 'ar_viewer_parts/ar_viewer_top_bar.dart';
 part 'ar_viewer_parts/ar_viewer_trail_progress.dart';

@@ -295,6 +295,29 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
     _persistLocalMemories();
   }
 
+  /// Replaces the AR session pose of [memoryId], e.g. after the user re-hung
+  /// the frame on a wall in the current AR session. The pose is only meaningful
+  /// in the session that captured it (see `LocalPoseValidity`).
+  void updateLocalPose({
+    required String memoryId,
+    required AnchorLocalPose localPose,
+  }) {
+    state = [
+      for (final memory in state)
+        if (memory.id == memoryId)
+          memory.copyWith(
+            captureMetadata: memory.captureMetadata.copyWith(
+              localAnchorPose: localPose,
+            ),
+            syncStatus: _syncStatusAfterLocalChange(memory.syncStatus),
+            syncReason: _syncReasonAfterLocalChange(memory.syncReason),
+          )
+        else
+          memory,
+    ];
+    _persistLocalMemories();
+  }
+
   void markMemorySynced(String memoryId) {
     state = [
       for (final memory in state)
