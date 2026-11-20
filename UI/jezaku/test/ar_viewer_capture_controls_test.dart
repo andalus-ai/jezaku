@@ -548,6 +548,41 @@ void main() {
     expect(find.byKey(const ValueKey('ar_hud_settings_button')), findsOneWidget);
     expect(find.text('Capture'), findsOneWidget);
   });
+
+  testWidgets('AR viewer Capture button never opens the separate camera',
+      (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          arViewerCapabilitiesProvider.overrideWith((ref) async {
+            return const JejakuARCapabilities(
+              engine: ARCapabilities.unsupported(),
+            );
+          }),
+          arViewerCaptureProvider.overrideWith(() {
+            return _FakeCaptureController();
+          }),
+        ],
+        child: MaterialApp(
+          home: const ARViewerScreen(),
+          onGenerateRoute: (settings) {
+            if (settings.name == AppRoutes.camera) {
+              fail('Capture must not open the camera screen over live AR.');
+            }
+            return AppRoutes.onGenerateRoute(settings);
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('ar_viewer_capture_button')));
+    await tester.pumpAndSettle();
+
+    // The route builder above fails the test if the camera screen opens. The
+    // viewer either reviews an AR snapshot or explains why it cannot take one.
+    expect(find.byType(ARViewerScreen), findsOneWidget);
+  });
 }
 
 Future<void> _showRecordingPanel(WidgetTester tester) async {

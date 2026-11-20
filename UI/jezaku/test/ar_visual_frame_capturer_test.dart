@@ -73,6 +73,25 @@ void main() {
     });
   });
 
+  testWidgets('capturePng requireCamera returns null without a camera frame',
+      (tester) async {
+    await tester.runAsync(() async {
+      for (final camera in <Future<Uint8List?> Function()>[
+        () async => null,
+        () async => Uint8List(0),
+        () async => throw StateError('camera gone'),
+        () async => Uint8List.fromList(<int>[1, 2, 3]),
+      ]) {
+        final capturer = ARVisualFrameCapturer(
+          captureOverlay: () => _solid(6, 4, const Color(0xFF00FF00)),
+          captureCameraBytes: camera,
+        );
+
+        expect(await capturer.capturePng(requireCamera: true), isNull);
+      }
+    });
+  });
+
   testWidgets('capturePng draws the overlay over the camera frame',
       (tester) async {
     await tester.runAsync(() async {

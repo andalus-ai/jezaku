@@ -2167,14 +2167,17 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
           ? 'AR snapshot staged for publishing'
           : snapshot.errorMessage ?? 'AR snapshot unavailable';
       if (!snapshot.succeeded) {
-        stagedBytes = await _frameCapturer.capturePng();
+        stagedBytes = await _frameCapturer.capturePng(requireCamera: true);
         stagedAt = DateTime.now().toUtc();
         if (stagedBytes != null) {
           message = 'AR visual snapshot staged for publishing';
         }
       }
-      if (!mounted || stagedBytes == null) {
+      if (!mounted) {
         return;
+      }
+      if (stagedBytes == null) {
+        return _reportMissingSnapshot();
       }
       final reviewCamera = _latestARCamera;
       final accepted = await showARSnapshotReviewDialog(

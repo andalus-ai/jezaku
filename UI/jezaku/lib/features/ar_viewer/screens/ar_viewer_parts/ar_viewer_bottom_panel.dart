@@ -347,9 +347,13 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () {
-                    Navigator.pushNamed(context, AppRoutes.camera);
-                  },
+                  key: const ValueKey('ar_viewer_capture_button'),
+                  // Photograph through the running AR session. The separate
+                  // camera screen competes with ARCore for the camera, which
+                  // leaves AR stale and saves a generated placeholder.
+                  onPressed: arCapture.isBusy
+                      ? null
+                      : () => _captureFromViewer(arCapture),
                   icon: const Icon(Icons.add_a_photo),
                   label: const Text('Capture'),
                 ),

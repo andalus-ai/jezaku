@@ -102,9 +102,20 @@ extension _ARViewerDebugHooks on _ARViewerScreenState {
       for (final memory in memories)
         '${memory.id}:${_hasSameSessionLocalPose(memory) ? 'session-pose' : sessionPlacements.containsKey(memory.id) ? 'gps-planner' : 'geo'}',
     ];
+    // Texture bytes cross the platform channel for every added or updated
+    // frame, so this is the first number to check when the viewer lags.
+    final textureKb = [...scene.added, ...scene.updated].fold<int>(
+          0,
+          (total, placed) =>
+              total +
+              ((placed.memory.metadata['photoTextureByteLength'] as int?) ??
+                  0),
+        ) ~/
+        1024;
     log.log(
       'scene',
-      'sync took=${tookMs}ms deferred=${scene.isPlacementDeferred} '
+      'sync took=${tookMs}ms textureSent=${textureKb}KB '
+          'deferred=${scene.isPlacementDeferred} '
           'added=${idsOf(scene.added)} updated=${idsOf(scene.updated)} '
           'removed=${idsOf(scene.removed)} active=${idsOf(scene.active)} '
           'sources=${_ids(sources)}',
