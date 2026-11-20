@@ -102,6 +102,21 @@ extension _ARViewerDiagnosticsExport on _ARViewerScreenState {
     _showSnack('Debug log cleared');
   }
 
+  /// Primary capture action: photograph the live AR view, or say why not.
+  void _captureFromViewer(ARViewerCaptureState arCapture) {
+    if (!arCapture.canCaptureSnapshot) {
+      _showSnack(arCapture.snapshotUnavailableLabel);
+      return;
+    }
+    unawaited(_captureARSnapshot());
+  }
+
+  /// Never publish a stand-in image: the frame must show the real photo.
+  void _reportMissingSnapshot() {
+    _logFrame('capture_snapshot failed: no camera frame');
+    _showSnack('Could not read the camera view. Move slowly, try again.');
+  }
+
   void _showSnack(String message) {
     ScaffoldMessenger.of(context)
       ..clearSnackBars()

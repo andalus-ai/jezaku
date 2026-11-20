@@ -103,6 +103,8 @@ These behaviours are covered by unit tests only. They have **not** been validate
 A frame's stored AR pose (`localAnchorPose`) is expressed in the coordinate frame of the native AR session that captured it. It is used only while that same session is running (`LocalPoseValidity`); closing the viewer, or any restart of the native AR view, invalidates it. Frames from earlier sessions fall back to GPS/compass placement, which is inaccurate indoors and is **not** a wall-fixed hanging frame. Cloud Anchors, which would persist poses across sessions, are currently disabled (`_resolvedSessionCloudAnchorsEnabled = false`).
 
 - [ ] Capture and publish a frame, stay in the viewer: it hangs on the wall.
+- [ ] The viewer's **Capture** button photographs the live AR view (review dialog, then Publish). It must not open the separate camera screen: that screen competes with ARCore for the camera, which leaves AR stale and, when it cannot get a live frame, saves a generated "JEJAKU SAFE CAPTURE" image instead of a photo. The hung frame must show the photo you just took. If no camera frame is available the viewer says so and saves nothing.
+- [ ] Capture a second and third frame without leaving the viewer; AR must stay tracking (no "AR stale").
 - [ ] Leave and reopen the viewer: the frame is expected to appear approximate (GPS-placed). Focus it: the focused-anchor card shows "Placed from GPS..." with a **Re-hang here** button.
 - [ ] Aim the center of the screen at the wall and tap **Re-hang here**: the frame should snap onto the wall and stay there while you walk around. The prompt disappears for that frame.
 - [ ] Re-hang with tracking not ready (cover the camera): a message asks you to move the phone; nothing changes.

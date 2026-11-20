@@ -22,8 +22,10 @@ class ARVisualFrameCapturer {
   final Future<Uint8List?> Function() captureCameraBytes;
 
   /// Captures one frame as PNG bytes, or `null` when the overlay is not
-  /// available. Falls back to the overlay alone when no camera frame exists.
-  Future<Uint8List?> capturePng() async {
+  /// available. Falls back to the overlay alone when no camera frame exists,
+  /// unless [requireCamera] is set: a photo of a memory must show the camera
+  /// feed, so it returns `null` instead of an overlay-only image.
+  Future<Uint8List?> capturePng({bool requireCamera = false}) async {
     final overlayImage = await captureOverlay();
     if (overlayImage == null) {
       return null;
@@ -32,6 +34,9 @@ class ARVisualFrameCapturer {
     ui.Image? composedImage;
     try {
       cameraImage = await _decodeCamera();
+      if (requireCamera && cameraImage == null) {
+        return null;
+      }
       final outputImage = cameraImage == null
           ? overlayImage
           : await compose(
