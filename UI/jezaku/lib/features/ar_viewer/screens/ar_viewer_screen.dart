@@ -56,6 +56,7 @@ import 'package:jejaku/features/home/services/anchor_media_resolver.dart';
 import 'package:jejaku/features/home/services/anchor_spatial_journey_service.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
 import 'package:jejaku/features/home/widgets/anchor_media_pill.dart';
+import 'package:jejaku/features/publish/services/capture_publisher.dart';
 import 'package:jejaku/features/trails/models/ar_trail_session.dart';
 import 'package:jejaku/features/trails/services/trail_launch_planner.dart';
 import 'package:jejaku/features/trails/states/ar_trail_session_providers.dart';
@@ -67,6 +68,7 @@ import 'package:jezaku_ar/jezaku_ar.dart';
 part 'ar_viewer_parts/ar_viewer_anchor_widgets.dart';
 part 'ar_viewer_parts/ar_viewer_bottom_panel.dart';
 part 'ar_viewer_parts/ar_viewer_capture_controls.dart';
+part 'ar_viewer_parts/ar_viewer_snapshot_capture.dart';
 part 'ar_viewer_parts/ar_viewer_focus_and_hud.dart';
 part 'ar_viewer_parts/ar_viewer_geo_helpers.dart';
 part 'ar_viewer_parts/ar_viewer_journey_panel.dart';
@@ -2140,93 +2142,23 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   }
 
   Future<void> _openPublishAndFocusPublishedMemory() async {
-    final result = await Navigator.pushNamed<Object?>(
-      context,
-      AppRoutes.publish,
+    _focusPublishedMemory(
+      await Navigator.pushNamed<Object?>(context, AppRoutes.publish),
     );
-    if (!mounted || result is! String || result.isEmpty) {
+  }
+
+  /// Focuses a just-published memory so its frame appears in the scene.
+  void _focusPublishedMemory(Object? memoryId) {
+    if (!mounted || memoryId is! String || memoryId.isEmpty) {
       return;
     }
     setState(() {
-      _focusedMemoryId = result;
+      _focusedMemoryId = memoryId;
       _didApplyInitialFocus = false;
       _sceneSync.invalidate();
     });
     _sceneSync.schedule();
   }
-
-  Future<void> _captureARSnapshot() async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await _refreshViewerPoseFromDeviceSensors();
-      var localPose = await _captureHangingPhotoLocalPose();
-      final snapshot = await _captureController.captureSnapshot();
-      Uint8List? stagedBytes = snapshot.bytes;
-      var stagedAt = snapshot.capturedAt;
-      var message = snapshot.succeeded
-          ? 'AR snapshot staged for publishing'
-          : snapshot.errorMessage ?? 'AR snapshot unavailable';
-      if (!snapshot.succeeded) {
-        stagedBytes = await _frameCapturer.capturePng(requireCamera: true);
-        stagedAt = DateTime.now().toUtc();
-        if (stagedBytes != null) {
-          message = 'AR visual snapshot staged for publishing';
-        }
-      }
-      if (!mounted) {
-        return;
-      }
-      if (stagedBytes == null) {
-        return _reportMissingSnapshot();
-      }
-      final reviewCamera = _latestARCamera;
-      final accepted = await showARSnapshotReviewDialog(
-        context: context,
-        bytes: stagedBytes,
-        placement: localPose,
-        onPlacementChanged: (updated) => localPose = updated,
-        cameraPosition: reviewCamera?.pose.position,
-        cameraForward: reviewCamera == null
-            ? const ARVector3(0, 0, -1)
-            : reviewCamera.pose.rotation
-                .rotateVector(ARVector3.forward)
-                .normalized,
-      );
-      if (!mounted || accepted != true) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(SnackBar(content: Text(message)));
-      // The review dialog may have replaced the pose; read the final one once
-      // so it promotes to non-null below.
-      final reviewedPose = localPose;
-      final diagnostics = _captureDiagnosticsSnapshot(stagedAt);
-      ref.read(captureSessionProvider.notifier).stageARSnapshot(
-        capturedAt: stagedAt,
-        bytes: stagedBytes,
-        localPose: reviewedPose,
-        arDiagnostics: <String, Object?>{
-          ...diagnostics,
-          if (reviewedPose != null) ...{
-            'localSurfacePose': reviewedPose.toMap(),
-            'localSurfacePoseLabel': reviewedPose.surfaceLabel,
-          },
-        },
-      );
-      await _openPublishAndFocusPublishedMemory();
-    } on Object catch (error) {
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(content: Text('AR snapshot failed: $error')),
-        );
-    }
-  }
-
 
   Future<AnchorLocalPose?> _captureHangingPhotoLocalPose() async {
     final controller = _arController;
