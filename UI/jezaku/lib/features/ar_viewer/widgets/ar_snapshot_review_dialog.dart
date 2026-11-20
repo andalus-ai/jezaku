@@ -5,19 +5,34 @@ import 'package:material_ui/material_ui.dart';
 import 'package:jejaku/features/ar_viewer/services/photo_frame_placement_adjuster.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 
+/// What the user chose after taking an AR photo.
+enum ARSnapshotReviewResult {
+  /// Discard the photo and take another.
+  retake,
+
+  /// Publish at the pose shown, with default settings, skipping the form.
+  publishNow,
+
+  /// Continue to the publish form to add a caption, privacy and walls.
+  review,
+}
+
 /// Lets the user check an AR photo and fine-tune where its frame will hang
-/// before it is staged for publishing. Resolves to `true` for "Use photo",
-/// `false` for "Retake", and `null` if dismissed. [onPlacementChanged] reports
-/// every adjusted pose so the caller keeps the latest one.
-Future<bool?> showARSnapshotReviewDialog({
+/// before it is staged. Resolves to the chosen [ARSnapshotReviewResult], or
+/// `null` if dismissed. [needsCalibration] marks a rough GPS/compass fix: the
+/// frame still saves and hangs in this AR session, but "Publish now" becomes
+/// "Publish anyway" with a note that it may drift later. [onPlacementChanged]
+/// reports every adjusted pose so the caller keeps the latest one.
+Future<ARSnapshotReviewResult?> showARSnapshotReviewDialog({
   required BuildContext context,
   required Uint8List bytes,
   required AnchorLocalPose? placement,
   required ValueChanged<AnchorLocalPose?> onPlacementChanged,
   ARVector3? cameraPosition,
   ARVector3 cameraForward = const ARVector3(0, 0, -1),
+  bool needsCalibration = false,
 }) {
-  return showDialog<bool>(
+  return showDialog<ARSnapshotReviewResult>(
     context: context,
     barrierDismissible: false,
     builder: (dialogContext) => ARSnapshotReviewDialog(
@@ -26,6 +41,7 @@ Future<bool?> showARSnapshotReviewDialog({
       onPlacementChanged: onPlacementChanged,
       cameraPosition: cameraPosition,
       cameraForward: cameraForward,
+      needsCalibration: needsCalibration,
     ),
   );
 }
@@ -50,6 +66,7 @@ class ARSnapshotReviewDialog extends StatefulWidget {
     required this.onPlacementChanged,
     this.cameraPosition,
     this.cameraForward = const ARVector3(0, 0, -1),
+    this.needsCalibration = false,
     super.key,
   });
 
@@ -58,6 +75,7 @@ class ARSnapshotReviewDialog extends StatefulWidget {
   final ValueChanged<AnchorLocalPose?> onPlacementChanged;
   final ARVector3? cameraPosition;
   final ARVector3 cameraForward;
+  final bool needsCalibration;
 
   @override
   State<ARSnapshotReviewDialog> createState() => _ARSnapshotReviewDialogState();
@@ -162,10 +180,23 @@ class _ARSnapshotReviewDialogState extends State<ARSnapshotReviewDialog> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Fine-tune the floating frame before publishing. Moving it '
-              'away from a detected surface saves a free-space pose.',
+              'Publish now hangs the frame where you took the photo, with your '
+              'default settings. Review & publish lets you add a caption, '
+              'privacy and walls. Moving it away from a detected surface '
+              'saves a free-space pose.',
               style: theme.textTheme.bodySmall,
             ),
+            if (widget.needsCalibration) ...[
+              const SizedBox(height: 6),
+              Text(
+                'GPS or compass is rough here. The frame will hang in this AR '
+                'session but may drift when you come back.',
+                key: const ValueKey('ar_snapshot_calibration_note'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ],
             if (widget.placement != null) ...[
               const SizedBox(height: 16),
               _slider(
@@ -202,14 +233,23 @@ class _ARSnapshotReviewDialogState extends State<ARSnapshotReviewDialog> {
       actions: [
         TextButton(
           key: const ValueKey('ar_snapshot_retake_button'),
-          onPressed: () => Navigator.of(context).pop(false),
+          onPressed: () =>
+              Navigator.of(context).pop(ARSnapshotReviewResult.retake),
           child: const Text('Retake'),
+        ),
+        OutlinedButton.icon(
+          key: const ValueKey('ar_snapshot_publish_now_button'),
+          onPressed: () =>
+              Navigator.of(context).pop(ARSnapshotReviewResult.publishNow),
+          icon: const Icon(Icons.bolt),
+          label: Text(widget.needsCalibration ? 'Publish anyway' : 'Publish now'),
         ),
         FilledButton.icon(
           key: const ValueKey('ar_snapshot_use_button'),
-          onPressed: () => Navigator.of(context).pop(true),
-          icon: const Icon(Icons.check),
-          label: const Text('Use photo'),
+          onPressed: () =>
+              Navigator.of(context).pop(ARSnapshotReviewResult.review),
+          icon: const Icon(Icons.edit_note),
+          label: const Text('Review & publish'),
         ),
       ],
     );

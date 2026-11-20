@@ -104,6 +104,7 @@ A frame's stored AR pose (`localAnchorPose`) is expressed in the coordinate fram
 
 - [ ] Capture and publish a frame, stay in the viewer: it hangs on the wall.
 - [ ] The viewer's **Capture** button photographs the live AR view (review dialog, then Publish). It must not open the separate camera screen: that screen competes with ARCore for the camera, which leaves AR stale and, when it cannot get a live frame, saves a generated "JEJAKU SAFE CAPTURE" image instead of a photo. The hung frame must show the photo you just took. If no camera frame is available the viewer says so and saves nothing.
+- [ ] After Capture, the review step offers **Publish now** (posts the photo where you took it, with your default privacy and comment settings, no form) and **Review & publish** (caption, privacy, walls). With a rough GPS/compass fix the first button reads **Publish anyway** and warns the frame may drift when you return. Check both, and that **Retake** discards the photo.
 - [ ] Capture a second and third frame without leaving the viewer; AR must stay tracking (no "AR stale").
 - [ ] Leave and reopen the viewer: the frame is expected to appear approximate (GPS-placed). Focus it: the focused-anchor card shows "Placed from GPS..." with a **Re-hang here** button.
 - [ ] Aim the center of the screen at the wall and tap **Re-hang here**: the frame should snap onto the wall and stay there while you walk around. The prompt disappears for that frame.
