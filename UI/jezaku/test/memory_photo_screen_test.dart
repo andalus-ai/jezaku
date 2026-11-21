@@ -77,7 +77,10 @@ void main() {
     await tester.tap(find.byTooltip('Post comment'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Love this spot'), findsOneWidget);
+    expect(
+      find.textContaining('Love this spot', findRichText: true),
+      findsOneWidget,
+    );
     expect(find.text('Comments (1)'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('memory_photo_comments_empty')),
@@ -115,7 +118,10 @@ void main() {
 
     await _pumpPhoto(tester, container, memory.id);
 
-    expect(find.text('Hidden remark'), findsNothing);
+    expect(
+      find.textContaining('Hidden remark', findRichText: true),
+      findsNothing,
+    );
     expect(
       find.byKey(const ValueKey('memory_photo_comments_empty')),
       findsOneWidget,
