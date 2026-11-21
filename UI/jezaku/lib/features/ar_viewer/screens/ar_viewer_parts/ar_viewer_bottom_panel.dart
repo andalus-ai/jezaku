@@ -185,6 +185,11 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
           _FocusedAnchorPanel(
             anchor: focusedAnchor,
             linkedWalls: linkedWalls,
+            onOpenPhoto: () => Navigator.pushNamed(
+              context,
+              AppRoutes.memoryPhoto,
+              arguments: focusedAnchor.memory.id,
+            ),
             onDetails: () => Navigator.pushNamed(
               context,
               AppRoutes.memoryDetails,
