@@ -3,6 +3,7 @@ import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/services/viewer_location.dart';
 import 'package:jejaku/features/home/states/viewer_location_provider.dart';
 import 'package:jejaku/features/virtual_wall/models/wall_trail_preview.dart';
+import 'package:jejaku/features/virtual_wall/states/wall_providers.dart';
 import 'package:jejaku/features/virtual_wall/widgets/wall_route_authoring_widgets.dart';
 import 'package:material_ui/material_ui.dart';
 
