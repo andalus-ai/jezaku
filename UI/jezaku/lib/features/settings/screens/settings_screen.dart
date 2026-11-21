@@ -112,7 +112,6 @@ class SettingsScreen extends ConsumerWidget {
             onChanged: controller.setApprovalReminders,
           ),
           const Divider(),
-          const SettingsSectionHeader(title: 'Storage and diagnostics'),
           StorageSettingsTile(
             cachedMediaMb: settings.cachedMediaMb,
             cachedMediaBytes: cachedMediaBytes,
