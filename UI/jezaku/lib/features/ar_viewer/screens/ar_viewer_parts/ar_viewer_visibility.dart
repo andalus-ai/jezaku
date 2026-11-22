@@ -1,8 +1,5 @@
 part of '../ar_viewer_screen.dart';
 
-final _frameVisibilityPolicy = FrameVisibilityPolicy.standard();
-const _frameViewer = FrameViewerContext.localStore();
-
 /// Applies the central frame visibility policy to the projected frames.
 ///
 /// Everything the viewer draws or counts comes from the returned list. The
@@ -12,8 +9,10 @@ extension _ARViewerVisibility on _ARViewerScreenState {
   List<ARMemoryProjection> _applyFrameVisibility(
     List<ARMemoryProjection> projected,
   ) {
-    _eligibleAnchors = _frameVisibilityPolicy.eligible(projected, _frameViewer);
-    return _frameVisibilityPolicy.viewable(_eligibleAnchors, _frameViewer);
+    final policy = ref.watch(frameVisibilityPolicyProvider);
+    final viewer = ref.watch(frameViewerContextProvider);
+    _eligibleAnchors = policy.eligible(projected, viewer);
+    return policy.viewable(_eligibleAnchors, viewer);
   }
 
   List<ARMemoryProjection> _activeProjectedAnchors(
