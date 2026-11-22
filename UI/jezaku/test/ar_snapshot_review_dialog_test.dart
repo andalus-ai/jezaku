@@ -52,8 +52,9 @@ void main() {
   Future<void> open(
     WidgetTester tester, {
     required AnchorLocalPose? placement,
-    required void Function(bool?) onResult,
+    required void Function(ARSnapshotReviewResult?) onResult,
     ValueChanged<AnchorLocalPose?>? onPlacementChanged,
+    bool needsCalibration = false,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -67,6 +68,7 @@ void main() {
                   placement: placement,
                   onPlacementChanged: onPlacementChanged ?? (_) {},
                   cameraPosition: const ARVector3(0, 1, 0),
+                  needsCalibration: needsCalibration,
                 ),
               );
             },
@@ -79,9 +81,8 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('Use photo resolves true and Retake resolves false',
-      (tester) async {
-    bool? result;
+  testWidgets('each action resolves to its own result', (tester) async {
+    ARSnapshotReviewResult? result;
     await open(tester, placement: null, onResult: (value) => result = value);
     expect(
       find.byKey(const ValueKey('ar_snapshot_confirmation_dialog')),
@@ -89,14 +90,52 @@ void main() {
     );
     expect(find.byKey(const ValueKey('ar_frame_review_distance_slider')),
         findsNothing);
+    expect(find.text('Publish now'), findsOneWidget);
+    expect(find.text('Review & publish'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('ar_snapshot_calibration_note')),
+      findsNothing,
+    );
+
     await tester.tap(find.byKey(const ValueKey('ar_snapshot_use_button')));
     await tester.pumpAndSettle();
-    expect(result, isTrue);
+    expect(result, ARSnapshotReviewResult.review);
+
+    await open(tester, placement: null, onResult: (value) => result = value);
+    await tester.tap(
+      find.byKey(const ValueKey('ar_snapshot_publish_now_button')),
+    );
+    await tester.pumpAndSettle();
+    expect(result, ARSnapshotReviewResult.publishNow);
 
     await open(tester, placement: null, onResult: (value) => result = value);
     await tester.tap(find.byKey(const ValueKey('ar_snapshot_retake_button')));
     await tester.pumpAndSettle();
-    expect(result, isFalse);
+    expect(result, ARSnapshotReviewResult.retake);
+  });
+
+  testWidgets('rough GPS relabels the action and explains the drift risk',
+      (tester) async {
+    ARSnapshotReviewResult? result;
+    await open(
+      tester,
+      placement: null,
+      needsCalibration: true,
+      onResult: (value) => result = value,
+    );
+
+    expect(find.text('Publish anyway'), findsOneWidget);
+    expect(find.text('Publish now'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('ar_snapshot_calibration_note')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('ar_snapshot_publish_now_button')),
+    );
+    await tester.pumpAndSettle();
+    expect(result, ARSnapshotReviewResult.publishNow);
   });
 
   testWidgets('moving a slider reports a free-space pose', (tester) async {

@@ -1,7 +1,7 @@
+import 'package:jejaku/features/social/models/social_post.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../models/social_comment.dart';
-
+/// One comment row: avatar, bold username followed by the text, and its age.
 class CommentTile extends StatelessWidget {
   const CommentTile({super.key, required this.comment});
 
@@ -37,7 +37,7 @@ class CommentTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  comment.isMine ? 'Just now' : _formatCommentAge(comment),
+                  comment.isMine ? 'Just now' : formatCommentAge(comment),
                   style: TextStyle(
                     color: colorScheme.outline,
                     fontSize: 12,
@@ -52,8 +52,8 @@ class CommentTile extends StatelessWidget {
   }
 }
 
-String _formatCommentAge(SocialComment comment) {
-  final elapsed = DateTime.now().difference(comment.timestamp);
+String formatCommentAge(SocialComment comment, {DateTime? now}) {
+  final elapsed = (now ?? DateTime.now()).difference(comment.timestamp);
   if (elapsed.inMinutes < 60) {
     return '${elapsed.inMinutes.clamp(1, 59)}m ago';
   }

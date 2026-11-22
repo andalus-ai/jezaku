@@ -17,7 +17,7 @@ The app currently has a central route definition in `lib/app/navigation/app_rout
 
 | Feature directory | Owns | Boundary guidance |
 | --- | --- | --- |
-| `ar_viewer/` | AR viewing session UI, viewer state, presentation, and viewer-specific services | Delegate generic runtime behavior to `Packages/ar_engine`; use `jezaku_ar` for product-specific AR integration |
+| `ar_viewer/` | AR viewing session UI, viewer state, presentation, and viewer-specific services | Delegate generic runtime behavior to `Packages/ar_engine`; use `jezaku_ar` for product-specific AR integration. Which frames may be shown (audience, moderation, physical radius) is decided only by `ar_viewer/visibility/`; see [frame visibility](frame-visibility-and-roadmap.md). Which HUD panels are shown is `ar_viewer/hud/ar_hud_state.dart` (one switch per `ARHudPanel`, plus Hide UI); add a panel there and it appears in the HUD settings sheet |
 | `calibration/` | Device/environment calibration flows and related state | Keep sensor math reusable only when it is not tied to a product journey |
 | `camera/` | Camera preview, capture interaction, and camera-specific state/services | Own camera UX and orchestration; do not duplicate low-level AR engine camera/session internals |
 | `docs/` | In-app documentation/help content | Keep user-facing help distinct from engineering docs under `UI/docs/` |

@@ -40,7 +40,7 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
     }).length;
     final missingTrailAnchor = _firstMissingTrailAnchor(
       trailProgress,
-      anchors,
+      _eligibleAnchors,
     );
     final sourceWallStopCount = sourceWall?.linkedMemoryIds
         .where((memoryId) => trailStopNumbers.containsKey(memoryId))
@@ -98,6 +98,10 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (anchors.isEmpty && !isWallTrail) ...[
+          const FrameRadiusEmptyHint(radiusMeters: defaultFrameViewRadiusMeters),
+          const SizedBox(height: 8),
+        ],
         if (showInfoDashboard && hasTroubleshootingIssue) ...[
           Material(
             color: Colors.black.withValues(alpha: 0.78),
@@ -185,6 +189,11 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
           _FocusedAnchorPanel(
             anchor: focusedAnchor,
             linkedWalls: linkedWalls,
+            onOpenPhoto: () => Navigator.pushNamed(
+              context,
+              AppRoutes.memoryPhoto,
+              arguments: focusedAnchor.memory.id,
+            ),
             onDetails: () => Navigator.pushNamed(
               context,
               AppRoutes.memoryDetails,
@@ -347,9 +356,13 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () {
-                    Navigator.pushNamed(context, AppRoutes.camera);
-                  },
+                  key: const ValueKey('ar_viewer_capture_button'),
+                  // Photograph through the running AR session. The separate
+                  // camera screen competes with ARCore for the camera, which
+                  // leaves AR stale and saves a generated placeholder.
+                  onPressed: arCapture.isBusy
+                      ? null
+                      : () => _captureFromViewer(arCapture),
                   icon: const Icon(Icons.add_a_photo),
                   label: const Text('Capture'),
                 ),

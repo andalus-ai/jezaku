@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/camera/models/capture_sensor_snapshot.dart';
 import 'package:jejaku/features/camera/services/capture_metadata_service.dart';
+import 'package:jejaku/features/ar_viewer/visibility/frame_visibility.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
 import 'package:jejaku/features/sync/models/anchor_media_sync_manifest.dart';
@@ -68,22 +69,21 @@ Future<void> _revealFilterChip(WidgetTester tester, String label) async {
 }
 
 
-Future<void> _diagnoseTap(WidgetTester tester, Finder target, String label) async {
-  final center = tester.getCenter(target.first);
-  final hit = tester.hitTestOnBinding(center);
-  final names = <String>[];
-  for (final entry in hit.path) {
-    final t = entry.target;
-    if (t is RenderObject) {
-      final creator = t.debugCreator;
-      if (creator is DebugCreator) {
-        names.add(creator.element.widget.runtimeType.toString());
-      }
-    }
-  }
-  final targetWidget = target.first.evaluate().first.widget.runtimeType;
-  fail('DIAG $label: target=$targetWidget center=$center hits=${names.take(14).join(" > ")}');
+Future<void> _dismissSnackBars(WidgetTester tester) async {
+  tester
+      .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger).first)
+      .clearSnackBars();
+  await tester.pumpAndSettle();
 }
+
+/// Trail and list flows are not about the 20 m rule. Let every sample frame
+/// be viewable there; the radius itself is covered by
+/// `frame_visibility_policy_test.dart` and `ar_viewer_frame_radius_test.dart`.
+final _viewEveryFrame = frameVisibilityPolicyProvider.overrideWithValue(
+  const FrameVisibilityPolicy(
+    rules: [FrameAudienceRule(), FrameModerationRule()],
+  ),
+);
 
 void main() {
   testWidgets('main tabs render consolidated feature screens', (tester) async {
@@ -213,7 +213,7 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    final container = ProviderContainer();
+    final container = ProviderContainer(overrides: [_viewEveryFrame]);
     addTearDown(container.dispose);
     final session = ARTrailSession.fromMemoryIds(
       title: 'Persisted nearby trail',
@@ -276,7 +276,7 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    final container = ProviderContainer();
+    final container = ProviderContainer(overrides: [_viewEveryFrame]);
     addTearDown(container.dispose);
     final session = ARTrailSession.fromMemoryIds(
       title: 'Dismiss safety trail',
@@ -389,7 +389,7 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    final container = ProviderContainer();
+    final container = ProviderContainer(overrides: [_viewEveryFrame]);
     addTearDown(container.dispose);
     final endedSession = ARTrailSession.fromMemoryIds(
       title: 'Ended undo trail',
@@ -672,7 +672,7 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    final container = ProviderContainer();
+    final container = ProviderContainer(overrides: [_viewEveryFrame]);
     addTearDown(container.dispose);
     final session = ARTrailSession.fromMemoryIds(
       title: 'Missing stop banner action trail',
@@ -735,7 +735,7 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    final container = ProviderContainer();
+    final container = ProviderContainer(overrides: [_viewEveryFrame]);
     addTearDown(container.dispose);
     final staleSession = ARTrailSession.fromMemoryIds(
       title: 'Stale route sheet trail',
@@ -819,7 +819,7 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    final container = ProviderContainer();
+    final container = ProviderContainer(overrides: [_viewEveryFrame]);
     addTearDown(container.dispose);
     final staleSession = ARTrailSession.fromMemoryIds(
       title: 'Stale resume route trail',
@@ -901,7 +901,7 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    final container = ProviderContainer();
+    final container = ProviderContainer(overrides: [_viewEveryFrame]);
     addTearDown(container.dispose);
     final staleSession = ARTrailSession.fromMemoryIds(
       title: 'Stale stop route trail',
@@ -986,7 +986,7 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    final container = ProviderContainer();
+    final container = ProviderContainer(overrides: [_viewEveryFrame]);
     addTearDown(container.dispose);
     final staleSession = ARTrailSession.fromMemoryIds(
       title: 'Stale details route trail',
@@ -1071,7 +1071,7 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    final container = ProviderContainer();
+    final container = ProviderContainer(overrides: [_viewEveryFrame]);
     addTearDown(container.dispose);
     final staleSession = ARTrailSession.fromMemoryIds(
       title: 'Stale finish sheet trail',
@@ -1710,7 +1710,10 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
+    await tester.pumpWidget(ProviderScope(
+        overrides: [_viewEveryFrame],
+        child: const JejakuApp(),
+      ));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('home_map_action_bar')), findsOneWidget);
@@ -2063,7 +2066,10 @@ void main() {
 
   testWidgets('ar viewer finish snackbar saves a completed trail',
       (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
+    await tester.pumpWidget(ProviderScope(
+        overrides: [_viewEveryFrame],
+        child: const JejakuApp(),
+      ));
     await tester.pumpAndSettle();
 
     tester.state<NavigatorState>(find.byType(Navigator)).pushNamed(
@@ -2108,7 +2114,7 @@ void main() {
 
   testWidgets('ar viewer guards active trail before replacing with replay',
       (tester) async {
-    final container = ProviderContainer();
+    final container = ProviderContainer(overrides: [_viewEveryFrame]);
     addTearDown(container.dispose);
 
     final activeSession = ARTrailSession.fromMemoryIds(
@@ -2175,7 +2181,7 @@ void main() {
 
   testWidgets('ar viewer can replace active trail after confirmation',
       (tester) async {
-    final container = ProviderContainer();
+    final container = ProviderContainer(overrides: [_viewEveryFrame]);
     addTearDown(container.dispose);
 
     final activeSession = ARTrailSession.fromMemoryIds(
@@ -2262,7 +2268,9 @@ void main() {
         findsNothing);
     expect(find.textContaining('Stop 1 of 4'), findsOneWidget);
 
-    await tester.pageBack();
+    // The AR viewer has no BackButton for pageBack to find, so a tap here
+    // missed and left the viewer covering Discover. Pop it like a back press.
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     await tester.tap(find.text('Discover'));
     await tester.pumpAndSettle();
@@ -2278,6 +2286,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await _scrollIntoTapZone(tester, find.text('Public memories'));
+    await tester.ensureVisible(find.text('Public memories'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Public memories'));
     await tester.pumpAndSettle();
 
@@ -2449,7 +2459,10 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
+    await tester.pumpWidget(ProviderScope(
+        overrides: [_viewEveryFrame],
+        child: const JejakuApp(),
+      ));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Gallery'));
@@ -2719,7 +2732,12 @@ void main() {
   });
 
   testWidgets('camera minimap starts a perimeter AR trail', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [_viewEveryFrame],
+        child: const JejakuApp(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byType(FloatingActionButton));
@@ -2777,6 +2795,12 @@ void main() {
     expect(find.text('Session 1/4 reached'), findsOneWidget);
     expect(find.text('Courtyard sketch'), findsWidgets);
 
+    // The panel is a reversed scroll view capped at 46% of the screen, so a
+    // control near its top can sit above the visible part.
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('ar_journey_extra_wall_wall_mural')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('ar_journey_extra_wall_wall_mural')),
     );
@@ -2792,7 +2816,10 @@ void main() {
     expect(find.text('Class Reunion Wall + 2 walls trail'), findsWidgets);
 
     for (var index = 0; index < 3; index++) {
-      await tester.tap(find.byKey(const ValueKey('ar_journey_next_button')));
+      final next = find.byKey(const ValueKey('ar_journey_next_button'));
+      await tester.ensureVisible(next);
+      await tester.pumpAndSettle();
+      await tester.tap(next);
       await tester.pumpAndSettle();
     }
 
@@ -3068,13 +3095,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Route Keeper'), findsOneWidget);
-
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
+    // Trail History sits above Saved Trails and Trail Achievements in the
+    // profile list, so from the achievements it is reached by scrolling up.
     await tester.scrollUntilVisible(
       find.text('Trail History'),
-      300,
+      -300,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
@@ -3100,7 +3128,7 @@ void main() {
 
     await tester.scrollUntilVisible(
       find.text('Trail History'),
-      300,
+      -300,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
@@ -3133,7 +3161,8 @@ void main() {
 
     await tester.scrollUntilVisible(
       find.text('Saved Trails'),
-      300,
+      // Saved Trails sits above Trail Achievements in the profile list.
+      -300,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
@@ -3575,7 +3604,10 @@ void main() {
   });
 
   testWidgets('virtual wall list starts a linked AR trail', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
+    await tester.pumpWidget(ProviderScope(
+        overrides: [_viewEveryFrame],
+        child: const JejakuApp(),
+      ));
     await tester.pumpAndSettle();
 
     tester
@@ -3944,7 +3976,10 @@ void main() {
   });
 
   testWidgets('virtual wall detail starts a linked AR trail', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
+    await tester.pumpWidget(ProviderScope(
+        overrides: [_viewEveryFrame],
+        child: const JejakuApp(),
+      ));
     await tester.pumpAndSettle();
 
     tester
@@ -4160,11 +4195,27 @@ void main() {
 
     await _revealFilterChip(tester, 'Walls');
     await tester.pumpAndSettle();
-    await _diagnoseTap(tester, find.widgetWithText(ChoiceChip, 'Walls'), 'walls');
     await tester.tap(find.widgetWithText(ChoiceChip, 'Walls'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Fresh anchor from test'), findsNothing);
+    // The home hero still previews the newest capture whatever the filter is,
+    // so only the feed may stop listing it.
+    final listedOutsideHero = find.text('Fresh anchor from test').evaluate().where(
+      (element) {
+        var inHero = false;
+        element.visitAncestorElements((ancestor) {
+          final key = ancestor.widget.key;
+          if (key is ValueKey<String> &&
+              key.value.startsWith('camera_ar_object_captured_')) {
+            inHero = true;
+            return false;
+          }
+          return true;
+        });
+        return !inHero;
+      },
+    );
+    expect(listedOutsideHero, isEmpty);
     expect(find.text('Class Reunion Wall'), findsWidgets);
   });
 
@@ -4268,7 +4319,7 @@ void main() {
     await tester.tap(find.text('Publish'));
     await tester.pumpAndSettle();
 
-    await _diagnoseTap(tester, find.text('Private default capture').first, 'tile');
+    await _dismissSnackBars(tester);
     await tester.tap(find.text('Private default capture').first);
     await tester.pumpAndSettle();
 
@@ -4409,6 +4460,7 @@ void main() {
     await tester.tap(find.text('Publish'));
     await tester.pumpAndSettle();
 
+    await _dismissSnackBars(tester);
     await tester.tap(find.text('Approximate location test').first);
     await tester.pumpAndSettle();
 
@@ -4472,6 +4524,7 @@ void main() {
     await tester.tap(find.text('Publish'));
     await tester.pumpAndSettle();
 
+    await _dismissSnackBars(tester);
     await tester.tap(find.text('Comments default test').first);
     await tester.pumpAndSettle();
 
@@ -4905,7 +4958,10 @@ void main() {
     expect(find.text('GPS drift high'), findsOneWidget);
     expect(find.text('Move near open sky for better GPS.'), findsOneWidget);
 
-    await _diagnoseTap(tester, find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')), 'calib');
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')),
     );
@@ -5619,7 +5675,10 @@ void main() {
 
   testWidgets('ar viewer anchor list focuses a memory and opens details',
       (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
+    await tester.pumpWidget(ProviderScope(
+        overrides: [_viewEveryFrame],
+        child: const JejakuApp(),
+      ));
     await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(FilledButton, 'AR View').first);
@@ -5646,7 +5705,10 @@ void main() {
 
   testWidgets('ar viewer journey controls advance focused stops',
       (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
+    await tester.pumpWidget(ProviderScope(
+        overrides: [_viewEveryFrame],
+        child: const JejakuApp(),
+      ));
     await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(FilledButton, 'AR View').first);
@@ -5694,7 +5756,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Projected anchors'), findsOneWidget);
-    expect(find.text('Focused'), findsOneWidget);
+    // The radar legend also says "Focused"; the list item's chip is the one
+    // inside the sheet.
+    expect(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text('Focused'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('memory details opens linked virtual wall context',
@@ -5741,7 +5811,10 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
+    await tester.pumpWidget(ProviderScope(
+        overrides: [_viewEveryFrame],
+        child: const JejakuApp(),
+      ));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Courtyard sketch'));
@@ -5960,6 +6033,10 @@ void main() {
       findsOneWidget,
     );
 
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')),
     );
