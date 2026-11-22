@@ -20,6 +20,7 @@ class _FocusedAnchorPanel extends StatelessWidget {
   const _FocusedAnchorPanel({
     required this.anchor,
     required this.linkedWalls,
+    required this.onOpenPhoto,
     required this.onDetails,
     required this.onCalibrate,
     required this.onOpenWall,
@@ -29,6 +30,9 @@ class _FocusedAnchorPanel extends StatelessWidget {
 
   final ARMemoryProjection anchor;
   final List<ARWall> linkedWalls;
+  /// Opens the frame's photo page, where friends can comment. Back returns
+  /// to the AR view.
+  final VoidCallback onOpenPhoto;
   final VoidCallback onDetails;
   final VoidCallback onCalibrate;
   final ValueChanged<ARWall> onOpenWall;
@@ -194,6 +198,16 @@ class _FocusedAnchorPanel extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonalIcon(
+                key: const ValueKey('focused_anchor_photo_button'),
+                onPressed: onOpenPhoto,
+                icon: const Icon(Icons.chat_bubble_outline),
+                label: const Text('Photo & comments'),
+              ),
+            ),
+            const SizedBox(height: 8),
             LayoutBuilder(
               builder: (context, constraints) {
                 final compact = constraints.maxWidth < 360;

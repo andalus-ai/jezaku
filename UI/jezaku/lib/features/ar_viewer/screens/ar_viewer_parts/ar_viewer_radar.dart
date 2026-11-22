@@ -11,7 +11,7 @@ class _ARRadar extends StatelessWidget {
     required this.onFocus,
   });
 
-  static const _radiusMeters = 260.0;
+  static const _radiusMeters = defaultFrameViewRadiusMeters;
 
   final List<ARMemoryProjection> anchors;
   final String? focusedMemoryId;
