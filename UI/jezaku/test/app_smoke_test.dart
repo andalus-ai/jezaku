@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/camera/models/capture_sensor_snapshot.dart';
 import 'package:jejaku/features/camera/services/capture_metadata_service.dart';
+import 'package:jejaku/features/ar_viewer/screens/ar_viewer_screen.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_visibility.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
@@ -68,6 +69,24 @@ Future<void> _revealFilterChip(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
+
+Future<void> _probeRoutes(WidgetTester tester, String label) async {
+  String texts(Finder f) => f
+      .evaluate()
+      .map((e) => e.widget)
+      .whereType<Text>()
+      .map((t) => t.data ?? t.textSpan?.toPlainText() ?? '')
+      .where((t) => t.isNotEmpty)
+      .take(14)
+      .toList()
+      .toString();
+  // ignore: avoid_print
+  print('DIAG $label: viewers(all)=${find.byType(ARViewerScreen, skipOffstage: false).evaluate().length} '
+      'viewers(on)=${find.byType(ARViewerScreen).evaluate().length} '
+      'dialogs=${find.byType(Dialog).evaluate().length} '
+      'sheets=${find.byType(BottomSheet).evaluate().length} '
+      'texts=${texts(find.byType(Text))}');
+}
 
 Future<void> _dismissSnackBars(WidgetTester tester) async {
   tester
@@ -2286,6 +2305,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await _scrollIntoTapZone(tester, find.text('Public memories'));
+    await _probeRoutes(tester, 'before public memories');
     await tester.ensureVisible(find.text('Public memories'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Public memories'));
@@ -2823,6 +2843,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(next);
       await tester.pumpAndSettle();
+      await _probeRoutes(tester, 'after next $index');
     }
 
     expect(find.textContaining('Stop 4 of 4'), findsOneWidget);
