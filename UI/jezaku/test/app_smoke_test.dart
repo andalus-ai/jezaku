@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/camera/models/capture_sensor_snapshot.dart';
 import 'package:jejaku/features/camera/services/capture_metadata_service.dart';
-import 'package:jejaku/features/ar_viewer/screens/ar_viewer_screen.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_visibility.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
@@ -69,44 +68,6 @@ Future<void> _revealFilterChip(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
-
-Future<void> _probeRoutes(WidgetTester tester, String label) async {
-  String texts(Finder f) => f
-      .evaluate()
-      .map((e) => e.widget)
-      .whereType<Text>()
-      .map((t) => t.data ?? t.textSpan?.toPlainText() ?? '')
-      .where((t) => t.isNotEmpty)
-      .take(45)
-      .toList()
-      .toString();
-  final target = find.text('Public memories');
-  if (target.evaluate().isNotEmpty) {
-    final c = tester.getCenter(target.first);
-    final hits = <String>[];
-    for (final e in tester.hitTestOnBinding(c).path) {
-      final t = e.target;
-      if (t is RenderObject && t.debugCreator is DebugCreator) {
-        hits.add((t.debugCreator! as DebugCreator).element.debugGetCreatorChain(4));
-      }
-      if (hits.length >= 4) break;
-    }
-    // ignore: avoid_print
-    print('DIAG $label hit at $c: ${hits.join(" | ")}');
-  }
-  final trail = ProviderScope.containerOf(tester.element(find.byType(JejakuApp)))
-      .read(activeARTrailProgressProvider);
-  // ignore: avoid_print
-  print('DIAG $label trail=${trail?.session.title} current=${trail?.currentMemoryId} '
-      'done=${trail?.completedMemoryIds} finished=${trail?.isFinished} '
-      'stops=${trail?.session.memoryIds}');
-  // ignore: avoid_print
-  print('DIAG $label: viewers(all)=${find.byType(ARViewerScreen, skipOffstage: false).evaluate().length} '
-      'viewers(on)=${find.byType(ARViewerScreen).evaluate().length} '
-      'dialogs=${find.byType(Dialog).evaluate().length} '
-      'sheets=${find.byType(BottomSheet).evaluate().length} '
-      'texts=${texts(find.byType(Text))}');
-}
 
 Future<void> _dismissSnackBars(WidgetTester tester) async {
   tester
@@ -2325,7 +2286,6 @@ void main() {
     await tester.pumpAndSettle();
 
     await _scrollIntoTapZone(tester, find.text('Public memories'));
-    await _probeRoutes(tester, 'before public memories');
     await tester.ensureVisible(find.text('Public memories'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Public memories'));
@@ -2772,7 +2732,12 @@ void main() {
   });
 
   testWidgets('camera minimap starts a perimeter AR trail', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [_viewEveryFrame],
+        child: const JejakuApp(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byType(FloatingActionButton));
@@ -2852,18 +2817,10 @@ void main() {
 
     for (var index = 0; index < 3; index++) {
       final next = find.byKey(const ValueKey('ar_journey_next_button'));
-      // ignore: avoid_print
-      print('DIAG next iter=$index present=${next.evaluate().length} '
-          'panel=${find.byKey(const ValueKey('ar_journey_panel')).evaluate().length} '
-          'texts=${find.textContaining('Stop ').evaluate().map((e) => (e.widget as Text).data).toList()}');
-      if (next.evaluate().isEmpty) {
-        break;
-      }
       await tester.ensureVisible(next);
       await tester.pumpAndSettle();
       await tester.tap(next);
       await tester.pumpAndSettle();
-      await _probeRoutes(tester, 'after next $index');
     }
 
     expect(find.textContaining('Stop 4 of 4'), findsOneWidget);
