@@ -44,11 +44,14 @@ void main() {
       );
     });
 
-    test('keeps the brand seed consistent across brightness modes', () {
-      expect(
-        JejakuTheme.light().colorScheme.primary,
-        JejakuTheme.dark().colorScheme.primary,
-      );
+    test('keeps the brand hue consistent across brightness modes', () {
+      // Material 3 tones the same seed differently per brightness (light uses
+      // a darker primary, dark a lighter one), so the primaries are never
+      // equal. Their hue is what identifies the brand.
+      final light = HSLColor.fromColor(JejakuTheme.light().colorScheme.primary);
+      final dark = HSLColor.fromColor(JejakuTheme.dark().colorScheme.primary);
+
+      expect((light.hue - dark.hue).abs(), lessThan(5));
     });
   });
 }

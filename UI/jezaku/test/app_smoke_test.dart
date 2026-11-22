@@ -69,8 +69,17 @@ Future<void> _revealFilterChip(WidgetTester tester, String label) async {
 }
 
 
-Future<void> _diagnoseTap(WidgetTester tester, Finder target, String label) async {
+/// TEMPORARY: prints what sits at the target's centre and why a tap would
+/// miss. Does not fail the test. Removed once the tap problems are fixed.
+Future<void> _diagnoseTap(
+    WidgetTester tester, Finder target, String label) async {
+  if (target.evaluate().isEmpty) {
+    // ignore: avoid_print
+    print('DIAG $label: target not found');
+    return;
+  }
   final center = tester.getCenter(target.first);
+  final view = tester.view.physicalSize / tester.view.devicePixelRatio;
   final hit = tester.hitTestOnBinding(center);
   final names = <String>[];
   for (final entry in hit.path) {
@@ -78,12 +87,16 @@ Future<void> _diagnoseTap(WidgetTester tester, Finder target, String label) asyn
     if (t is RenderObject) {
       final creator = t.debugCreator;
       if (creator is DebugCreator) {
-        names.add(creator.element.widget.runtimeType.toString());
+        final widget = creator.element.widget;
+        final key = widget.key == null ? '' : '[${widget.key}]';
+        names.add('${widget.runtimeType}$key');
       }
     }
   }
-  final targetWidget = target.first.evaluate().first.widget.runtimeType;
-  fail('DIAG $label: target=$targetWidget center=$center hits=${names.take(14).join(" > ")}');
+  // ignore: avoid_print
+  print('DIAG $label: view=$view center=$center '
+      'hittable=${target.hitTestable().evaluate().isNotEmpty} '
+      'hits=${names.join(" > ")}');
 }
 
 /// Trail and list flows are not about the 20 m rule. Let every sample frame
@@ -2294,6 +2307,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await _scrollIntoTapZone(tester, find.text('Public memories'));
+    await _diagnoseTap(tester, find.text('Public memories'), 'discover');
     await tester.tap(find.text('Public memories'));
     await tester.pumpAndSettle();
 
@@ -2796,6 +2810,11 @@ void main() {
     expect(find.text('Session 1/4 reached'), findsOneWidget);
     expect(find.text('Courtyard sketch'), findsWidgets);
 
+    await _diagnoseTap(
+      tester,
+      find.byKey(const ValueKey('ar_journey_extra_wall_wall_mural')),
+      'minimap',
+    );
     await tester.tap(
       find.byKey(const ValueKey('ar_journey_extra_wall_wall_mural')),
     );
@@ -4434,6 +4453,7 @@ void main() {
     await tester.tap(find.text('Publish'));
     await tester.pumpAndSettle();
 
+    await _diagnoseTap(tester, find.text('Approximate location test').first, 'approx');
     await tester.tap(find.text('Approximate location test').first);
     await tester.pumpAndSettle();
 
@@ -4497,6 +4517,7 @@ void main() {
     await tester.tap(find.text('Publish'));
     await tester.pumpAndSettle();
 
+    await _diagnoseTap(tester, find.text('Comments default test').first, 'comments');
     await tester.tap(find.text('Comments default test').first);
     await tester.pumpAndSettle();
 
@@ -5725,7 +5746,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Projected anchors'), findsOneWidget);
-    expect(find.text('Focused'), findsOneWidget);
+    // The radar legend also says "Focused"; the list item's chip is the one
+    // inside the sheet.
+    expect(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text('Focused'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('memory details opens linked virtual wall context',
@@ -5994,6 +6023,11 @@ void main() {
       findsOneWidget,
     );
 
+    await _diagnoseTap(
+      tester,
+      find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')),
+      'memcalib',
+    );
     await tester.tap(
       find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')),
     );
