@@ -69,30 +69,6 @@ Future<void> _revealFilterChip(WidgetTester tester, String label) async {
 }
 
 
-/// TEMPORARY.
-Future<void> _diag(WidgetTester tester, Finder target, String label) async {
-  if (target.evaluate().isEmpty) {
-    // ignore: avoid_print
-    print('DIAG $label: not found');
-    return;
-  }
-  final c = tester.getCenter(target.first);
-  final hit = tester.hitTestOnBinding(c);
-  final leaves = <String>[];
-  for (final e in hit.path) {
-    final t = e.target;
-    if (t is RenderParagraph) {
-      leaves.add('text="${t.text.toPlainText()}" rect=${t.localToGlobal(Offset.zero) & t.size}');
-    }
-    if (leaves.length >= 2) break;
-  }
-  final el = target.first.evaluate().first;
-  // ignore: avoid_print
-  print('DIAG $label: center=$c rect=${tester.getRect(target.first)} '
-      'hitTexts=${leaves.join(" | ")} '
-      'chain=${el.debugGetCreatorChain(22)}');
-}
-
 Future<void> _dismissSnackBars(WidgetTester tester) async {
   tester
       .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger).first)
