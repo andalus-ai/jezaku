@@ -69,39 +69,6 @@ Future<void> _revealFilterChip(WidgetTester tester, String label) async {
 }
 
 
-/// TEMPORARY: prints what sits at the target's centre and why a tap would
-/// miss. Does not fail the test. Removed once the tap problems are fixed.
-Future<void> _diagnoseTap(
-    WidgetTester tester, Finder target, String label) async {
-  if (target.evaluate().isEmpty) {
-    // ignore: avoid_print
-    print('DIAG $label: target not found');
-    return;
-  }
-  final center = tester.getCenter(target.first);
-  final view = tester.view.physicalSize / tester.view.devicePixelRatio;
-  final hit = tester.hitTestOnBinding(center);
-  final chains = <String>[];
-  for (final entry in hit.path) {
-    final t = entry.target;
-    if (t is RenderBox && t.debugCreator is DebugCreator) {
-      final creator = t.debugCreator! as DebugCreator;
-      final size = t.hasSize ? t.size : null;
-      chains.add(
-        '{${creator.element.debugGetCreatorChain(10)} size=$size}',
-      );
-      if (chains.length >= 3) {
-        break;
-      }
-    }
-  }
-  // ignore: avoid_print
-  print('DIAG $label: view=$view center=$center '
-      'rect=${tester.getRect(target.first)} '
-      'hittable=${target.hitTestable().evaluate().isNotEmpty} '
-      'top3=${chains.join(" | ")}');
-}
-
 Future<void> _dismissSnackBars(WidgetTester tester) async {
   tester
       .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger).first)
@@ -2317,7 +2284,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await _scrollIntoTapZone(tester, find.text('Public memories'));
-    await _diagnoseTap(tester, find.text('Public memories'), 'discover');
+    await tester.ensureVisible(find.text('Public memories'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Public memories'));
     await tester.pumpAndSettle();
 
@@ -2820,11 +2788,12 @@ void main() {
     expect(find.text('Session 1/4 reached'), findsOneWidget);
     expect(find.text('Courtyard sketch'), findsWidgets);
 
-    await _diagnoseTap(
-      tester,
+    // The panel is a reversed scroll view capped at 46% of the screen, so a
+    // control near its top can sit above the visible part.
+    await tester.ensureVisible(
       find.byKey(const ValueKey('ar_journey_extra_wall_wall_mural')),
-      'minimap',
     );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('ar_journey_extra_wall_wall_mural')),
     );
@@ -4214,7 +4183,13 @@ void main() {
 
     await _revealFilterChip(tester, 'Walls');
     await tester.pumpAndSettle();
-    await _diagnoseTap(tester, find.widgetWithText(ChoiceChip, 'Walls'), 'walls');
+    for (final chip in find.byType(ChoiceChip).evaluate()) {
+      final box = chip.renderObject! as RenderBox;
+      // ignore: avoid_print
+      final label = (chip.widget as ChoiceChip).label;
+      print('DIAG chip ${label is Text ? label.data : label} '
+          'at=${box.localToGlobal(Offset.zero)} size=${box.size}');
+    }
     await tester.tap(find.widgetWithText(ChoiceChip, 'Walls'));
     await tester.pumpAndSettle();
 
@@ -4323,7 +4298,6 @@ void main() {
     await tester.pumpAndSettle();
 
     await _dismissSnackBars(tester);
-    await _diagnoseTap(tester, find.text('Private default capture').first, 'tile');
     await tester.tap(find.text('Private default capture').first);
     await tester.pumpAndSettle();
 
@@ -4465,7 +4439,6 @@ void main() {
     await tester.pumpAndSettle();
 
     await _dismissSnackBars(tester);
-    await _diagnoseTap(tester, find.text('Approximate location test').first, 'approx');
     await tester.tap(find.text('Approximate location test').first);
     await tester.pumpAndSettle();
 
@@ -4530,7 +4503,6 @@ void main() {
     await tester.pumpAndSettle();
 
     await _dismissSnackBars(tester);
-    await _diagnoseTap(tester, find.text('Comments default test').first, 'comments');
     await tester.tap(find.text('Comments default test').first);
     await tester.pumpAndSettle();
 
@@ -4964,7 +4936,10 @@ void main() {
     expect(find.text('GPS drift high'), findsOneWidget);
     expect(find.text('Move near open sky for better GPS.'), findsOneWidget);
 
-    await _diagnoseTap(tester, find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')), 'calib');
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')),
     );
@@ -6036,11 +6011,10 @@ void main() {
       findsOneWidget,
     );
 
-    await _diagnoseTap(
-      tester,
+    await tester.ensureVisible(
       find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')),
-      'memcalib',
     );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')),
     );
