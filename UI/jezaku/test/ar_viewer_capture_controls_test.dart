@@ -549,6 +549,49 @@ void main() {
     expect(find.text('Capture'), findsOneWidget);
   });
 
+  testWidgets('Publish now posts the AR photo without the publish form',
+      (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          arViewerCapabilitiesProvider.overrideWith((ref) async {
+            return const JejakuARCapabilities(
+              engine: ARCapabilities.unsupported(),
+            );
+          }),
+          arViewerCaptureProvider.overrideWith(() {
+            return _FakeCaptureController();
+          }),
+        ],
+        child: const MaterialApp(
+          home: ARViewerScreen(),
+          onGenerateRoute: AppRoutes.onGenerateRoute,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ARViewerScreen)),
+      listen: false,
+    );
+    final before = container.read(nearbyAnchorsProvider).length;
+
+    await _showRecordingPanel(tester);
+    await tester.tap(find.byKey(const ValueKey('ar_capture_snapshot_button')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('ar_snapshot_publish_now_button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Publish Memory'), findsNothing);
+    final memories = container.read(nearbyAnchorsProvider);
+    expect(memories.length, before + 1);
+    final posted = memories.firstWhere((m) => m.id.startsWith('captured_'));
+    expect(posted.mediaAttachment?.type, AnchorMediaType.arSnapshot);
+    expect(container.read(captureSessionProvider).hasCapturedBytes, isFalse);
+  });
+
   testWidgets('AR viewer Capture button never opens the separate camera',
       (tester) async {
     await tester.pumpWidget(

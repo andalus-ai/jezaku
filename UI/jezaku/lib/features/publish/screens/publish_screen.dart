@@ -2,9 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/camera/models/capture_sensor_snapshot.dart';
 import 'package:jejaku/features/camera/states/capture_session_provider.dart';
-import 'package:jejaku/features/home/models/anchor_memory.dart';
-import 'package:jejaku/features/home/services/anchor_media_repository.dart';
-import 'package:jejaku/features/home/states/anchor_providers.dart';
+import 'package:jejaku/features/publish/services/capture_publisher.dart';
 import 'package:jejaku/features/settings/states/settings_providers.dart';
 import 'package:jejaku/features/virtual_wall/models/ar_wall.dart';
 import 'package:jejaku/features/virtual_wall/states/wall_providers.dart';
@@ -321,102 +319,29 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   }
 
   void _publish() {
-    final captureSession = ref.read(captureSessionProvider);
-    final settings = ref.read(appSettingsProvider);
-    final captureSnapshot =
-        captureSession.activeSnapshot.copyWith(gpsAccuracyMeters: _gpsAccuracy);
-    final mediaAttachment =
-        ref.read(anchorMediaRepositoryProvider).storeAttachment(
-              _mediaAttachmentFor(captureSession),
-              storedAt: captureSession.capturedAt,
-            );
-
-    final memory = ref.read(nearbyAnchorsProvider.notifier).addCapturedMemory(
-          caption: _captionController.text,
-          radiusMeters: _radius,
-          isPrivate: _isPrivate,
-          allowComments: _allowComments,
-          capturedAt: captureSession.capturedAt,
-          latitude: captureSnapshot.latitude,
-          longitude: captureSnapshot.longitude,
-          altitudeMeters: captureSnapshot.altitudeMeters,
-          headingDegrees: captureSnapshot.headingDegrees,
-          pitchDegrees: captureSnapshot.pitchDegrees,
-          rollDegrees: captureSnapshot.rollDegrees,
-          gpsAccuracyMeters: captureSnapshot.gpsAccuracyMeters,
-          locationLabel: settings.sharePreciseLocation
-              ? captureSnapshot.locationLabel
-              : 'Approximate area',
-          anchorType: captureSession.anchorTypeLabel,
-          captureSource: captureSnapshot.captureSource,
-          localPose: captureSession.localPose,
-          mediaAttachment: mediaAttachment,
-        );
-    if (_selectedWallIds.isNotEmpty) {
-      ref.read(arWallsProvider.notifier).linkMemoryToWalls(
-            memoryId: memory.id,
-            wallIds: List<String>.unmodifiable(_selectedWallIds),
-          );
-    }
-    ref.read(captureSessionProvider.notifier).clearDraft();
+    final memory = publishCapturedMemory(
+      ref,
+      CapturePublishOptions(
+        caption: _captionController.text,
+        radiusMeters: _radius,
+        gpsAccuracyMeters: _gpsAccuracy,
+        isPrivate: _isPrivate,
+        allowComments: _allowComments,
+        wallIds: _selectedWallIds.toList(growable: false),
+        recordingQualityReviewed: _acceptedRecordingQualityReview,
+      ),
+    );
+    final linkedWalls = _selectedWallIds.length;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          _selectedWallIds.isEmpty
+          linkedWalls == 0
               ? 'Memory queued for upload.'
-              : 'Memory queued and linked to ${_selectedWallIds.length} wall${_selectedWallIds.length == 1 ? '' : 's'}.',
+              : 'Memory queued and linked to $linkedWalls wall${linkedWalls == 1 ? '' : 's'}.',
         ),
       ),
     );
     Navigator.pop(context, memory.id);
-  }
-
-  AnchorMediaAttachment _mediaAttachmentFor(
-    CaptureSessionState captureSession,
-  ) {
-    final recordingDraft = captureSession.recordingDraft;
-    if (recordingDraft != null) {
-      return AnchorMediaAttachment(
-        type: AnchorMediaType.arRecording,
-        filePath: recordingDraft.filePath,
-        duration: recordingDraft.duration,
-        frameCount: recordingDraft.frameCount,
-        targetFps: recordingDraft.targetFps,
-        videoBitrateKbps: recordingDraft.videoBitrateKbps,
-        outputFormat: recordingDraft.outputFormat,
-        includesUIOverlay: recordingDraft.includesUIOverlay,
-        includesAudio: recordingDraft.includesAudio,
-        fileSizeBytes: recordingDraft.fileSizeBytes,
-        recordingQualityReviewedAt:
-            recordingDraft.recordingQualityWarningLabel != null &&
-                    _acceptedRecordingQualityReview
-                ? DateTime.now().toUtc()
-                : null,
-        arDiagnostics: recordingDraft.arDiagnostics,
-      );
-    }
-    final capturedBytes = captureSession.capturedBytes;
-    if (capturedBytes != null) {
-      return AnchorMediaAttachment(
-        type: switch (captureSession.draftSource) {
-          CaptureDraftSource.importedPhoto => AnchorMediaType.importedPhoto,
-          CaptureDraftSource.arSnapshot => AnchorMediaType.arSnapshot,
-          CaptureDraftSource.arRecording => AnchorMediaType.arRecording,
-          CaptureDraftSource.camera => AnchorMediaType.cameraPhoto,
-        },
-        bytes: capturedBytes,
-        arDiagnostics: captureSession.arDiagnostics,
-      );
-    }
-    return AnchorMediaAttachment(
-      type: switch (captureSession.draftSource) {
-        CaptureDraftSource.importedPhoto => AnchorMediaType.importedPhoto,
-        CaptureDraftSource.camera ||
-        CaptureDraftSource.arSnapshot ||
-        CaptureDraftSource.arRecording =>
-          AnchorMediaType.cameraPhoto,
-      },
-    );
   }
 
   @override

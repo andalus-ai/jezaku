@@ -1,9 +1,9 @@
 import 'dart:convert';
-
 import 'package:ar_model_cache/ar_model_cache.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:jejaku/features/settings/services/settings_diagnostics_formatters.dart';
+import 'package:material_ui/material_ui.dart';
 
 class ARModelCacheSettingsTile extends StatelessWidget {
   const ARModelCacheSettingsTile({
@@ -105,7 +105,7 @@ class ARModelCacheSettingsTile extends StatelessWidget {
     final attentionLabel = _integrityAttentionLabel(integrity) ??
         _manifestAttentionLabel(cachedEntries);
     return '${_modelCountLabel(cachedEntries.length)} - '
-        '${_formatCacheBytes(_totalByteLength(cachedEntries))}, '
+        '${formatCacheBytes(_totalByteLength(cachedEntries))}, '
         'last used ${_formatModelCacheDate(latest.lastUsedAt)}'
         '${attentionLabel == null ? '' : ' - $attentionLabel'}';
   }
@@ -188,7 +188,7 @@ class ARModelCacheDetailsSheet extends StatelessWidget {
           ),
           _ModelCacheDetailRow(
             label: 'Cached bytes',
-            value: _formatCacheBytes(_totalByteLength(entries)),
+            value: formatCacheBytes(_totalByteLength(entries)),
           ),
           _ModelCacheDetailRow(
             label: 'Latest use',
@@ -434,7 +434,7 @@ String _modelCachePayload(
 
 String _entrySubtitle(ARModelAssetCacheEntry entry) {
   final labels = <String>[
-    _formatCacheBytes(entry.byteLength),
+    formatCacheBytes(entry.byteLength),
     _formatModelFormat(entry.format),
     if (!entry.hasManifest) 'missing manifest',
     'last used ${_formatModelCacheDate(entry.lastUsedAt)}',
@@ -509,14 +509,3 @@ String _formatModelCacheDate(DateTime dateTime) {
 }
 
 String _twoDigits(int value) => value.toString().padLeft(2, '0');
-
-String _formatCacheBytes(int bytes) {
-  if (bytes < 1024) {
-    return '$bytes B';
-  }
-  final kib = bytes / 1024;
-  if (kib < 1024) {
-    return '${kib.toStringAsFixed(1)} KB';
-  }
-  return '${(kib / 1024).toStringAsFixed(1)} MB';
-}

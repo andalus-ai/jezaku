@@ -20,6 +20,8 @@ import 'package:jejaku/features/ar_viewer/presentation/ar_diagnostics_labels.dar
 import 'package:jejaku/features/ar_viewer/presentation/ar_session_report_comparison.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_scene_diagnostics_export_bundle.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_debug_log.dart';
+import 'package:jejaku/features/ar_viewer/visibility/frame_visibility.dart';
+import 'package:jejaku/features/ar_viewer/widgets/frame_radius_empty_hint.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_debug_log_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_overlay_anchor_selector.dart';
@@ -56,6 +58,7 @@ import 'package:jejaku/features/home/services/anchor_media_resolver.dart';
 import 'package:jejaku/features/home/services/anchor_spatial_journey_service.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
 import 'package:jejaku/features/home/widgets/anchor_media_pill.dart';
+import 'package:jejaku/features/publish/services/capture_publisher.dart';
 import 'package:jejaku/features/trails/models/ar_trail_session.dart';
 import 'package:jejaku/features/trails/services/trail_launch_planner.dart';
 import 'package:jejaku/features/trails/states/ar_trail_session_providers.dart';
@@ -67,6 +70,8 @@ import 'package:jezaku_ar/jezaku_ar.dart';
 part 'ar_viewer_parts/ar_viewer_anchor_widgets.dart';
 part 'ar_viewer_parts/ar_viewer_bottom_panel.dart';
 part 'ar_viewer_parts/ar_viewer_capture_controls.dart';
+part 'ar_viewer_parts/ar_viewer_snapshot_capture.dart';
+part 'ar_viewer_parts/ar_viewer_visibility.dart';
 part 'ar_viewer_parts/ar_viewer_focus_and_hud.dart';
 part 'ar_viewer_parts/ar_viewer_geo_helpers.dart';
 part 'ar_viewer_parts/ar_viewer_journey_panel.dart';
@@ -106,6 +111,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   bool _isRadarExpanded = true;
   double _headingDegrees = 56;
   bool _didApplyInitialFocus = false;
+  List<ARMemoryProjection> _eligibleAnchors = const <ARMemoryProjection>[];
   bool _isResolvingTrailLaunch = false;
   _ARHudPreset _hudPreset = _ARHudPreset.defaultView;
   late String? _focusedMemoryId;
@@ -880,10 +886,9 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _lastProjectionBuildDuration =
         Duration(microseconds: projectionStopwatch?.elapsedMicroseconds ?? 0);
     final trailStopNumbers = _trailStopNumbers();
-    final activeProjectedAnchors = _activeProjectedAnchors(
-      projectedAnchors,
-      trailStopNumbers,
-    );
+    final viewable = _applyFrameVisibility(projectedAnchors);
+    final activeProjectedAnchors =
+        _activeProjectedAnchors(viewable, trailStopNumbers);
     final focusedAnchor = _focusedAnchor(activeProjectedAnchors);
     final linkedWalls = focusedAnchor == null
         ? const <ARWall>[]
@@ -1154,7 +1159,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                           child: _buildBottomPanel(
                             context,
                             activeProjectedAnchors,
-                            anchors.length,
+                            viewable.length,
                             focusedAnchor,
                             linkedWalls,
                             journeyStep,
@@ -2140,93 +2145,23 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   }
 
   Future<void> _openPublishAndFocusPublishedMemory() async {
-    final result = await Navigator.pushNamed<Object?>(
-      context,
-      AppRoutes.publish,
+    _focusPublishedMemory(
+      await Navigator.pushNamed<Object?>(context, AppRoutes.publish),
     );
-    if (!mounted || result is! String || result.isEmpty) {
+  }
+
+  /// Focuses a just-published memory so its frame appears in the scene.
+  void _focusPublishedMemory(Object? memoryId) {
+    if (!mounted || memoryId is! String || memoryId.isEmpty) {
       return;
     }
     setState(() {
-      _focusedMemoryId = result;
+      _focusedMemoryId = memoryId;
       _didApplyInitialFocus = false;
       _sceneSync.invalidate();
     });
     _sceneSync.schedule();
   }
-
-  Future<void> _captureARSnapshot() async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await _refreshViewerPoseFromDeviceSensors();
-      var localPose = await _captureHangingPhotoLocalPose();
-      final snapshot = await _captureController.captureSnapshot();
-      Uint8List? stagedBytes = snapshot.bytes;
-      var stagedAt = snapshot.capturedAt;
-      var message = snapshot.succeeded
-          ? 'AR snapshot staged for publishing'
-          : snapshot.errorMessage ?? 'AR snapshot unavailable';
-      if (!snapshot.succeeded) {
-        stagedBytes = await _frameCapturer.capturePng(requireCamera: true);
-        stagedAt = DateTime.now().toUtc();
-        if (stagedBytes != null) {
-          message = 'AR visual snapshot staged for publishing';
-        }
-      }
-      if (!mounted) {
-        return;
-      }
-      if (stagedBytes == null) {
-        return _reportMissingSnapshot();
-      }
-      final reviewCamera = _latestARCamera;
-      final accepted = await showARSnapshotReviewDialog(
-        context: context,
-        bytes: stagedBytes,
-        placement: localPose,
-        onPlacementChanged: (updated) => localPose = updated,
-        cameraPosition: reviewCamera?.pose.position,
-        cameraForward: reviewCamera == null
-            ? const ARVector3(0, 0, -1)
-            : reviewCamera.pose.rotation
-                .rotateVector(ARVector3.forward)
-                .normalized,
-      );
-      if (!mounted || accepted != true) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(SnackBar(content: Text(message)));
-      // The review dialog may have replaced the pose; read the final one once
-      // so it promotes to non-null below.
-      final reviewedPose = localPose;
-      final diagnostics = _captureDiagnosticsSnapshot(stagedAt);
-      ref.read(captureSessionProvider.notifier).stageARSnapshot(
-        capturedAt: stagedAt,
-        bytes: stagedBytes,
-        localPose: reviewedPose,
-        arDiagnostics: <String, Object?>{
-          ...diagnostics,
-          if (reviewedPose != null) ...{
-            'localSurfacePose': reviewedPose.toMap(),
-            'localSurfacePoseLabel': reviewedPose.surfaceLabel,
-          },
-        },
-      );
-      await _openPublishAndFocusPublishedMemory();
-    } on Object catch (error) {
-      if (!mounted) {
-        return;
-      }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(content: Text('AR snapshot failed: $error')),
-        );
-    }
-  }
-
 
   Future<AnchorLocalPose?> _captureHangingPhotoLocalPose() async {
     final controller = _arController;
@@ -2823,35 +2758,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       for (var index = 0; index < memoryIds.length; index++)
         memoryIds[index]: index + 1,
     };
-  }
-
-  List<ARMemoryProjection> _activeProjectedAnchors(
-    List<ARMemoryProjection> anchors,
-    Map<String, int> trailStopNumbers,
-  ) {
-    if (trailStopNumbers.isEmpty) {
-      final active = anchors.take(8).toList(growable: true);
-      final focusedMemoryId = _focusedMemoryId;
-      if (focusedMemoryId != null &&
-          !active.any((anchor) => anchor.memory.id == focusedMemoryId)) {
-        for (final anchor in anchors) {
-          if (anchor.memory.id == focusedMemoryId) {
-            active.add(anchor);
-            break;
-          }
-        }
-      }
-      return active;
-    }
-
-    final anchorsById = <String, ARMemoryProjection>{
-      for (final anchor in anchors) anchor.memory.id: anchor,
-    };
-
-    return [
-      for (final memoryId in _journeyMemoryIds)
-        if (anchorsById[memoryId] != null) anchorsById[memoryId]!,
-    ];
   }
 
   ARMemoryProjection? _firstMissingTrailAnchor(
