@@ -1,11 +1,5 @@
 part of '../ar_viewer_screen.dart';
 
-enum _ARHudPreset {
-  defaultView,
-  minimal,
-  manual,
-}
-
 class ARViewerScreen extends ConsumerStatefulWidget {
   const ARViewerScreen({
     super.key,
