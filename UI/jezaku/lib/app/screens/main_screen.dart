@@ -75,11 +75,50 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ? null
         : _missingRoutePointLabel(activeMissingStopPoint);
 
+    final bannerInFlow = _currentIndex >= 2;
+    Widget buildBanner(ARTrailProgress progress) => ActiveARTrailBanner(
+        progress: progress,
+        onResume: () => _resumeTrail(progress),
+        onDismiss: () {
+          unawaited(_confirmEndTrail(progress));
+        },
+        currentStopTitle:
+            anchorsById[progress.currentMemoryId]?.title,
+        nextStopTitle: activeLeg?.to.title,
+        nextLegLabel: activeLeg == null
+            ? null
+            : '${activeLeg.distanceLabel} ${activeLeg.directionLabel}',
+        remainingEffortLabel: activeRoute == null
+            ? null
+            : _trailProgressRemainingLabel(
+                progress,
+                activeRoute,
+              ),
+        missingStopLabel: activeMissingStopLabel,
+        onOpenMissingStop: activeMissingStopPoint == null
+            ? null
+            : () => _jumpToTrailStop(
+                  progress,
+                  activeMissingStopPoint.memoryId,
+                ),
+        onOpenRoute: activeRoute == null
+            ? null
+            : () => _showActiveTrailRouteSheet(
+                  progress,
+                  activeRoute,
+                ),
+        onFinish: _canFinishTrail(progress)
+            ? () => _finishTrail(expectedProgress: progress)
+            : null,
+      );
+
     return Scaffold(
       body: Stack(
         children: [
           Positioned.fill(
-            child: IndexedStack(
+            child: Column(
+              children: [
+                Expanded(child: IndexedStack(
               index: _currentIndex,
               children: [
                 HomeScreen(
@@ -94,48 +133,23 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 const GalleryScreen(),
                 const ProfileScreen(),
               ],
+            )),
+                // On tabs that scroll a list to the bottom the banner takes
+                // its own row, so it never covers the last items.
+                if (activeProgress != null && bannerInFlow)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    child: buildBanner(activeProgress),
+                  ),
+              ],
             ),
           ),
-          if (activeProgress != null)
+          if (activeProgress != null && !bannerInFlow)
             Positioned(
               left: 16,
               right: 16,
-              bottom: _currentIndex == 0 || _currentIndex == 1 ? 92 : 16,
-              child: ActiveARTrailBanner(
-                progress: activeProgress,
-                onResume: () => _resumeTrail(activeProgress),
-                onDismiss: () {
-                  unawaited(_confirmEndTrail(activeProgress));
-                },
-                currentStopTitle:
-                    anchorsById[activeProgress.currentMemoryId]?.title,
-                nextStopTitle: activeLeg?.to.title,
-                nextLegLabel: activeLeg == null
-                    ? null
-                    : '${activeLeg.distanceLabel} ${activeLeg.directionLabel}',
-                remainingEffortLabel: activeRoute == null
-                    ? null
-                    : _trailProgressRemainingLabel(
-                        activeProgress,
-                        activeRoute,
-                      ),
-                missingStopLabel: activeMissingStopLabel,
-                onOpenMissingStop: activeMissingStopPoint == null
-                    ? null
-                    : () => _jumpToTrailStop(
-                          activeProgress,
-                          activeMissingStopPoint.memoryId,
-                        ),
-                onOpenRoute: activeRoute == null
-                    ? null
-                    : () => _showActiveTrailRouteSheet(
-                          activeProgress,
-                          activeRoute,
-                        ),
-                onFinish: _canFinishTrail(activeProgress)
-                    ? () => _finishTrail(expectedProgress: activeProgress)
-                    : null,
-              ),
+              bottom: 92,
+              child: buildBanner(activeProgress),
             ),
         ],
       ),

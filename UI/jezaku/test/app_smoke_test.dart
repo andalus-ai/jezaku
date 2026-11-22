@@ -94,6 +94,12 @@ Future<void> _probeRoutes(WidgetTester tester, String label) async {
     // ignore: avoid_print
     print('DIAG $label hit at $c: ${hits.join(" | ")}');
   }
+  final trail = ProviderScope.containerOf(tester.element(find.byType(JejakuApp)))
+      .read(activeARTrailProgressProvider);
+  // ignore: avoid_print
+  print('DIAG $label trail=${trail?.session.title} current=${trail?.currentMemoryId} '
+      'done=${trail?.completedMemoryIds} finished=${trail?.isFinished} '
+      'stops=${trail?.session.memoryIds}');
   // ignore: avoid_print
   print('DIAG $label: viewers(all)=${find.byType(ARViewerScreen, skipOffstage: false).evaluate().length} '
       'viewers(on)=${find.byType(ARViewerScreen).evaluate().length} '
