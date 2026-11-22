@@ -5,8 +5,8 @@ import 'package:jejaku/features/ar_viewer/visibility/frame_visibility.dart';
 import 'package:jejaku/main.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// Sample frames: "Courtyard sketch" hangs about 8 m from the viewer's
-/// fallback position; the others are 50 m or more away.
+/// Sample frames: "Courtyard sketch" hangs at the viewer's fallback position;
+/// the others are 50 m or more away. A negative radius hides every frame.
 void main() {
   Future<void> openViewerList(WidgetTester tester, {List<Override>? overrides}) async {
     await tester.pumpWidget(
@@ -50,7 +50,7 @@ void main() {
       ProviderScope(
         overrides: [
           frameVisibilityPolicyProvider.overrideWithValue(
-            FrameVisibilityPolicy.standard(radiusMeters: 1),
+            FrameVisibilityPolicy.standard(radiusMeters: -1),
           ),
         ],
         child: const JejakuApp(),
@@ -61,6 +61,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('ar_no_frames_in_radius')), findsOneWidget);
-    expect(find.textContaining('No frames within 1 m'), findsOneWidget);
+    expect(find.textContaining('No frames within 20 m'), findsOneWidget);
   });
 }
