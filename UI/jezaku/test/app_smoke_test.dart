@@ -69,34 +69,11 @@ Future<void> _revealFilterChip(WidgetTester tester, String label) async {
 }
 
 
-/// TEMPORARY: prints what sits at the target's centre and why a tap would
-/// miss. Does not fail the test. Removed once the tap problems are fixed.
-Future<void> _diagnoseTap(
-    WidgetTester tester, Finder target, String label) async {
-  if (target.evaluate().isEmpty) {
-    // ignore: avoid_print
-    print('DIAG $label: target not found');
-    return;
-  }
-  final center = tester.getCenter(target.first);
-  final view = tester.view.physicalSize / tester.view.devicePixelRatio;
-  final hit = tester.hitTestOnBinding(center);
-  final names = <String>[];
-  for (final entry in hit.path) {
-    final t = entry.target;
-    if (t is RenderObject) {
-      final creator = t.debugCreator;
-      if (creator is DebugCreator) {
-        final widget = creator.element.widget;
-        final key = widget.key == null ? '' : '[${widget.key}]';
-        names.add('${widget.runtimeType}$key');
-      }
-    }
-  }
-  // ignore: avoid_print
-  print('DIAG $label: view=$view center=$center '
-      'hittable=${target.hitTestable().evaluate().isNotEmpty} '
-      'hits=${names.join(" > ")}');
+Future<void> _dismissSnackBars(WidgetTester tester) async {
+  tester
+      .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger).first)
+      .clearSnackBars();
+  await tester.pumpAndSettle();
 }
 
 /// Trail and list flows are not about the 20 m rule. Let every sample frame
@@ -2291,7 +2268,9 @@ void main() {
         findsNothing);
     expect(find.textContaining('Stop 1 of 4'), findsOneWidget);
 
-    await tester.pageBack();
+    // The AR viewer has no BackButton for pageBack to find, so a tap here
+    // missed and left the viewer covering Discover. Pop it like a back press.
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     await tester.tap(find.text('Discover'));
     await tester.pumpAndSettle();
@@ -2307,7 +2286,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await _scrollIntoTapZone(tester, find.text('Public memories'));
-    await _diagnoseTap(tester, find.text('Public memories'), 'discover');
+    await tester.ensureVisible(find.text('Public memories'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Public memories'));
     await tester.pumpAndSettle();
 
@@ -2752,7 +2732,12 @@ void main() {
   });
 
   testWidgets('camera minimap starts a perimeter AR trail', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: JejakuApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [_viewEveryFrame],
+        child: const JejakuApp(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byType(FloatingActionButton));
@@ -2810,11 +2795,12 @@ void main() {
     expect(find.text('Session 1/4 reached'), findsOneWidget);
     expect(find.text('Courtyard sketch'), findsWidgets);
 
-    await _diagnoseTap(
-      tester,
+    // The panel is a reversed scroll view capped at 46% of the screen, so a
+    // control near its top can sit above the visible part.
+    await tester.ensureVisible(
       find.byKey(const ValueKey('ar_journey_extra_wall_wall_mural')),
-      'minimap',
     );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('ar_journey_extra_wall_wall_mural')),
     );
@@ -2830,7 +2816,10 @@ void main() {
     expect(find.text('Class Reunion Wall + 2 walls trail'), findsWidgets);
 
     for (var index = 0; index < 3; index++) {
-      await tester.tap(find.byKey(const ValueKey('ar_journey_next_button')));
+      final next = find.byKey(const ValueKey('ar_journey_next_button'));
+      await tester.ensureVisible(next);
+      await tester.pumpAndSettle();
+      await tester.tap(next);
       await tester.pumpAndSettle();
     }
 
@@ -3106,13 +3095,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Route Keeper'), findsOneWidget);
-
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
+    // Trail History sits above Saved Trails and Trail Achievements in the
+    // profile list, so from the achievements it is reached by scrolling up.
     await tester.scrollUntilVisible(
       find.text('Trail History'),
-      300,
+      -300,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
@@ -3138,7 +3128,7 @@ void main() {
 
     await tester.scrollUntilVisible(
       find.text('Trail History'),
-      300,
+      -300,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
@@ -4204,11 +4194,27 @@ void main() {
 
     await _revealFilterChip(tester, 'Walls');
     await tester.pumpAndSettle();
-    await _diagnoseTap(tester, find.widgetWithText(ChoiceChip, 'Walls'), 'walls');
     await tester.tap(find.widgetWithText(ChoiceChip, 'Walls'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Fresh anchor from test'), findsNothing);
+    // The home hero still previews the newest capture whatever the filter is,
+    // so only the feed may stop listing it.
+    final listedOutsideHero = find.text('Fresh anchor from test').evaluate().where(
+      (element) {
+        var inHero = false;
+        element.visitAncestorElements((ancestor) {
+          final key = ancestor.widget.key;
+          if (key is ValueKey<String> &&
+              key.value.startsWith('camera_ar_object_captured_')) {
+            inHero = true;
+            return false;
+          }
+          return true;
+        });
+        return !inHero;
+      },
+    );
+    expect(listedOutsideHero, isEmpty);
     expect(find.text('Class Reunion Wall'), findsWidgets);
   });
 
@@ -4312,7 +4318,7 @@ void main() {
     await tester.tap(find.text('Publish'));
     await tester.pumpAndSettle();
 
-    await _diagnoseTap(tester, find.text('Private default capture').first, 'tile');
+    await _dismissSnackBars(tester);
     await tester.tap(find.text('Private default capture').first);
     await tester.pumpAndSettle();
 
@@ -4453,7 +4459,7 @@ void main() {
     await tester.tap(find.text('Publish'));
     await tester.pumpAndSettle();
 
-    await _diagnoseTap(tester, find.text('Approximate location test').first, 'approx');
+    await _dismissSnackBars(tester);
     await tester.tap(find.text('Approximate location test').first);
     await tester.pumpAndSettle();
 
@@ -4517,7 +4523,7 @@ void main() {
     await tester.tap(find.text('Publish'));
     await tester.pumpAndSettle();
 
-    await _diagnoseTap(tester, find.text('Comments default test').first, 'comments');
+    await _dismissSnackBars(tester);
     await tester.tap(find.text('Comments default test').first);
     await tester.pumpAndSettle();
 
@@ -4951,7 +4957,10 @@ void main() {
     expect(find.text('GPS drift high'), findsOneWidget);
     expect(find.text('Move near open sky for better GPS.'), findsOneWidget);
 
-    await _diagnoseTap(tester, find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')), 'calib');
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')),
     );
@@ -6023,11 +6032,10 @@ void main() {
       findsOneWidget,
     );
 
-    await _diagnoseTap(
-      tester,
+    await tester.ensureVisible(
       find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')),
-      'memcalib',
     );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('focused_anchor_adjust_calibration_button')),
     );
