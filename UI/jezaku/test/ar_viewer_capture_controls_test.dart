@@ -494,13 +494,13 @@ void main() {
     expect(find.text('Default'), findsOneWidget);
     expect(find.text('Manual'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('ar_hud_radar_switch')));
+    await _tapHudControl(tester, 'ar_hud_radar_switch');
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('ar_hud_dashboard_switch')));
+    await _tapHudControl(tester, 'ar_hud_dashboard_switch');
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('ar_hud_recording_switch')));
+    await _tapHudControl(tester, 'ar_hud_recording_switch');
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('ar_hud_settings_done_button')));
+    await _tapHudControl(tester, 'ar_hud_settings_done_button');
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('ar_anchor_radar')), findsNothing);
@@ -513,7 +513,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Default'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('ar_hud_settings_done_button')));
+    await _tapHudControl(tester, 'ar_hud_settings_done_button');
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('ar_anchor_radar')), findsOneWidget);
@@ -596,9 +596,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(toggle);
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('ar_hud_settings_done_button')),
-      );
+      await _tapHudControl(tester, 'ar_hud_settings_done_button');
       await tester.pumpAndSettle();
 
       expect(entry.value, findsNothing, reason: '${entry.key} hides it');
@@ -694,12 +692,22 @@ void main() {
   });
 }
 
+/// The HUD settings sheet is taller than a short test screen, so bring the
+/// control into view before tapping it.
+Future<void> _tapHudControl(WidgetTester tester, String key) async {
+  final control = find.byKey(ValueKey(key));
+  await tester.ensureVisible(control);
+  await tester.pumpAndSettle();
+  await tester.tap(control);
+  await tester.pumpAndSettle();
+}
+
 Future<void> _showRecordingPanel(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('ar_hud_settings_button')));
   await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('ar_hud_recording_switch')));
+  await _tapHudControl(tester, 'ar_hud_recording_switch');
   await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('ar_hud_settings_done_button')));
+  await _tapHudControl(tester, 'ar_hud_settings_done_button');
   await tester.pumpAndSettle();
 }
 
