@@ -3161,7 +3161,8 @@ void main() {
 
     await tester.scrollUntilVisible(
       find.text('Saved Trails'),
-      300,
+      // Saved Trails sits above Trail Achievements in the profile list.
+      -300,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
