@@ -494,13 +494,13 @@ void main() {
     expect(find.text('Default'), findsOneWidget);
     expect(find.text('Manual'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('ar_hud_radar_switch')));
+    await _tapHudControl(tester, 'ar_hud_radar_switch');
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('ar_hud_dashboard_switch')));
+    await _tapHudControl(tester, 'ar_hud_dashboard_switch');
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('ar_hud_recording_switch')));
+    await _tapHudControl(tester, 'ar_hud_recording_switch');
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('ar_hud_settings_done_button')));
+    await _tapHudControl(tester, 'ar_hud_settings_done_button');
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('ar_anchor_radar')), findsNothing);
@@ -513,7 +513,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Default'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('ar_hud_settings_done_button')));
+    await _tapHudControl(tester, 'ar_hud_settings_done_button');
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('ar_anchor_radar')), findsOneWidget);
@@ -547,6 +547,70 @@ void main() {
         find.byKey(const ValueKey('ar_scene_diagnostics_hud')), findsOneWidget);
     expect(find.byKey(const ValueKey('ar_hud_settings_button')), findsOneWidget);
     expect(find.text('Capture'), findsOneWidget);
+  });
+
+  testWidgets('each AR HUD panel can be hidden on its own', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          arViewerCapabilitiesProvider.overrideWith((ref) async {
+            return const JejakuARCapabilities(
+              engine: ARCapabilities.unsupported(),
+            );
+          }),
+          arViewerCaptureProvider.overrideWith(() {
+            return _FakeCaptureController();
+          }),
+        ],
+        child: const MaterialApp(
+          home: ARViewerScreen(),
+          onGenerateRoute: AppRoutes.onGenerateRoute,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Each case: the switch to flip and a finder that must vanish with it.
+    final panels = <String, Finder>{
+      'ar_hud_aim_switch':
+          find.byKey(const ValueKey('ar_hanging_frame_aim_preview')),
+      'ar_hud_status_switch':
+          find.byKey(const ValueKey('ar_placement_quality_chip')),
+      'ar_hud_tools_switch': find.byTooltip('Recenter anchors'),
+      'ar_hud_radar_switch': find.byKey(const ValueKey('ar_anchor_radar')),
+      'ar_hud_dashboard_switch':
+          find.byKey(const ValueKey('ar_scene_diagnostics_hud')),
+      'ar_hud_bottom_panel_switch':
+          find.byKey(const ValueKey('ar_viewer_capture_button')),
+    };
+
+    for (final entry in panels.entries) {
+      expect(entry.value, findsOneWidget, reason: '${entry.key} starts shown');
+    }
+
+    for (final entry in panels.entries) {
+      await tester.tap(find.byKey(const ValueKey('ar_hud_settings_button')));
+      await tester.pumpAndSettle();
+      final toggle = find.byKey(ValueKey(entry.key));
+      await tester.ensureVisible(toggle);
+      await tester.pumpAndSettle();
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      await _tapHudControl(tester, 'ar_hud_settings_done_button');
+      await tester.pumpAndSettle();
+
+      expect(entry.value, findsNothing, reason: '${entry.key} hides it');
+      // The other panels chosen earlier stay hidden; Back, Hide UI and the
+      // HUD settings button always remain so the viewer can bring them back.
+      expect(
+        find.byKey(const ValueKey('ar_hud_settings_button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('ar_hud_visibility_button')),
+        findsOneWidget,
+      );
+    }
   });
 
   testWidgets('Publish now posts the AR photo without the publish form',
@@ -628,12 +692,22 @@ void main() {
   });
 }
 
+/// The HUD settings sheet is taller than a short test screen, so bring the
+/// control into view before tapping it.
+Future<void> _tapHudControl(WidgetTester tester, String key) async {
+  final control = find.byKey(ValueKey(key));
+  await tester.ensureVisible(control);
+  await tester.pumpAndSettle();
+  await tester.tap(control);
+  await tester.pumpAndSettle();
+}
+
 Future<void> _showRecordingPanel(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('ar_hud_settings_button')));
   await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('ar_hud_recording_switch')));
+  await _tapHudControl(tester, 'ar_hud_recording_switch');
   await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('ar_hud_settings_done_button')));
+  await _tapHudControl(tester, 'ar_hud_settings_done_button');
   await tester.pumpAndSettle();
 }
 

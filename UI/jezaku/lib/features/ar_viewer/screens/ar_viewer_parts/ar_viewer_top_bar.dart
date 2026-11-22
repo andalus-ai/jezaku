@@ -3,7 +3,7 @@ part of '../ar_viewer_screen.dart';
 /// Top-of-screen HUD controls, kept out of the (very large) screen state.
 ///
 /// Everything except Back and the Hide/Show UI button is hidden while
-/// `_isHudVisible` is false.
+/// `_hud.masterVisible` is false.
 extension _ARViewerTopBar on _ARViewerScreenState {
   /// Back, Hide/Show UI and (when visible) HUD settings.
   Widget _buildTopLeftControls(BuildContext context) {
@@ -20,13 +20,13 @@ extension _ARViewerTopBar on _ARViewerScreenState {
           const SizedBox(width: 8),
           _GlassPillButton(
             key: const ValueKey('ar_hud_visibility_button'),
-            label: _isHudVisible ? 'Hide UI' : 'Show UI',
-            icon: _isHudVisible
+            label: _hud.masterVisible ? 'Hide UI' : 'Show UI',
+            icon: _hud.masterVisible
                 ? Icons.fullscreen
                 : Icons.fullscreen_exit,
             onPressed: _toggleHudVisibility,
           ),
-          if (_isHudVisible) ...[
+          if (_hud.masterVisible) ...[
             const SizedBox(width: 8),
             _GlassIconButton(
               key: const ValueKey('ar_hud_settings_button'),
@@ -86,8 +86,8 @@ extension _ARViewerTopBar on _ARViewerScreenState {
           ),
           const SizedBox(width: 8),
           _GlassIconButton(
-            tooltip: _showAnchors ? 'Hide photo cards' : 'Show photo cards',
-            icon: _showAnchors
+            tooltip: _hud.isEnabled(ARHudPanel.anchors) ? 'Hide photo cards' : 'Show photo cards',
+            icon: _hud.isEnabled(ARHudPanel.anchors)
                 ? Icons.image_outlined
                 : Icons.hide_image_outlined,
             onPressed: _toggleAnchorCards,
