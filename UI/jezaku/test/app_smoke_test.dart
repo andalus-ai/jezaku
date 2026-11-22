@@ -81,22 +81,32 @@ Future<void> _diagnoseTap(
   final center = tester.getCenter(target.first);
   final view = tester.view.physicalSize / tester.view.devicePixelRatio;
   final hit = tester.hitTestOnBinding(center);
-  final names = <String>[];
+  final chains = <String>[];
   for (final entry in hit.path) {
     final t = entry.target;
-    if (t is RenderObject) {
-      final creator = t.debugCreator;
-      if (creator is DebugCreator) {
-        final widget = creator.element.widget;
-        final key = widget.key == null ? '' : '[${widget.key}]';
-        names.add('${widget.runtimeType}$key');
+    if (t is RenderBox && t.debugCreator is DebugCreator) {
+      final creator = t.debugCreator! as DebugCreator;
+      final size = t.hasSize ? t.size : null;
+      chains.add(
+        '{${creator.element.debugGetCreatorChain(10)} size=$size}',
+      );
+      if (chains.length >= 3) {
+        break;
       }
     }
   }
   // ignore: avoid_print
   print('DIAG $label: view=$view center=$center '
+      'rect=${tester.getRect(target.first)} '
       'hittable=${target.hitTestable().evaluate().isNotEmpty} '
-      'hits=${names.join(" > ")}');
+      'top3=${chains.join(" | ")}');
+}
+
+Future<void> _dismissSnackBars(WidgetTester tester) async {
+  tester
+      .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger).first)
+      .clearSnackBars();
+  await tester.pumpAndSettle();
 }
 
 /// Trail and list flows are not about the 20 m rule. Let every sample frame
@@ -4312,6 +4322,7 @@ void main() {
     await tester.tap(find.text('Publish'));
     await tester.pumpAndSettle();
 
+    await _dismissSnackBars(tester);
     await _diagnoseTap(tester, find.text('Private default capture').first, 'tile');
     await tester.tap(find.text('Private default capture').first);
     await tester.pumpAndSettle();
@@ -4453,6 +4464,7 @@ void main() {
     await tester.tap(find.text('Publish'));
     await tester.pumpAndSettle();
 
+    await _dismissSnackBars(tester);
     await _diagnoseTap(tester, find.text('Approximate location test').first, 'approx');
     await tester.tap(find.text('Approximate location test').first);
     await tester.pumpAndSettle();
@@ -4517,6 +4529,7 @@ void main() {
     await tester.tap(find.text('Publish'));
     await tester.pumpAndSettle();
 
+    await _dismissSnackBars(tester);
     await _diagnoseTap(tester, find.text('Comments default test').first, 'comments');
     await tester.tap(find.text('Comments default test').first);
     await tester.pumpAndSettle();
