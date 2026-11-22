@@ -40,7 +40,7 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
     }).length;
     final missingTrailAnchor = _firstMissingTrailAnchor(
       trailProgress,
-      anchors,
+      _eligibleAnchors,
     );
     final sourceWallStopCount = sourceWall?.linkedMemoryIds
         .where((memoryId) => trailStopNumbers.containsKey(memoryId))
@@ -98,6 +98,10 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (anchors.isEmpty && !isWallTrail) ...[
+          const FrameRadiusEmptyHint(radiusMeters: defaultFrameViewRadiusMeters),
+          const SizedBox(height: 8),
+        ],
         if (showInfoDashboard && hasTroubleshootingIssue) ...[
           Material(
             color: Colors.black.withValues(alpha: 0.78),
