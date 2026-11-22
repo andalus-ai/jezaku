@@ -77,9 +77,23 @@ Future<void> _probeRoutes(WidgetTester tester, String label) async {
       .whereType<Text>()
       .map((t) => t.data ?? t.textSpan?.toPlainText() ?? '')
       .where((t) => t.isNotEmpty)
-      .take(14)
+      .take(45)
       .toList()
       .toString();
+  final target = find.text('Public memories');
+  if (target.evaluate().isNotEmpty) {
+    final c = tester.getCenter(target.first);
+    final hits = <String>[];
+    for (final e in tester.hitTestOnBinding(c).path) {
+      final t = e.target;
+      if (t is RenderObject && t.debugCreator is DebugCreator) {
+        hits.add((t.debugCreator! as DebugCreator).element.debugGetCreatorChain(4));
+      }
+      if (hits.length >= 4) break;
+    }
+    // ignore: avoid_print
+    print('DIAG $label hit at $c: ${hits.join(" | ")}');
+  }
   // ignore: avoid_print
   print('DIAG $label: viewers(all)=${find.byType(ARViewerScreen, skipOffstage: false).evaluate().length} '
       'viewers(on)=${find.byType(ARViewerScreen).evaluate().length} '
