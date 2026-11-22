@@ -1,8 +1,8 @@
-import 'package:ar_engine/ar_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_memory_projection.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_visibility.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
+import 'package:jezaku_ar/jezaku_ar.dart';
 
 const _originLat = -6.91755;
 const _originLng = 107.61905;
