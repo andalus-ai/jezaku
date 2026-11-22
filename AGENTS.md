@@ -18,7 +18,8 @@ These instructions apply repository-wide. Read the nearest scoped `AGENTS.md` be
 6. Add or update tests with behavior changes. Run the narrowest relevant checks, then broader checks when practical.
 7. Never claim a command, test, build, device check, or deployment succeeded unless it was actually executed successfully.
 8. Do not commit credentials, production data, local secrets, generated build output, or machine-specific configuration.
-9. Update documentation in the same change when architecture, public contracts, setup, operational behavior, or developer workflows change.
+9. Frame visibility is a product rule: a frame is seen only by people it is shared with (public, friends, own) and only within a physical radius of where they stand. The backend is authoritative for who may see what; the client enforces the same rule and the radius through one policy. See [UI/docs/frame-visibility-and-roadmap.md](UI/docs/frame-visibility-and-roadmap.md).
+10. Update documentation in the same change when architecture, public contracts, setup, operational behavior, or developer workflows change.
 
 ## Before finishing
 
