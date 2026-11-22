@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_visibility.dart';
 import 'package:jejaku/main.dart';
