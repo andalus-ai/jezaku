@@ -20,6 +20,8 @@ import 'package:jejaku/features/ar_viewer/presentation/ar_diagnostics_labels.dar
 import 'package:jejaku/features/ar_viewer/presentation/ar_session_report_comparison.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_scene_diagnostics_export_bundle.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_debug_log.dart';
+import 'package:jejaku/features/ar_viewer/visibility/frame_visibility.dart';
+import 'package:jejaku/features/ar_viewer/widgets/frame_radius_empty_hint.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_debug_log_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_overlay_anchor_selector.dart';
@@ -69,6 +71,7 @@ part 'ar_viewer_parts/ar_viewer_anchor_widgets.dart';
 part 'ar_viewer_parts/ar_viewer_bottom_panel.dart';
 part 'ar_viewer_parts/ar_viewer_capture_controls.dart';
 part 'ar_viewer_parts/ar_viewer_snapshot_capture.dart';
+part 'ar_viewer_parts/ar_viewer_visibility.dart';
 part 'ar_viewer_parts/ar_viewer_focus_and_hud.dart';
 part 'ar_viewer_parts/ar_viewer_geo_helpers.dart';
 part 'ar_viewer_parts/ar_viewer_journey_panel.dart';
@@ -108,6 +111,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   bool _isRadarExpanded = true;
   double _headingDegrees = 56;
   bool _didApplyInitialFocus = false;
+  List<ARMemoryProjection> _eligibleAnchors = const <ARMemoryProjection>[];
   bool _isResolvingTrailLaunch = false;
   _ARHudPreset _hudPreset = _ARHudPreset.defaultView;
   late String? _focusedMemoryId;
@@ -882,10 +886,9 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _lastProjectionBuildDuration =
         Duration(microseconds: projectionStopwatch?.elapsedMicroseconds ?? 0);
     final trailStopNumbers = _trailStopNumbers();
-    final activeProjectedAnchors = _activeProjectedAnchors(
-      projectedAnchors,
-      trailStopNumbers,
-    );
+    final viewable = _applyFrameVisibility(projectedAnchors);
+    final activeProjectedAnchors =
+        _activeProjectedAnchors(viewable, trailStopNumbers);
     final focusedAnchor = _focusedAnchor(activeProjectedAnchors);
     final linkedWalls = focusedAnchor == null
         ? const <ARWall>[]
@@ -1156,7 +1159,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                           child: _buildBottomPanel(
                             context,
                             activeProjectedAnchors,
-                            anchors.length,
+                            viewable.length,
                             focusedAnchor,
                             linkedWalls,
                             journeyStep,
@@ -2755,35 +2758,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       for (var index = 0; index < memoryIds.length; index++)
         memoryIds[index]: index + 1,
     };
-  }
-
-  List<ARMemoryProjection> _activeProjectedAnchors(
-    List<ARMemoryProjection> anchors,
-    Map<String, int> trailStopNumbers,
-  ) {
-    if (trailStopNumbers.isEmpty) {
-      final active = anchors.take(8).toList(growable: true);
-      final focusedMemoryId = _focusedMemoryId;
-      if (focusedMemoryId != null &&
-          !active.any((anchor) => anchor.memory.id == focusedMemoryId)) {
-        for (final anchor in anchors) {
-          if (anchor.memory.id == focusedMemoryId) {
-            active.add(anchor);
-            break;
-          }
-        }
-      }
-      return active;
-    }
-
-    final anchorsById = <String, ARMemoryProjection>{
-      for (final anchor in anchors) anchor.memory.id: anchor,
-    };
-
-    return [
-      for (final memoryId in _journeyMemoryIds)
-        if (anchorsById[memoryId] != null) anchorsById[memoryId]!,
-    ];
   }
 
   ARMemoryProjection? _firstMissingTrailAnchor(
