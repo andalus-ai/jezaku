@@ -3095,22 +3095,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Route Keeper'), findsOneWidget);
-    // ignore: avoid_print
-    print('DIAG before pop: sheets=${find.byType(BottomSheet).evaluate().length} '
-        'scrollables=${find.byType(Scrollable).evaluate().length}');
-
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    // ignore: avoid_print
-    print('DIAG after pop: sheets=${find.byType(BottomSheet).evaluate().length} '
-        'scrollables=${find.byType(Scrollable).evaluate().length} '
-        'scaffolds=${find.byType(Scaffold).evaluate().length} '
-        'trailHistory=${find.text('Trail History').evaluate().length} '
-        'texts=${find.byType(Text).evaluate().map((e) => (e.widget as Text).data).whereType<String>().take(30).toList()}');
 
+    // Trail History sits above Saved Trails and Trail Achievements in the
+    // profile list, so from the achievements it is reached by scrolling up.
     await tester.scrollUntilVisible(
       find.text('Trail History'),
-      300,
+      -300,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
@@ -3136,7 +3128,7 @@ void main() {
 
     await tester.scrollUntilVisible(
       find.text('Trail History'),
-      300,
+      -300,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
