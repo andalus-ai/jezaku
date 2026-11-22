@@ -69,6 +69,30 @@ Future<void> _revealFilterChip(WidgetTester tester, String label) async {
 }
 
 
+/// TEMPORARY.
+Future<void> _diag(WidgetTester tester, Finder target, String label) async {
+  if (target.evaluate().isEmpty) {
+    // ignore: avoid_print
+    print('DIAG $label: not found');
+    return;
+  }
+  final c = tester.getCenter(target.first);
+  final hit = tester.hitTestOnBinding(c);
+  final leaves = <String>[];
+  for (final e in hit.path) {
+    final t = e.target;
+    if (t is RenderParagraph) {
+      leaves.add('text="${t.text.toPlainText()}" rect=${t.localToGlobal(Offset.zero) & t.size}');
+    }
+    if (leaves.length >= 2) break;
+  }
+  final el = target.first.evaluate().first;
+  // ignore: avoid_print
+  print('DIAG $label: center=$c rect=${tester.getRect(target.first)} '
+      'hitTexts=${leaves.join(" | ")} '
+      'chain=${el.debugGetCreatorChain(22)}');
+}
+
 Future<void> _dismissSnackBars(WidgetTester tester) async {
   tester
       .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger).first)
@@ -2286,6 +2310,7 @@ void main() {
     await _scrollIntoTapZone(tester, find.text('Public memories'));
     await tester.ensureVisible(find.text('Public memories'));
     await tester.pumpAndSettle();
+    await _diag(tester, find.text('Public memories'), 'discover');
     await tester.tap(find.text('Public memories'));
     await tester.pumpAndSettle();
 
@@ -2794,6 +2819,11 @@ void main() {
       find.byKey(const ValueKey('ar_journey_extra_wall_wall_mural')),
     );
     await tester.pumpAndSettle();
+    await _diag(
+      tester,
+      find.byKey(const ValueKey('ar_journey_extra_wall_wall_mural')),
+      'mural',
+    );
     await tester.tap(
       find.byKey(const ValueKey('ar_journey_extra_wall_wall_mural')),
     );
@@ -2809,7 +2839,10 @@ void main() {
     expect(find.text('Class Reunion Wall + 2 walls trail'), findsWidgets);
 
     for (var index = 0; index < 3; index++) {
-      await tester.tap(find.byKey(const ValueKey('ar_journey_next_button')));
+      final next = find.byKey(const ValueKey('ar_journey_next_button'));
+      await tester.ensureVisible(next);
+      await tester.pumpAndSettle();
+      await tester.tap(next);
       await tester.pumpAndSettle();
     }
 
@@ -4192,6 +4225,7 @@ void main() {
     }
     await tester.tap(find.widgetWithText(ChoiceChip, 'Walls'));
     await tester.pumpAndSettle();
+    await _diag(tester, find.text('Fresh anchor from test'), 'fresh');
 
     expect(find.text('Fresh anchor from test'), findsNothing);
     expect(find.text('Class Reunion Wall'), findsWidgets);
