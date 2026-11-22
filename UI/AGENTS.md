@@ -54,6 +54,7 @@ flutter test
 
 - Keep changes focused and avoid unrelated refactors.
 - Update relevant docs when public behavior, package contracts, setup, or architecture changes.
+- Whether a frame is shown in the AR viewer (audience, moderation, the 20 m physical radius, any future rule) is decided only by the rules in `UI/jezaku/lib/features/ar_viewer/visibility/`. Do not filter frames by audience, distance or moderation anywhere else; add or change a rule there and extend `test/frame_visibility_policy_test.dart`. See `UI/docs/frame-visibility-and-roadmap.md`, which also holds the AR frames roadmap and must be kept current when a slice lands.
 - Do not commit generated build output, secrets, local device data, or credentials.
 - Never hardcode API keys, signing credentials, private endpoints, or user identifiers.
 - Prefer explicit typed models and error handling over dynamic maps and swallowed exceptions.
