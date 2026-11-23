@@ -105,7 +105,7 @@ public class JdbcMerchantMembershipRepository implements MerchantMembershipRepos
             SET role = ?, status = ?, updated_at = ?, version = version + 1,
                 invitation_expires_at = ?,
                 invited_by = CASE WHEN ? = 'INVITED' THEN ? ELSE invited_by END,
-                activated_at = CASE WHEN ? = 'ACTIVE' THEN ? ELSE activated_at END
+                activated_at = CASE WHEN ? = 'ACTIVE' THEN ? WHEN ? = 'INVITED' THEN NULL ELSE activated_at END
             WHERE merchant_id = ? AND id = ? AND version = ? AND updated_at <= ?
             """;
         try (Connection connection = dataSource.getConnection();
@@ -119,10 +119,11 @@ public class JdbcMerchantMembershipRepository implements MerchantMembershipRepos
             statement.setString(6, actorId);
             statement.setString(7, membership.status().name());
             JdbcCommerceSupport.bindInstant(statement, 8, membership.updatedAt());
-            statement.setString(9, membership.merchantId());
-            statement.setString(10, membership.id());
-            statement.setLong(11, expectedVersion);
-            JdbcCommerceSupport.bindInstant(statement, 12, membership.updatedAt());
+            statement.setString(9, membership.status().name());
+            statement.setString(10, membership.merchantId());
+            statement.setString(11, membership.id());
+            statement.setLong(12, expectedVersion);
+            JdbcCommerceSupport.bindInstant(statement, 13, membership.updatedAt());
             if (statement.executeUpdate() == 0) return Optional.empty();
             JdbcCommerceSupport.audit(connection, "MEMBERSHIP", membership.id(), membership.merchantId(),
                     actorId, action, expectedVersion, membership.version(), membership.updatedAt(), reasonCode);
