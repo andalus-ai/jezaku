@@ -9,9 +9,7 @@ public final class JezakuTargetTypes {
             "event",
             "place",
             "trail",
-            "profile",
-            "merchant",
-            "offer");
+            "profile");
     public static final Set<String> DISCOVERABLE_TARGET_TYPES = Set.of(
             "memory",
             "media",
