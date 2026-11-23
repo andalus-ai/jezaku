@@ -17,7 +17,7 @@ public interface SpatialPolicyRepository {
     List<SpatialRestriction> findActiveRestrictions(Instant at);
 
     SpatialRestriction revokeRestriction(String restrictionId, int expectedVersion,
-            String actorId, String reason, Instant revokedAt);
+            String actorId, String reason);
 
     List<RestrictionAuditEvent> findAuditHistory(String restrictionId);
 
