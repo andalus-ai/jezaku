@@ -25,7 +25,8 @@ The evaluation endpoint is service-to-service only and requires the `spatial:pol
 | GET | `/restrictions/{restrictionId}/history` | Read audit history (issuing authority only) |
 | POST | `/evaluate` | Evaluate one coordinate and activity against current active rules |
 | POST | `/evaluate/batch` | Evaluate 1–500 ordered point candidates against one immutable policy snapshot (service scope required) |
-| POST | `/evaluate/routes` | Evaluate up to 5 route alternatives against one immutable policy snapshot (service scope required) |
+| POST | `/evaluate/routes` | Evaluate up to 5 route alternatives against one immutable policy snapshot (`spatial:policy-evaluate` required) |
+| GET | `/changes?afterRevision={revision}&limit={n}` | Read ordered policy invalidation events after a consumer's last revision (`spatial:policy-changes-read` required) |
 
 ## Create/update payload
 
