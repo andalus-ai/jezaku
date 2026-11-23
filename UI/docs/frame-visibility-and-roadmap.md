@@ -66,7 +66,7 @@ Order of work, one pull request per slice, each with tests and doc updates.
 | 5 | Backend-fed audience and owner: three-way visibility and owner id on the memory model, friends from the social graph, `FrameViewerContext` fed from them | not built; needs the memory/social contract |
 | 6 | Persist and sync comments to the memory service's friends-only comment endpoints | not built; the client is not wired |
 | 7 | Edge behaviour: hysteresis for the radius, accuracy-aware radius, optional setting | not built |
-| 11 | Own-frames gallery: Instagram-style grid of the owner's frames, viewable anywhere (Profile), with detail, comments and edit | planned |
+| 11 | Own-frames gallery: Instagram-style grid of the owner's frames, viewable anywhere (Profile), with detail, comments and edit | built: My frames screen (Profile → My frames), 3-column grid, All/AR/Videos/Private/Needs calibration filters, opens the memory detail; today every on-device frame counts as own, `ownFramesProvider` narrows it once slice 5 supplies the owner id; comments and edit come from the existing detail screen. Not yet validated on a device |
 | 12 | On-site gate for other people's frames: Gallery, Search, Social hub, Notifications and the photo/comments page open someone else's frame only inside the physical radius; remote surfaces show a locked "Go to <place>" card with distance | planned |
 | 8 | Frame persistence across AR sessions | see [ar-frame-persistence-plan.md](ar-frame-persistence-plan.md) |
 | 9 | Diagnose the app lag (needs a device debug log) | open |

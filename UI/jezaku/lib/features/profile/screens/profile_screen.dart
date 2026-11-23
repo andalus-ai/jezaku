@@ -6,6 +6,7 @@ import 'package:jejaku/features/home/services/anchor_geo_service.dart';
 import 'package:jejaku/features/home/services/viewer_location.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
 import 'package:jejaku/features/home/states/viewer_location_provider.dart';
+import 'package:jejaku/features/my_frames/states/my_frames_providers.dart';
 import 'package:jejaku/features/profile/models/profile_rules.dart';
 import 'package:jejaku/features/profile/models/user_profile.dart';
 import 'package:jejaku/features/profile/states/profile_providers.dart';
@@ -90,6 +91,16 @@ class ProfileScreen extends ConsumerWidget {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
+          _FeatureTile(
+            icon: Icons.photo_library_outlined,
+            title: 'My frames',
+            subtitle: ref.watch(ownFramesProvider).isEmpty
+                ? 'Your photos and objects appear here'
+                : '${ref.watch(ownFramesProvider).length} frames, viewable anywhere',
+            onTap: () {
+              Navigator.pushNamed(context, AppRoutes.myFrames);
+            },
+          ),
           _FeatureTile(
             icon: Icons.cloud_upload_outlined,
             title: 'Sync Queue',
