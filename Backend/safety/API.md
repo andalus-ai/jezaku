@@ -85,7 +85,13 @@ The response includes an opaque per-request policy snapshot ID, shared evaluatio
 
 `policySnapshotId` identifies this individual assessment request. `policyRevision` identifies the durable restriction-policy generation and can be compared across assessments; it is not an authorization token or a replacement for the validity deadline. Time-based activation/expiry can change the active set without a mutation, so consumers must still honor `validUntil`. Authority-grant changes are not currently included in this restriction-policy revision.
 
-This is a short-lived assessment, not a lock or durable authorization: policy changes can occur immediately after evaluation. Re-evaluate before starting guidance and on route change, meaningful deviation, expiry, app resume, or policy invalidation. Push invalidation delivery and automatic live-session re-evaluation are not yet implemented. If the endpoint is unavailable or the response is incomplete, do not guide on any candidate.
+This is a short-lived assessment, not a lock or durable authorization: policy changes can occur immediately after evaluation. Re-evaluate before starting guidance and on route change, meaningful deviation, expiry, app resume, or policy invalidation. The durable change feed is available through `GET /changes`; push invalidation delivery and automatic live-session re-evaluation are not yet implemented. If the endpoint is unavailable or the response is incomplete, do not guide on any candidate.
+
+## Policy change feed
+
+Consuming services with the `spatial:policy-changes-read` scope call `GET /changes?afterRevision={lastProcessedRevision}&limit=100`. The response includes the current high-water revision and ordered events with a strictly increasing policy revision, restriction identifier/version, mutation action, jurisdiction, outcome, affected activities, and occurrence time. The event contains no coordinates or legal-basis text; consumers should treat it as an invalidation signal and re-evaluate their own active routes/operations rather than reconstructing policy from event payloads.
+
+Advance the consumer cursor only after successfully processing each event. When a page is full, request again using the last returned event revision; do not jump directly to `currentRevision` until every intervening event has been processed. If the consumer detects a revision gap, loses its cursor, or cannot safely process an event, it must discard cached route authorization and obtain a fresh route assessment/policy snapshot. The feed is durable and ordered but currently retained indefinitely; operational retention/compaction requires a future cursor-aware design. The endpoint is polling-based: push delivery and a live navigation consumer are not implemented by this change.
 
 Example:
 
