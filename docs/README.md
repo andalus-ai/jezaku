@@ -8,6 +8,7 @@ This directory contains product direction, target architecture, implementation g
 - [Platform architecture](platform-architecture.md)
 - [Spatial Core specification](spatial-core.md)
 - [Extension architecture](extension-architecture.md)
+- [Commerce domain architecture](commerce-architecture.md) — merchant/store ownership, authoritative placement, offers, discovery projection and redemption boundaries.
 - [API standards](api-standards.md)
 - [Security and safety](security-and-safety.md)
 - [Implementation plan](implementation-plan.md)
