@@ -67,7 +67,7 @@ public final class SpatialSafetyDtos {
     }
 
     public record RouteEvaluationBatchResponse(String policySnapshotId, Instant evaluatedAt,
-            Instant validUntil, List<RouteEvaluationResponse> results) {
+            Instant validUntil, List<RouteEvaluationResponse> results, long policyRevision) {
     }
 }
 
