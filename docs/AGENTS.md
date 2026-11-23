@@ -600,6 +600,7 @@ Use these focused documents alongside this guidance:
 - [Security and safety](security-and-safety.md): cross-cutting privacy, physical-world safety, authority, advertising, and extension controls.
 - [Implementation plan](implementation-plan.md): workstreams, milestones, acceptance criteria, and risks.
 - [Repository capability inventory](repository-capability-inventory.md): source-backed current implementation status, module ownership, integration gaps, risks, and next engineering tickets.
+- [Spatial safety integration plan](spatial-safety-integration-plan.md): existing policy API/enforcer, feature call-site matrix, phased integration tickets, and safety release gates.
 - [ADR-0001](decisions/ADR-0001-spatial-platform-principles.md): accepted strategic platform principles.
 
 These documents describe target direction. Keep implementation status grounded in source, tests, API contracts, and device validation. Update this map when documents are added, renamed, or retired.
