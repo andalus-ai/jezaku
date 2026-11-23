@@ -70,7 +70,7 @@ class SpatialSafetyEnforcerTest {
         var snapshot = enforcer.captureSnapshot();
         var decisions = enforcer.evaluateBatch(snapshot, List.of(
                 new SpatialSafetyEnforcer.EvaluationTarget(LAT, LON, SpatialRestriction.Activity.DISCOVER),
-                new SpatialSafetyEnforcer.EvaluationTarget(-6.91, 107.61, SpatialRestriction.Activity.DISCOVER),
+                new SpatialSafetyEnforcer.EvaluationTarget(-6.9005, 107.6005, SpatialRestriction.Activity.DISCOVER),
                 new SpatialSafetyEnforcer.EvaluationTarget(LAT, LON, SpatialRestriction.Activity.RENDER)));
 
         assertEquals(1, repository.readCount);
