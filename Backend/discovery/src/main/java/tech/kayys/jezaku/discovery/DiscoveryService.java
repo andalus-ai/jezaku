@@ -2,7 +2,9 @@ package tech.kayys.jezaku.discovery;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.WebApplicationException;
 import tech.kayys.jezaku.discovery.DiscoveryDtos.DiscoveryItem;
 import tech.kayys.jezaku.discovery.DiscoveryDtos.DiscoveryListResponse;
 import tech.kayys.jezaku.discovery.DiscoveryDtos.FeedbackRequest;
@@ -36,6 +38,9 @@ public class DiscoveryService {
     private final Map<String, CatalogItem> catalog = new ConcurrentHashMap<>();
     private final Map<String, FeedbackRecord> feedback = new ConcurrentHashMap<>();
 
+    @Inject
+    DiscoverySpatialSafety spatialSafety;
+
     public DiscoveryService() {
         seed();
     }
@@ -50,10 +55,12 @@ public class DiscoveryService {
                 targetType = normalizeTargetType(targetType);
             }
             String typeFilter = targetType;
-            List<DiscoveryItem> items = visibleCatalog(normalizedViewerId).stream()
+            List<CatalogItem> candidates = visibleCatalog(normalizedViewerId).stream()
                     .filter(item -> typeFilter.isEmpty() || item.targetType().equals(typeFilter))
-                    .map(item -> toItem(item, origin, normalizedViewerId, false))
-                    .filter(item -> item.distanceMeters() <= radius)
+                    .filter(item -> distanceMeters(origin.latitude(), origin.longitude(),
+                            item.position().latitude(), item.position().longitude()) <= radius)
+                    .toList();
+            List<DiscoveryItem> items = safeItems(candidates, origin, normalizedViewerId, false).stream()
                     .sorted(Comparator.comparingDouble(DiscoveryItem::score).reversed()
                             .thenComparing(DiscoveryItem::distanceMeters))
                     .toList();
@@ -69,12 +76,14 @@ public class DiscoveryService {
             }
             GeoPoint origin = lat == null ? defaultOrigin() : origin(lat, lng);
             double radius = normalizeRadius(radiusMeters);
-            List<DiscoveryItem> items = catalog.values().stream()
+            List<CatalogItem> candidates = catalog.values().stream()
                     .filter(CatalogItem::discoverable)
                     .filter(item -> item.safetyStatus().equals("clear"))
                     .filter(item -> matches(item, normalizedQuery))
-                    .map(item -> toItem(item, origin, "", false))
-                    .filter(item -> lat == null || item.distanceMeters() <= radius)
+                    .filter(item -> lat == null || distanceMeters(origin.latitude(), origin.longitude(),
+                            item.position().latitude(), item.position().longitude()) <= radius)
+                    .toList();
+            List<DiscoveryItem> items = safeItems(candidates, origin, "", false).stream()
                     .sorted(Comparator.comparingDouble(DiscoveryItem::score).reversed())
                     .toList();
             return new SearchResponse(normalizedQuery, items.size(), items);
@@ -85,11 +94,13 @@ public class DiscoveryService {
         return Uni.createFrom().item(() -> {
             GeoPoint origin = origin(lat, lng);
             double radius = normalizeRadius(radiusMeters);
-            List<DiscoveryItem> items = catalog.values().stream()
+            List<CatalogItem> candidates = catalog.values().stream()
                     .filter(CatalogItem::discoverable)
                     .filter(item -> item.safetyStatus().equals("clear"))
-                    .map(item -> toItem(item, origin, "", true))
-                    .filter(item -> item.distanceMeters() <= radius)
+                    .filter(item -> distanceMeters(origin.latitude(), origin.longitude(),
+                            item.position().latitude(), item.position().longitude()) <= radius)
+                    .toList();
+            List<DiscoveryItem> items = safeItems(candidates, origin, "", true).stream()
                     .sorted(Comparator.comparingDouble(DiscoveryItem::score).reversed())
                     .limit(20)
                     .toList();
@@ -102,9 +113,11 @@ public class DiscoveryService {
             String normalizedUserId = requireText(userId, "userId");
             GeoPoint origin = origin(lat, lng);
             double radius = normalizeRadius(radiusMeters);
-            List<DiscoveryItem> items = visibleCatalog(normalizedUserId).stream()
-                    .map(item -> toItem(item, origin, normalizedUserId, false))
-                    .filter(item -> item.distanceMeters() <= radius)
+            List<CatalogItem> candidates = visibleCatalog(normalizedUserId).stream()
+                    .filter(item -> distanceMeters(origin.latitude(), origin.longitude(),
+                            item.position().latitude(), item.position().longitude()) <= radius)
+                    .toList();
+            List<DiscoveryItem> items = safeItems(candidates, origin, normalizedUserId, false).stream()
                     .sorted(Comparator.comparingDouble(DiscoveryItem::score).reversed()
                             .thenComparing(DiscoveryItem::distanceMeters))
                     .limit(30)
@@ -299,7 +312,28 @@ public class DiscoveryService {
                 .toList();
     }
 
-    private DiscoveryItem toItem(CatalogItem item, GeoPoint origin, String userId, boolean trending) {
+    private List<DiscoveryItem> safeItems(List<CatalogItem> candidates, GeoPoint origin,
+            String userId, boolean trending) {
+        if (candidates.isEmpty()) {
+            return List.of();
+        }
+        List<String> outcomes = spatialSafety.evaluate(
+                candidates.stream().map(CatalogItem::position).toList());
+        if (outcomes.size() != candidates.size()) {
+            throw new WebApplicationException("Spatial safety returned an incomplete discovery decision set", 503);
+        }
+        java.util.ArrayList<DiscoveryItem> permitted = new java.util.ArrayList<>(candidates.size());
+        for (int index = 0; index < candidates.size(); index++) {
+            String outcome = outcomes.get(index);
+            if ("ALLOWED".equals(outcome) || "CAUTION".equals(outcome)) {
+                permitted.add(toItem(candidates.get(index), origin, userId, trending, outcome));
+            }
+        }
+        return List.copyOf(permitted);
+    }
+
+    private DiscoveryItem toItem(CatalogItem item, GeoPoint origin, String userId,
+            boolean trending, String safetyOutcome) {
         double distance = distanceMeters(origin.latitude(), origin.longitude(),
                 item.position().latitude(), item.position().longitude());
         double bearing = bearingDegrees(origin.latitude(), origin.longitude(),
@@ -320,7 +354,8 @@ public class DiscoveryService {
                 item.engagementScore(),
                 item.tags(),
                 item.startsAt(),
-                item.updatedAt());
+                item.updatedAt(),
+                safetyOutcome);
     }
 
     private double score(CatalogItem item, double distanceMeters, String userId, boolean trending) {
