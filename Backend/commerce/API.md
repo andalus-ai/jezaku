@@ -33,7 +33,7 @@ Request:
 }
 ```
 
-Only an active OWNER or ADMIN of a VERIFIED merchant can invite staff. An ADMIN can grant only STORE_MANAGER or ANALYST. OWNER cannot be granted through this endpoint. Invitations expire after seven days and are persisted with inviter and expiry metadata.
+Only an active OWNER or ADMIN of a VERIFIED merchant can invite staff. An ADMIN can grant only STORE_MANAGER or ANALYST. OWNER cannot be granted through this endpoint. Invitations expire after seven days and are persisted with inviter and expiry metadata. Repeating the invitation request can renew an expired invitation or re-invite a previously revoked member without creating a duplicate membership identity; active memberships and unexpired invitations cannot be duplicated.
 
 The target `userId` identifies the account being invited. It is not treated as authenticated until that account accepts using its own access token.
 
