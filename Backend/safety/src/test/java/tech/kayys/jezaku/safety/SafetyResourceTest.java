@@ -334,4 +334,73 @@ class SafetyResourceTest {
                 .statusCode(200)
                 .body("zones.zoneId", not(hasItem(zoneId)));
     }
+
+    @Test
+    void rejectsEmptyRouteAlternativeBatch() {
+        given().contentType(ContentType.JSON)
+                .body("""
+                        {"corridorBufferMeters": 0, "routes": []}
+                        """)
+                .when().post("/safety/spatial/evaluate/routes")
+                .then().statusCode(400);
+    }
+
+    @Test
+    void rejectsRouteWithInvalidCoordinateBeforePolicyLookup() {
+        given().contentType(ContentType.JSON)
+                .body("""
+                        {
+                          "routes": [{
+                            "routeId": "bad-route",
+                            "points": [
+                              {"latitude": -6.9, "longitude": 107.6},
+                              {"latitude": 91.0, "longitude": 107.61}
+                            ]
+                          }]
+                        }
+                        """)
+                .when().post("/safety/spatial/evaluate/routes")
+                .then().statusCode(400);
+    }
+
+    @Test
+    void rejectsDuplicateRouteIds() {
+        given().contentType(ContentType.JSON)
+                .body("""
+                        {
+                          "routes": [
+                            {"routeId": "same", "points": [
+                              {"latitude": -6.9, "longitude": 107.59},
+                              {"latitude": -6.9, "longitude": 107.60}
+                            ]},
+                            {"routeId": "same", "points": [
+                              {"latitude": -6.9, "longitude": 107.60},
+                              {"latitude": -6.9, "longitude": 107.61}
+                            ]}
+                          ]
+                        }
+                        """)
+                .when().post("/safety/spatial/evaluate/routes")
+                .then().statusCode(400);
+    }
+
+    @Test
+    void validRouteFailsClosedWhenPolicyStoreIsUnavailable() {
+        given().contentType(ContentType.JSON)
+                .body("""
+                        {
+                          "corridorBufferMeters": 15,
+                          "routes": [{
+                            "routeId": "candidate-a",
+                            "points": [
+                              {"latitude": -6.9, "longitude": 107.59},
+                              {"latitude": -6.901, "longitude": 107.60}
+                            ]
+                          }]
+                        }
+                        """)
+                .when().post("/safety/spatial/evaluate/routes")
+                .then().statusCode(503);
+    }
+
 }

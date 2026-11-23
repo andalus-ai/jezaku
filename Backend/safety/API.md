@@ -24,7 +24,7 @@ The evaluation endpoint is service-to-service only and requires the `spatial:pol
 | POST | `/restrictions/{restrictionId}/revoke` | Revoke with expected version and reason |
 | GET | `/restrictions/{restrictionId}/history` | Read audit history (issuing authority only) |
 | POST | `/evaluate` | Evaluate one coordinate and activity against current active rules |
-| POST | `/evaluate/batch` | Evaluate 1–500 ordered candidates against one immutable policy snapshot (service scope required) |
+| POST | `/evaluate/batch` | Evaluate 1–500 ordered point candidates against one immutable policy snapshot (service scope required) |\n| POST | `/evaluate/routes` | Evaluate up to 5 route alternatives against one immutable policy snapshot (service scope required) |
 
 ## Create/update payload
 
@@ -71,6 +71,42 @@ Evaluation time is assigned by the server. Results include the strongest matchin
 
 The response contains one result per input, in the same order, and one shared `evaluatedAt` timestamp. The server captures active restrictions once for the entire batch. Empty batches, invalid coordinates/activities, and batches over 500 are rejected; consumers must not truncate candidate lists to fit the limit. Batch evaluation is intended for server-side candidate filtering, not public client use.
 
+## Route alternative evaluation
+
+`POST /evaluate/routes` accepts provider-generated candidate polylines. The server always evaluates them as `NAVIGATE`; callers cannot choose a weaker activity. Every route is validated as WGS84 geometry before policy is read. All alternatives share one captured policy snapshot and the response preserves input order.
+
+Request limits: at most 5 candidates, 2,000 vertices per candidate, 5,000 vertices total, 500 km total route length, 100 km per segment, and a caller-supplied corridor buffer from 0 to 500 m. Omitted buffer defaults to zero. Duplicate/blank route IDs, missing coordinates, degenerate segments, out-of-range coordinates, and over-limit requests are rejected; no candidate is silently truncated.
+
+Each result contains the caller's route ID, strongest outcome, matching restriction IDs, reason code, affected zero-based segment indices, and whether the route is non-blocking. `CAUTION` is non-blocking only when the consuming product surfaces the caution UX and any required confirmation. Blocking alternatives remain in the response with `permitsOperation=false` so the routing orchestrator can select another candidate.
+
+The response includes a random assessment ID, shared evaluation timestamp, and a validity deadline capped at 15 seconds and shortened by an earlier matching restriction expiry. This is a short-lived assessment, not a lock or durable authorization: policy changes can occur immediately after evaluation. Re-evaluate before starting guidance and on route change, meaningful deviation, expiry, app resume, or policy invalidation. If the endpoint is unavailable or the response is incomplete, do not guide on any candidate.
+
+Example:
+
+```json
+{
+  "corridorBufferMeters": 20,
+  "routes": [
+    {
+      "routeId": "provider-route-a",
+      "points": [
+        { "latitude": -6.9, "longitude": 107.59 },
+        { "latitude": -6.901, "longitude": 107.60 },
+        { "latitude": -6.9, "longitude": 107.61 }
+      ]
+    },
+    {
+      "routeId": "provider-route-b",
+      "points": [
+        { "latitude": -6.9, "longitude": 107.59 },
+        { "latitude": -6.899, "longitude": 107.60 },
+        { "latitude": -6.9, "longitude": 107.61 }
+      ]
+    }
+  ]
+}
+```
+
 ## Error behavior
 
 - 400: malformed or invalid coordinates, activity, timestamps, or payload
@@ -81,4 +117,4 @@ The response contains one result per input, in the same order, and one shared `e
 
 ## Current scope and safety boundary
 
-The first API release supports circular geofences only. The Safety module now also contains an internal, bounded spherical route-segment intersection primitive for circular restrictions, but no HTTP route-evaluation endpoint or consuming navigation integration is exposed yet. Polygon/multipolygon geometry, PostGIS indexes, bulk import, jurisdiction administration endpoints, and emergency revocation workflows remain later phases. Discovery nearby/search/trending/for-you paths now call batch evaluation before returning candidates; memory publishing continues to use the existing single-coordinate evaluation path. Memory presentation/render-time enforcement remains a separate integration step. A successful evaluation endpoint call alone does not guarantee every downstream operation is protected; consuming services must integrate the policy decision before enabling the corresponding action.
+The first API release supports circular geofences only. A service-authenticated route-alternative evaluation endpoint now exposes the bounded spherical segment intersection primitive for circular restrictions. Route generation, selection/orchestration, and live navigation-session integration remain outside Safety. Polygon/multipolygon geometry, PostGIS indexes, bulk import, jurisdiction administration endpoints, and emergency revocation workflows remain later phases. Discovery nearby/search/trending/for-you paths now call batch evaluation before returning candidates; memory publishing continues to use the existing single-coordinate evaluation path. Memory presentation/render-time enforcement remains a separate integration step. A successful evaluation endpoint call alone does not guarantee every downstream operation is protected; consuming services must integrate the policy decision before enabling the corresponding action.
