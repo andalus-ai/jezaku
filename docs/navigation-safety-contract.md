@@ -135,12 +135,14 @@ Before implementation, confirm whether Idrisi already exposes a route geometry c
 **Exit:** a concrete provider adapter contract exists and no duplicate routing engine is introduced.
 
 ### N2 — Geometry safety primitive in Safety
-- Add geodesic-aware segment-to-restriction intersection.
-- Cover activity/time filtering, emergency/prohibited/restricted/caution precedence, buffers, antimeridian, poles, degenerate segments, and exact boundary contact.
-- Keep policy snapshot capture once per route request.
-- Add bounded route API and stable response DTOs.
+- [x] Add spherical great-circle segment-to-circle distance evaluation for bounded WGS84 polylines.
+- [x] Apply activity/time filtering, restriction precedence, and a bounded route corridor buffer.
+- [x] Return affected zero-based segment indices without exposing restriction geometry.
+- [x] Reuse a captured policy snapshot through the enforcer; no per-segment repository reads.
+- [x] Test a restriction between clear endpoints, corridor expansion, antimeridian crossing, activity/time filtering, and malformed geometry.
+- [ ] Add the authenticated route-evaluation HTTP endpoint, stable DTOs, alternatives batch semantics, policy revision, and response validity contract.
 
-**Exit:** tests prove a restriction wholly between two clear endpoints blocks the route, and all segments/alternatives share one policy snapshot.
+**Exit:** the pure geometry/enforcer primitive is implemented. Route API exposure and alternatives remain open; no consumer may claim route authorization yet.
 
 ### N3 — Jezaku route assessment adapter
 - Add a service-authenticated adapter in the existing navigation orchestration boundary.

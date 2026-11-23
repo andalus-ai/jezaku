@@ -35,7 +35,7 @@ Existing tests cover the authorization policy, service logic, pure evaluator and
 - `GET /safety/spatial/restrictions/{restrictionId}/history`
 - `POST /safety/spatial/evaluate`
 
-Authority identity is resolved from the authenticated request context and then looked up in the authority repository. Authority onboarding/grant provisioning remains out-of-band. The evaluator currently supports circular geofences; it is not a route geometry intersection engine.
+Authority identity is resolved from the authenticated request context and then looked up in the authority repository. Authority onboarding/grant provisioning remains out-of-band. The evaluator supports circular geofences and now includes an internal bounded route-segment intersection primitive for those circles. No route-evaluation HTTP endpoint or navigation consumer integration exists yet.
 
 ## 3. Important distinction: policy API vs enforcement
 
@@ -116,7 +116,8 @@ The enforcer must remain fail-closed:
 ### SAF-INT-04 — Navigation, interaction and commerce gates
 
 - [ ] Audit route/target endpoints in `spatial-trails-places`, journeys and any direction/Qibla feature before choosing call sites.
-- [ ] Add route geometry intersection or bounded segment evaluation before marking navigation safe; a point-only call is insufficient.
+- [x] Add an internal bounded spherical segment-to-circle evaluator in Safety; a point-only call is insufficient.
+- [ ] Expose a service-authenticated route-evaluation API and integrate it with a real routing-provider geometry contract before marking navigation safe.
 - [ ] Integrate `INTERACT` at actual server-side spatial action handlers, not generic client tap events.
 - [ ] Add `DISCOVER` and `REDEEM` only when merchant/campaign endpoints exist; do not create placeholder commerce services solely for the safety plan.
 - [ ] Test restriction changes between discovery, route start, interaction and redemption.

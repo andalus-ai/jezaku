@@ -32,7 +32,7 @@ public final class SpatialRouteGeometry {
             throw new IllegalArgumentException("corridorBufferMeters is outside the supported range");
         }
 
-        List<Point> stablePoints = List.copyOf(points);
+        List<Point> stablePoints = new ArrayList<>(points);
         double totalLengthMeters = 0;
         for (int index = 0; index < stablePoints.size(); index++) {
             Point point = stablePoints.get(index);
