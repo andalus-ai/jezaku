@@ -92,6 +92,32 @@ public class SpatialSafetyEnforcer {
         return List.copyOf(decisions);
     }
 
+    /** Evaluates complete route geometry against the supplied request snapshot. */
+    public SpatialSafetyPolicy.RouteDecision evaluateRoute(
+            PolicySnapshot snapshot,
+            List<SpatialRouteGeometry.Point> points,
+            double corridorBufferMeters,
+            SpatialRestriction.Activity activity) {
+        Objects.requireNonNull(snapshot, "snapshot");
+        return evaluator.evaluateRoute(points, corridorBufferMeters, activity,
+                snapshot.evaluatedAt(), snapshot.restrictions());
+    }
+
+    /** Rejects route guidance unless every route segment is permitted or cautioned. */
+    public SpatialSafetyPolicy.RouteDecision requireRoutePermitted(
+            PolicySnapshot snapshot,
+            List<SpatialRouteGeometry.Point> points,
+            double corridorBufferMeters,
+            SpatialRestriction.Activity activity) {
+        SpatialSafetyPolicy.RouteDecision decision =
+                evaluateRoute(snapshot, points, corridorBufferMeters, activity);
+        if (!decision.permitsOperation()) {
+            throw new WebApplicationException(
+                    "Route denied by spatial safety policy: " + decision.reasonCode(), 403);
+        }
+        return decision;
+    }
+
     /**
      * Convenience method for one-off checks. Multi-candidate request handlers
      * should use captureSnapshot() plus evaluate/evaluateBatch instead.
