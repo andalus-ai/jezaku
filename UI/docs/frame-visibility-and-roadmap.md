@@ -42,7 +42,7 @@ Candidate future rules: age or expiry, time-of-day or event windows, family and 
 
 - **Owner and friends are not known to the client.** `AnchorMemory` records only `isPrivate`; there is no owner id and no friends list. `FrameViewerContext.localStore()` treats every on-device memory as the viewer's own, so the audience rule is complete and tested but cannot hide anything in the app today. It starts to matter when the backend feed delivers other people's frames with an owner id and a three-way visibility, and `frameAudienceOf` and `FrameViewerContext` are fed from it.
 - **Own private frames stay visible to their owner.** A person who hangs a private frame still sees it where they hung it. Change `FrameAudienceRule` if the product wants otherwise.
-- **GPS jitter at the edge.** A frame that was visible stays visible up to 5 m past the radius (`defaultFrameExitMarginMeters`), so jitter at 20 m no longer makes it blink; a frame not yet visible still needs the viewer inside 20 m. Not yet validated on a device. Accuracy-aware radius and a user setting are still open.
+- **GPS jitter at the edge.** A frame that was visible stays visible up to 5 m past the radius (`defaultFrameExitMarginMeters`), so jitter at 20 m no longer makes it blink; a frame not yet visible still needs the viewer inside 20 m. Not yet validated on a device. Accuracy-aware radius and a user setting are still open. Frames hung in the current AR session are placed by AR tracking, but the policy measures geographic distance.
 - **The radius is a constant.** It is not a setting and it is not per frame.
 - **Not validated on a device.** See `ar-device-demo-lab.md`.
 
