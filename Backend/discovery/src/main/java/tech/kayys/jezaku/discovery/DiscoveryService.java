@@ -34,6 +34,8 @@ import static tech.kayys.jezaku.validation.TextParams.requireText;
 public class DiscoveryService {
     private static final double MAX_RADIUS_METERS = 5_000.0;
     private static final Set<String> FEEDBACK_ACTIONS = Set.of("viewed", "saved", "hidden", "dismissed");
+    private static final Set<String> SPATIAL_OUTCOMES = Set.of(
+            "ALLOWED", "CAUTION", "RESTRICTED", "PROHIBITED", "EMERGENCY_LOCKDOWN");
 
     private final Map<String, CatalogItem> catalog = new ConcurrentHashMap<>();
     private final Map<String, FeedbackRecord> feedback = new ConcurrentHashMap<>();
@@ -325,6 +327,9 @@ public class DiscoveryService {
         java.util.ArrayList<DiscoveryItem> permitted = new java.util.ArrayList<>(candidates.size());
         for (int index = 0; index < candidates.size(); index++) {
             String outcome = outcomes.get(index);
+            if (!SPATIAL_OUTCOMES.contains(outcome)) {
+                throw new WebApplicationException("Spatial safety returned an unknown discovery outcome", 503);
+            }
             if ("ALLOWED".equals(outcome) || "CAUTION".equals(outcome)) {
                 permitted.add(toItem(candidates.get(index), origin, userId, trending, outcome));
             }
