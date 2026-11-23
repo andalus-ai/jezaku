@@ -1,6 +1,7 @@
 package tech.kayys.jezaku.safety;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 
 /** Public API contracts for authority-managed spatial safety policies. */
@@ -27,12 +28,24 @@ public final class SpatialSafetyDtos {
     }
 
     public record RestrictionHistoryResponse(String restrictionId, int count,
-            java.util.List<SpatialPolicyRepository.RestrictionAuditEvent> events) {
+            List<SpatialPolicyRepository.RestrictionAuditEvent> events) {
     }
 
     public record EvaluationRequest(double latitude, double longitude, SpatialRestriction.Activity activity) {
     }
 
     public record EvaluationResponse(SpatialSafetyPolicy.Decision decision, Instant evaluatedAt) {
+    }
+
+    /** Nullable coordinates let the batch boundary reject omitted JSON fields instead of treating them as zero. */
+    public record EvaluationBatchItem(Double latitude, Double longitude, SpatialRestriction.Activity activity) {
+    }
+
+    /** One bounded request evaluated against a single immutable policy snapshot. */
+    public record EvaluationBatchRequest(List<EvaluationBatchItem> requests) {
+    }
+
+    /** Results preserve request order and share the same evaluation timestamp. */
+    public record EvaluationBatchResponse(List<EvaluationResponse> results, Instant evaluatedAt) {
     }
 }

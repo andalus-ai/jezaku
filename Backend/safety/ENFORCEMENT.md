@@ -48,6 +48,6 @@ The enforcer supports an explicit immutable `PolicySnapshot`. A feature request 
 
 ## Current implementation boundary
 
-This change supplies the shared fail-closed enforcement primitive and its unit tests. It does not yet inject the enforcer into every existing feature service. Each feature integration must be implemented and tested in its owning module; no feature should claim enforcement until its command/query path has an integration test proving a matching restriction blocks the side effect.
+The Safety service exposes `POST /safety/spatial/evaluate/batch` for service-authenticated candidate sets. It captures one snapshot and returns ordered decisions with one timestamp. Discovery uses this endpoint for nearby, search, trending, and for-you candidates; `CAUTION` items remain visible with `safetyOutcome=CAUTION`, while all blocking outcomes are omitted. A missing, failed, or incomplete policy response fails the entire discovery request with 503. Memory publishing continues to use its existing single-coordinate `PUBLISH` integration. Memory feed/minimap/nearby/render-time filtering is not yet wired and remains a separate integration step. Each feature integration must retain tests proving that a matching restriction blocks the response or side effect.
 
 The current evaluator supports circular geofences. Route-segment intersection, polygon/multipolygon rules, offline signed policy bundles, and distributed invalidation are future work.

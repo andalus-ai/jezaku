@@ -25,7 +25,8 @@ public final class DiscoveryDtos {
             int engagementScore,
             List<String> tags,
             Instant startsAt,
-            Instant updatedAt) {
+            Instant updatedAt,
+            String safetyOutcome) {
     }
 
     public record DiscoveryListResponse(
