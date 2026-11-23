@@ -10,7 +10,7 @@ The parent aggregator is `Backend/pom.xml`. Its module list is the authoritative
 
 Runnable service modules currently include:
 
-`identity`, `profile`, `social`, `engagement`, `discovery`, `journeys`, `messaging`, `rewards`, `camera`, `memory`, `media`, `presence`, `safety`, `spatial-trails-places`, `events`, and `notifications`.
+`identity`, `profile`, `social`, `engagement`, `discovery`, `journeys`, `messaging`, `rewards`, `camera`, `memory`, `media`, `presence`, `safety`, `commerce`, `spatial-trails-places`, `events`, and `notifications`.
 
 Shared library:
 - `common`: shared HTTP/request context, API error handling, health wiring, and reusable geospatial/AR confidence utilities.
@@ -31,7 +31,8 @@ Service names and ports are maintained in [service-catalog.md](service-catalog.m
 - **memory** — camera memory capture, nearby memories, feeds, and minimap dots.
 - **media** — upload slots, media inventory, and moderation state.
 - **presence** — live location check-ins, altitude/compass context, and nearby user projections.
-- **safety** — reports, moderation review, and guardian safety zones.
+- **safety** — reports, moderation review, guardian safety zones, and spatial restriction policy enforcement.
+- **commerce** — merchant verification, stores/branches, authoritative store placement, campaigns, promotions, eligibility, and redemption. Commerce owns commercial truth; Discovery consumes bounded projections and Safety remains authoritative for spatial restrictions.
 - **spatial-trails-places** — AR anchors, trails, and place discovery.
 - **events** — nearby events, RSVP, check-ins, and invitations.
 - **notifications** — notification inbox/preferences and device registration.
