@@ -48,4 +48,26 @@ public final class SpatialSafetyDtos {
     /** Results preserve request order and share the same evaluation timestamp. */
     public record EvaluationBatchResponse(List<EvaluationResponse> results, Instant evaluatedAt) {
     }
+
+    /** One route alternative. Point coordinates remain nullable at the JSON boundary for validation. */
+    public record RoutePointRequest(Double latitude, Double longitude) {
+    }
+
+    public record RouteCandidateRequest(String routeId, List<RoutePointRequest> points) {
+    }
+
+    /** A bounded set of alternatives evaluated against one policy snapshot. */
+    public record RouteEvaluationBatchRequest(Double corridorBufferMeters,
+            List<RouteCandidateRequest> routes) {
+    }
+
+    public record RouteEvaluationResponse(String routeId, SpatialSafetyPolicy.Outcome outcome,
+            List<String> restrictionIds, String reasonCode, List<Integer> affectedSegmentIndices,
+            boolean permitsOperation, Instant validUntil) {
+    }
+
+    public record RouteEvaluationBatchResponse(String assessmentId, Instant evaluatedAt,
+            Instant validUntil, List<RouteEvaluationResponse> results) {
+    }
 }
+
