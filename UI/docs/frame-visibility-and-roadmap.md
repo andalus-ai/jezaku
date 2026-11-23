@@ -46,6 +46,13 @@ Candidate future rules: age or expiry, time-of-day or event windows, family and 
 - **The radius is a constant.** It is not a setting and it is not per frame.
 - **Not validated on a device.** See `ar-device-demo-lab.md`.
 
+## Own gallery versus on-site friends (product rule, 2026-11-23)
+
+- The owner sees all of their own frames anywhere, as a gallery (grid, then detail, comments, edit, delete, change audience).
+- Anyone else, friends included, sees and interacts with a frame only on site, inside the same physical radius, through the same policy (`viewable()`). No remote browsing, remote comments or remote likes on someone else's frame.
+- Remote surfaces (feed, notifications, search) may show a locked placeholder: place name and distance only, no photo, no comments.
+- The remote/on-site split lives in the visibility namespace, not in screens. The client cannot enforce it until slice 5 supplies the owner id; the backend must enforce it for media and comments too.
+
 ## Roadmap
 
 Order of work, one pull request per slice, each with tests and doc updates.
@@ -59,6 +66,8 @@ Order of work, one pull request per slice, each with tests and doc updates.
 | 5 | Backend-fed audience and owner: three-way visibility and owner id on the memory model, friends from the social graph, `FrameViewerContext` fed from them | not built; needs the memory/social contract |
 | 6 | Persist and sync comments to the memory service's friends-only comment endpoints | not built; the client is not wired |
 | 7 | Edge behaviour: hysteresis for the radius, accuracy-aware radius, optional setting | not built |
+| 11 | Own-frames gallery: Instagram-style grid of the owner's frames, viewable anywhere (Profile), with detail, comments and edit | planned |
+| 12 | On-site gate for other people's frames: Gallery, Search, Social hub, Notifications and the photo/comments page open someone else's frame only inside the physical radius; remote surfaces show a locked "Go to <place>" card with distance | planned |
 | 8 | Frame persistence across AR sessions | see [ar-frame-persistence-plan.md](ar-frame-persistence-plan.md) |
 | 9 | Diagnose the app lag (needs a device debug log) | open |
 | 10 | Physical-device validation of slices 1-4 | open |
