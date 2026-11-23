@@ -3,6 +3,7 @@ package tech.kayys.jezaku.safety;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
@@ -27,7 +28,7 @@ import java.util.UUID;
 @ApplicationScoped
 public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
     @Inject
-    DataSource dataSource;
+    Instance<DataSource> dataSource;
 
     @Inject
     ObjectMapper objectMapper;
@@ -46,7 +47,7 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
                     expires_at = EXCLUDED.expires_at,
                     updated_at = now()
                 """;
-        try (Connection connection = dataSource.getConnection()) {
+        try (Connection connection = dataSource.get().getConnection()) {
             boolean existed;
             try (PreparedStatement exists = connection.prepareStatement(
                     "SELECT 1 FROM spatial_authority WHERE principal_id = ?")) {
