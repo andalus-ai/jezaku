@@ -16,5 +16,3 @@ CREATE TABLE spatial_policy_change_outbox (
     occurred_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_spatial_policy_change_outbox_revision
-    ON spatial_policy_change_outbox (policy_revision);
