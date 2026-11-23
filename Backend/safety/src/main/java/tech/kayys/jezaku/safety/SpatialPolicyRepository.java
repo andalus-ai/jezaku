@@ -6,7 +6,7 @@ import java.util.Optional;
 
 /** Durable storage contract for authority grants and spatial policy records. */
 public interface SpatialPolicyRepository {
-    void saveAuthority(AuthorityPrincipal principal);
+    void saveAuthority(AuthorityPrincipal principal, String actorId);
 
     Optional<AuthorityPrincipal> findAuthority(String principalId);
 
@@ -20,6 +20,12 @@ public interface SpatialPolicyRepository {
             String actorId, String reason, Instant revokedAt);
 
     List<RestrictionAuditEvent> findAuditHistory(String restrictionId);
+
+    List<AuthorityAuditEvent> findAuthorityAuditHistory(String principalId);
+
+    record AuthorityAuditEvent(String eventId, String principalId, String action,
+            String actorId, String snapshotJson, Instant occurredAt) {
+    }
 
     record RestrictionAuditEvent(
             String eventId,
