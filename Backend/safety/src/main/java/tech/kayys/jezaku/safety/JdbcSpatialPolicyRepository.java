@@ -434,8 +434,9 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
         // PostgreSQL snapshot, even while another authority commits a change.
         String sql = """
                 SELECT state.revision AS current_revision,
-                       changes.policy_revision, changes.event_id, changes.restriction_id,
-                       changes.restriction_version, changes.action, changes.jurisdiction,
+                       changes.policy_revision, changes.event_id, changes.event_type,
+                       changes.event_version, changes.restriction_id, changes.restriction_version,
+                       changes.action, changes.jurisdiction,
                        changes.outcome, changes.activities, changes.occurred_at
                 FROM spatial_policy_state state
                 LEFT JOIN LATERAL (
