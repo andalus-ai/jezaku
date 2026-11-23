@@ -131,8 +131,9 @@ public class CommerceOnboardingService {
     public List<MerchantMembership> listMemberships(String actorId, String merchantId) {
         requireActor(actorId);
         MerchantMembership caller = activeMembership(merchantId, actorId);
-        if (caller.role() == MerchantMembership.Role.ANALYST) {
-            throw new ForbiddenException("Analysts cannot manage or enumerate staff memberships");
+        if (caller.role() != MerchantMembership.Role.OWNER
+                && caller.role() != MerchantMembership.Role.ADMIN) {
+            throw new ForbiddenException("Only owners and administrators can enumerate staff memberships");
         }
         return memberships.findByMerchant(merchantId);
     }
