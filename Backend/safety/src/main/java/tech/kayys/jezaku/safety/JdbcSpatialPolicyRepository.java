@@ -258,9 +258,8 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
     }
 
     /**
-     * Captures the global revision and active restrictions under one
-     * PostgreSQL REPEATABLE READ transaction. Nested activity reads therefore
-     * cannot observe a newer policy mutation than the returned revision.
+     * Captures the global revision, active restrictions, and activity rows in
+     * one PostgreSQL statement snapshot, preventing mixed policy generations.
      */
     @Override
     @Transactional
