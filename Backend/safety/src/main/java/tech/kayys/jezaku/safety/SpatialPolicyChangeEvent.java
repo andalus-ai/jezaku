@@ -10,6 +10,8 @@ import java.util.List;
 public record SpatialPolicyChangeEvent(
         long policyRevision,
         String eventId,
+        String eventType,
+        int eventVersion,
         String restrictionId,
         int restrictionVersion,
         String action,
