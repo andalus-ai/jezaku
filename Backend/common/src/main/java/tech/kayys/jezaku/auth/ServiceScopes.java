@@ -14,6 +14,8 @@ public final class ServiceScopes {
     public static final String MEMORY_MEDIA_SYNC = "memory:media-sync";
     /** Look up facts about a memory (such as its owner) on behalf of another service. */
     public static final String MEMORY_READ = "memory:read";
+    /** Evaluate spatial policy before a service publishes or renders a location-bound object. */
+    public static final String SPATIAL_POLICY_EVALUATE = "spatial:policy-evaluate";
     /** Hand a delivery to the notification service. */
     public static final String NOTIFICATION_INTAKE = "notification:intake";
 

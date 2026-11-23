@@ -79,23 +79,38 @@ public class MemoryService {
     private final MemoryMediaResolver mediaResolver;
     private final MemoryAudience audience;
     private final MemoryOnSiteRule onSite;
+    private final MemorySpatialSafety spatialSafety;
 
     @Inject
     MemoryService(
             MemoryRepository repository,
             MemoryMediaResolver mediaResolver,
             MemoryAudience audience,
-            MemoryOnSiteRule onSite) {
+            MemoryOnSiteRule onSite,
+            MemorySpatialSafety spatialSafety) {
         this.repository = repository;
         this.mediaResolver = mediaResolver;
         this.audience = audience;
         this.onSite = onSite;
+        this.spatialSafety = spatialSafety;
         seed();
+    }
+
+    /** Keeps isolated domain tests independent from the remote Safety service. */
+    MemoryService(
+            MemoryRepository repository,
+            MemoryMediaResolver mediaResolver,
+            MemoryAudience audience,
+            MemoryOnSiteRule onSite) {
+        this(repository, mediaResolver, audience, onSite, MemorySpatialSafety.allowAll());
     }
 
     public Uni<MemoryResponse> create(MemoryCreateRequest request) {
         return Uni.createFrom().item(() -> {
             validateCreate(request);
+            // The anchor's requested coordinates are the placement being published. The device position is
+            // not treated as proof of the publisher's physical location; policy applies to the target placement.
+            spatialSafety.requirePublishPermitted(request.position());
             Instant now = Instant.now();
             String id = "memory_" + UUID.randomUUID();
             String visibility = normalizeVisibility(request.visibility());
@@ -172,6 +187,8 @@ public class MemoryService {
                 throw new ForbiddenException("Only the memory owner can update the anchor");
             }
             GeoPoint position = request.position() == null ? existing.position() : validatedPosition(request.position());
+            // Relocation is a new publish operation at the destination, checked before persistence.
+            spatialSafety.requirePublishPermitted(position);
             MemoryRecord updated = new MemoryRecord(
                     existing.id(),
                     existing.ownerId(),

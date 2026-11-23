@@ -12,6 +12,8 @@ Authority onboarding, verification, suspension, and grant management are deliber
 
 A registered authority must be `VERIFIED`, inside its validity window, hold the required permission, and cover the requested jurisdiction. Emergency lockdown requires `ISSUE_EMERGENCY_LOCKDOWN` independently of ordinary create/update permission.
 
+The evaluation endpoint is service-to-service only and requires the `spatial:policy-evaluate` service-token scope. It is not an unauthenticated public policy oracle. Consuming services must use their own service token and must fail closed if evaluation cannot be completed.
+
 ## Endpoints
 
 | Method | Path | Purpose |

@@ -14,6 +14,7 @@ import jakarta.ws.rs.core.Response;
 import tech.kayys.jezaku.auth.AuthContext;
 import tech.kayys.jezaku.auth.AuthenticatedService;
 import tech.kayys.jezaku.auth.AuthenticatedUser;
+import tech.kayys.jezaku.auth.ServiceScopes;
 import tech.kayys.jezaku.safety.SpatialSafetyDtos.EvaluationRequest;
 import tech.kayys.jezaku.safety.SpatialSafetyDtos.RestrictionCreateRequest;
 import tech.kayys.jezaku.safety.SpatialSafetyDtos.RestrictionRevokeRequest;
@@ -76,6 +77,7 @@ public class SpatialSafetyResource extends tech.kayys.jezaku.auth.CallerAwareRes
     @POST
     @Path("/evaluate")
     public SpatialSafetyDtos.EvaluationResponse evaluate(EvaluationRequest request) {
+        AuthContext.requireService(requestContext, ServiceScopes.SPATIAL_POLICY_EVALUATE);
         return service.evaluate(request);
     }
 
