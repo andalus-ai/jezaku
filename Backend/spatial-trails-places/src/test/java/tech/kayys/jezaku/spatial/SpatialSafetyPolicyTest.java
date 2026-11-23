@@ -64,6 +64,48 @@ class SpatialSafetyPolicyTest {
                 .await().indefinitely().size());
     }
 
+    @Test
+    void placeDetailDoesNotExposeDeniedAnchorsOrTheirAggregateCounts() {
+        SpatialSafety renderDenied = new SpatialSafety() {
+            @Override
+            public void requirePublishPermitted(GeoPoint position) {
+            }
+
+            @Override
+            public List<String> evaluate(String activity, List<GeoPoint> positions) {
+                String outcome = "DISCOVER".equals(activity) ? "ALLOWED" : "PROHIBITED";
+                return positions.stream().map(ignored -> outcome).toList();
+            }
+        };
+        SpatialService service = new SpatialService(renderDenied);
+
+        var detail = service.placeDetail("place_bandung_campus").await().indefinitely();
+
+        assertEquals(List.of(), detail.anchors());
+        assertEquals(0, detail.place().anchorCount());
+        assertEquals(0, detail.place().trailCount());
+    }
+
+    @Test
+    void incompleteDecisionBatchFailsClosed() {
+        SpatialSafety incomplete = new SpatialSafety() {
+            @Override
+            public void requirePublishPermitted(GeoPoint position) {
+            }
+
+            @Override
+            public List<String> evaluate(String activity, List<GeoPoint> positions) {
+                return List.of();
+            }
+        };
+        SpatialService service = new SpatialService(incomplete);
+
+        WebApplicationException failure = assertThrows(WebApplicationException.class,
+                () -> service.nearbyAnchors(-6.91755, 107.61905, 250).await().indefinitely());
+
+        assertEquals(503, failure.getResponse().getStatus());
+    }
+
     private static SpatialSafety denyAll() {
         return new SpatialSafety() {
             @Override
