@@ -14,7 +14,7 @@ class SpatialPolicyChangeEventTest {
     void eventCopiesItsActivityList() {
         List<String> activities = new ArrayList<>(List.of("NAVIGATE", "RENDER"));
         SpatialPolicyChangeEvent event = new SpatialPolicyChangeEvent(
-                7L, "spatial_policy_change_7", "restriction-7", 2,
+                7L, "spatial_policy_change_7", "spatial.policy.changed", 1, "restriction-7", 2,
                 "UPDATED", "ID.32.73", "CAUTION", activities, Instant.parse("2026-11-23T10:00:00Z"));
 
         activities.clear();
