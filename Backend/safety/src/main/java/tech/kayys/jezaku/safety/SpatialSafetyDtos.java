@@ -61,12 +61,12 @@ public final class SpatialSafetyDtos {
             List<RouteCandidateRequest> routes) {
     }
 
-    public record RouteEvaluationResponse(String routeId, SpatialSafetyPolicy.Outcome outcome,
+    public record RouteEvaluationResponse(String routeId, SpatialRestriction.Outcome outcome,
             List<String> restrictionIds, String reasonCode, List<Integer> affectedSegmentIndices,
             boolean permitsOperation, Instant validUntil) {
     }
 
-    public record RouteEvaluationBatchResponse(String assessmentId, Instant evaluatedAt,
+    public record RouteEvaluationBatchResponse(String policySnapshotId, Instant evaluatedAt,
             Instant validUntil, List<RouteEvaluationResponse> results) {
     }
 }
