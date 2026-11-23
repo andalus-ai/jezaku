@@ -318,15 +318,9 @@ void main() {
       );
     });
 
-    test('non-private frames map to public until friends-only is modelled', () {
-      // The client model records private versus not private only. When
-      // AnchorMemory carries the backend's public | friends | private, map it
-      // in frameAudienceOf and extend this group with friends-only cases.
-      expect(frameAudienceOf(_memory('open')), FrameAudience.public);
-      expect(
-        frameAudienceOf(_memory('secret', isPrivate: true)),
-        FrameAudience.private,
-      );
+    test('frames default to public and isPrivate means private', () {
+      expect(_memory('open').audience, FrameAudience.public);
+      expect(_memory('secret', isPrivate: true).audience, FrameAudience.private);
     });
 
     test('a hidden audience reason is notShared', () {
