@@ -4,6 +4,7 @@ import 'package:jejaku/features/ar_viewer/screens/ar_viewer_screen.dart';
 import 'package:jejaku/features/calibration/screens/calibration_review_screen.dart';
 import 'package:jejaku/features/camera/screens/camera_screen.dart';
 import 'package:jejaku/features/gallery/screens/gallery_screen.dart';
+import 'package:jejaku/features/my_frames/screens/my_frames_screen.dart';
 import 'package:jejaku/features/home/screens/memory_calibration_screen.dart';
 import 'package:jejaku/features/home/screens/memory_detail_screen.dart';
 import 'package:jejaku/features/home/screens/memory_photo_screen.dart';
@@ -32,6 +33,7 @@ class AppRoutes {
   static const memoryCalibration = '/memory-calibration';
   static const memoryDetails = '/memory-details';
   static const memoryPhoto = '/memory-photo';
+  static const myFrames = '/my-frames';
   static const memorySearch = '/memory-search';
   static const moderationQueue = '/moderation-queue';
   static const parentDashboard = '/parent-dashboard';
@@ -73,6 +75,7 @@ class AppRoutes {
       memoryDetails => (_) => MemoryDetailScreen(
             memoryId: settings.arguments as String? ?? '',
           ),
+      myFrames => (_) => const MyFramesScreen(),
       memoryPhoto => (_) => MemoryPhotoScreen(
             memoryId: settings.arguments as String? ?? '',
           ),

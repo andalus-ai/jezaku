@@ -6065,6 +6065,12 @@ void main() {
     await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(
+      find.text('Moderation Queue'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     expect(find.text('Moderation Queue'), findsOneWidget);
     expect(find.text('1 flagged memory'), findsOneWidget);
 

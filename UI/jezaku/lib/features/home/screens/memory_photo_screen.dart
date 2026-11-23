@@ -5,7 +5,7 @@ import 'package:jejaku/features/home/services/anchor_media_resolver.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
 import 'package:jejaku/features/home/widgets/memory_preview.dart';
 import 'package:jejaku/features/settings/states/settings_providers.dart';
-import 'package:jejaku/features/social/states/social_providers.dart';
+import 'package:jejaku/features/social/states/social_comment_provider.dart';
 import 'package:jejaku/features/social/widgets/comment_composer.dart';
 import 'package:jejaku/features/social/widgets/comment_tile.dart';
 import 'package:material_ui/material_ui.dart';
