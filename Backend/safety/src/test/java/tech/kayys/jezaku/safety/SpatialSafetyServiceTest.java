@@ -11,7 +11,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SpatialSafetyServiceTest {
-    private static final Instant NOW = Instant.parse("2026-11-23T12:00:00Z");
+    private static final Instant NOW = Instant.now();
 
     @Test
     void createsRestrictionUsingTrustedAuthorityIdentityAndGrant() {
