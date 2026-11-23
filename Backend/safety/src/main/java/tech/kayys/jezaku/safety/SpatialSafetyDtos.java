@@ -37,8 +37,12 @@ public final class SpatialSafetyDtos {
     public record EvaluationResponse(SpatialSafetyPolicy.Decision decision, Instant evaluatedAt) {
     }
 
+    /** Nullable coordinates let the batch boundary reject omitted JSON fields instead of treating them as zero. */
+    public record EvaluationBatchItem(Double latitude, Double longitude, SpatialRestriction.Activity activity) {
+    }
+
     /** One bounded request evaluated against a single immutable policy snapshot. */
-    public record EvaluationBatchRequest(List<EvaluationRequest> requests) {
+    public record EvaluationBatchRequest(List<EvaluationBatchItem> requests) {
     }
 
     /** Results preserve request order and share the same evaluation timestamp. */
