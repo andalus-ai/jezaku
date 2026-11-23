@@ -26,7 +26,7 @@ import tech.kayys.jezaku.safety.SpatialSafetyDtos.RestrictionRevokeRequest;
 import tech.kayys.jezaku.safety.SpatialSafetyDtos.RestrictionUpdateRequest;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.Optional;\nimport java.time.Duration;\nimport java.time.Instant;\nimport java.util.ArrayList;\nimport java.util.HashSet;\nimport java.util.UUID;
 
 @Path("/safety/spatial")
 @Consumes(MediaType.APPLICATION_JSON)
@@ -100,6 +100,85 @@ public class SpatialSafetyResource extends tech.kayys.jezaku.auth.CallerAwareRes
         }
         return new SpatialSafetyEnforcer.EvaluationTarget(request.latitude(), request.longitude(), request.activity());
     }
+
+
+    /**
+     * Evaluates a small set of routing-provider alternatives as NAVIGATE operations.
+     * Geometry is validated before reading policy; all alternatives share one snapshot.
+     */
+    @POST @Path("/evaluate/routes")
+    public SpatialSafetyDtos.RouteEvaluationBatchResponse evaluateRoutes(
+            SpatialSafetyDtos.RouteEvaluationBatchRequest request) {
+        AuthContext.requireService(requestContext, ServiceScopes.SPATIAL_POLICY_EVALUATE);
+        if (request == null || request.routes() == null || request.routes().isEmpty()) {
+            throw new BadRequestException("At least one route candidate is required");
+        }
+        if (request.routes().size() > SpatialSafetyEnforcer.MAX_ROUTE_CANDIDATES) {
+            throw new BadRequestException("Route candidate count must not exceed "
+                    + SpatialSafetyEnforcer.MAX_ROUTE_CANDIDATES);
+        }
+        double corridorBuffer = request.corridorBufferMeters() == null ? 0.0 : request.corridorBufferMeters();
+        if (!Double.isFinite(corridorBuffer) || corridorBuffer < 0
+                || corridorBuffer > SpatialSafetyEnforcer.MAX_ROUTE_CORRIDOR_BUFFER_METERS) {
+            throw new BadRequestException("corridorBufferMeters must be between 0 and "
+                    + SpatialSafetyEnforcer.MAX_ROUTE_CORRIDOR_BUFFER_METERS);
+        }
+
+        HashSet<String> routeIds = new HashSet<>();
+        int totalVertices = 0;
+        List<PreparedRoute> routes = new ArrayList<>(request.routes().size());
+        for (SpatialSafetyDtos.RouteCandidateRequest candidate : request.routes()) {
+            if (candidate == null || candidate.routeId() == null || candidate.routeId().isBlank()
+                    || candidate.routeId().length() > 64 || !routeIds.add(candidate.routeId())) {
+                throw new BadRequestException("Every route requires a unique routeId of at most 64 characters");
+            }
+            if (candidate.points() == null || candidate.points().size() < 2
+                    || candidate.points().size() > SpatialRouteGeometry.MAX_VERTICES) {
+                throw new BadRequestException("Each route must contain 2 to "
+                        + SpatialRouteGeometry.MAX_VERTICES + " vertices");
+            }
+            totalVertices += candidate.points().size();
+            if (totalVertices > SpatialSafetyEnforcer.MAX_ROUTE_BATCH_VERTICES) {
+                throw new BadRequestException("Combined route vertices must not exceed "
+                        + SpatialSafetyEnforcer.MAX_ROUTE_BATCH_VERTICES);
+            }
+            List<SpatialRouteGeometry.Point> points = new ArrayList<>(candidate.points().size());
+            for (SpatialSafetyDtos.RoutePointRequest point : candidate.points()) {
+                if (point == null || point.latitude() == null || point.longitude() == null) {
+                    throw new BadRequestException("Route vertices require latitude and longitude");
+                }
+                points.add(new SpatialRouteGeometry.Point(point.latitude(), point.longitude()));
+            }
+            try {
+                SpatialRouteGeometry.validate(points, corridorBuffer);
+            } catch (IllegalArgumentException exception) {
+                throw new BadRequestException(exception.getMessage());
+            }
+            routes.add(new PreparedRoute(candidate.routeId(), List.copyOf(points)));
+        }
+
+        SpatialSafetyEnforcer.PolicySnapshot snapshot = enforcer.captureSnapshot();
+        Instant maximumValidity = snapshot.evaluatedAt().plus(Duration.ofSeconds(15));
+        List<SpatialSafetyDtos.RouteEvaluationResponse> results = new ArrayList<>(routes.size());
+        Instant batchValidUntil = maximumValidity;
+        for (PreparedRoute route : routes) {
+            SpatialSafetyPolicy.RouteDecision decision = enforcer.evaluateRoute(snapshot, route.points(),
+                    corridorBuffer, SpatialRestriction.Activity.NAVIGATE);
+            Instant routeValidUntil = decision.validUntil() == null
+                    || maximumValidity.isBefore(decision.validUntil())
+                    ? maximumValidity : decision.validUntil();
+            if (routeValidUntil.isBefore(batchValidUntil)) {
+                batchValidUntil = routeValidUntil;
+            }
+            results.add(new SpatialSafetyDtos.RouteEvaluationResponse(route.routeId(), decision.outcome(),
+                    decision.restrictionIds(), decision.reasonCode(), decision.affectedSegmentIndices(),
+                    decision.permitsOperation(), routeValidUntil));
+        }
+        return new SpatialSafetyDtos.RouteEvaluationBatchResponse(
+                UUID.randomUUID().toString(), snapshot.evaluatedAt(), batchValidUntil, List.copyOf(results));
+    }
+
+    private record PreparedRoute(String routeId, List<SpatialRouteGeometry.Point> points) { }
 
     private Caller requireCaller() {
         Optional<AuthenticatedUser> user = AuthContext.user(requestContext);
