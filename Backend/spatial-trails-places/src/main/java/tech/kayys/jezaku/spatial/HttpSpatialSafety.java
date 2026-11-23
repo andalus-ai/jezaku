@@ -139,8 +139,10 @@ class HttpSpatialSafety implements SpatialSafety {
             String snapshotId = payload.path("policySnapshotId").asText("");
             Instant evaluatedAt = parseInstant(payload.path("evaluatedAt").asText(""));
             Instant validUntil = parseInstant(payload.path("validUntil").asText(""));
+            JsonNode revisionNode = payload.path("policyRevision");
             JsonNode results = payload.path("results");
             if (snapshotId.isBlank() || evaluatedAt == null || validUntil == null
+                    || !revisionNode.canConvertToLong() || revisionNode.asLong() < 0
                     || !validUntil.isAfter(evaluatedAt) || validUntil.isAfter(evaluatedAt.plusSeconds(15))
                     || !results.isArray() || results.size() != routes.size()) {
                 throw unavailable("Spatial safety service returned an incomplete route assessment", null);
@@ -184,7 +186,7 @@ class HttpSpatialSafety implements SpatialSafety {
                 decisions.add(new RouteDecision(routeId, outcome, restrictionIds, reasonCode,
                         affectedSegments, permits.asBoolean(), routeValidUntil));
             }
-            return new RouteEvaluation(snapshotId, evaluatedAt, validUntil, decisions);
+            return new RouteEvaluation(snapshotId, evaluatedAt, validUntil, decisions, revisionNode.asLong());
         } catch (WebApplicationException exception) {
             throw exception;
         } catch (IOException exception) {

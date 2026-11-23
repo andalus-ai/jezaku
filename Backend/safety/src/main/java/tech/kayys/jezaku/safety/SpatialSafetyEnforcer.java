@@ -40,21 +40,19 @@ public class SpatialSafetyEnforcer {
      */
     public PolicySnapshot captureSnapshot() {
         Instant evaluatedAt = Instant.now();
-        final List<SpatialRestriction> active;
+        final SpatialPolicyRepository.PolicySnapshot stored;
         try {
-            active = repository.findActiveRestrictions(evaluatedAt);
+            stored = repository.findPolicySnapshot(evaluatedAt);
         } catch (RuntimeException exception) {
             throw new WebApplicationException(
-                    "Spatial safety policy is temporarily unavailable; operation denied",
-                    503);
+                    "Spatial safety policy is temporarily unavailable; operation denied", 503);
         }
-        if (active == null) {
+        if (stored == null || stored.restrictions() == null || stored.revision() < 0) {
             throw new WebApplicationException(
-                    "Spatial safety policy returned no authoritative result; operation denied",
-                    503);
+                    "Spatial safety policy returned no authoritative result; operation denied", 503);
         }
         try {
-            return new PolicySnapshot(evaluatedAt, active);
+            return new PolicySnapshot(evaluatedAt, stored.restrictions(), stored.revision());
         } catch (RuntimeException exception) {
             throw new WebApplicationException(
                     "Spatial safety policy returned an invalid snapshot; operation denied",
@@ -153,10 +151,18 @@ public class SpatialSafetyEnforcer {
     }
 
     /** Immutable policy set and fixed evaluation instant for one request. */
-    public record PolicySnapshot(Instant evaluatedAt, List<SpatialRestriction> restrictions) {
+    public record PolicySnapshot(Instant evaluatedAt, List<SpatialRestriction> restrictions, long revision) {
         public PolicySnapshot {
             Objects.requireNonNull(evaluatedAt, "evaluatedAt");
             restrictions = List.copyOf(Objects.requireNonNull(restrictions, "restrictions"));
+            if (revision < 0) {
+                throw new IllegalArgumentException("revision cannot be negative");
+            }
+        }
+
+        /** Compatibility constructor for local/test snapshots without durable revision metadata. */
+        public PolicySnapshot(Instant evaluatedAt, List<SpatialRestriction> restrictions) {
+            this(evaluatedAt, restrictions, 0L);
         }
     }
 

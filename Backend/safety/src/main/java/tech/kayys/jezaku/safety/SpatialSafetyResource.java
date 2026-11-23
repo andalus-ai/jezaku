@@ -180,7 +180,8 @@ public class SpatialSafetyResource extends tech.kayys.jezaku.auth.CallerAwareRes
                     decision.permitsOperation(), routeValidUntil));
         }
         return new SpatialSafetyDtos.RouteEvaluationBatchResponse(
-                UUID.randomUUID().toString(), snapshot.evaluatedAt(), batchValidUntil, List.copyOf(results));
+                UUID.randomUUID().toString(), snapshot.evaluatedAt(), batchValidUntil,
+                List.copyOf(results), snapshot.revision());
     }
 
     private record PreparedRoute(String routeId, List<SpatialRouteGeometry.Point> points) { }

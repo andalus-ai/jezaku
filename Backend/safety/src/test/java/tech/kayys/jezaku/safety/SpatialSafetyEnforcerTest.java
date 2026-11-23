@@ -105,6 +105,18 @@ class SpatialSafetyEnforcerTest {
     }
 
     @Test
+    void capturedSnapshotCarriesRepositoryPolicyRevision() {
+        FakeRepository repository = new FakeRepository(List.of(), false, 42L);
+        SpatialSafetyEnforcer enforcer = new SpatialSafetyEnforcer();
+        enforcer.repository = repository;
+
+        var snapshot = enforcer.captureSnapshot();
+
+        assertEquals(42L, snapshot.revision());
+        assertEquals(1, repository.readCount);
+    }
+
+    @Test
     void snapshotCopiesRestrictionsAndUsesOneEvaluationInstant() {
         List<SpatialRestriction> mutable = new ArrayList<>();
         mutable.add(restriction(SpatialRestriction.Outcome.CAUTION, SpatialRestriction.Activity.RENDER));
@@ -155,11 +167,23 @@ class SpatialSafetyEnforcerTest {
     private static final class FakeRepository implements SpatialPolicyRepository {
         private final List<SpatialRestriction> restrictions;
         private final boolean unavailable;
+        private final long revision;
         private int readCount;
 
         private FakeRepository(List<SpatialRestriction> restrictions, boolean unavailable) {
+            this(restrictions, unavailable, 0L);
+        }
+
+        private FakeRepository(List<SpatialRestriction> restrictions, boolean unavailable, long revision) {
             this.restrictions = restrictions;
             this.unavailable = unavailable;
+            this.revision = revision;
+        }
+
+        @Override public SpatialPolicyRepository.PolicySnapshot findPolicySnapshot(Instant at) {
+            readCount++;
+            if (unavailable) throw new IllegalStateException("database unavailable");
+            return new SpatialPolicyRepository.PolicySnapshot(revision, restrictions);
         }
 
         @Override public void saveAuthority(AuthorityPrincipal principal, String actorId) { }
