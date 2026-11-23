@@ -11,7 +11,7 @@ Implemented:
 - JDBC merchant and store repositories, including placement persistence.
 - JDBC membership lifecycle persistence and active-membership lookup scoped by merchant ID and authenticated user ID.
 - Authenticated merchant registration that creates the initial owner membership atomically.
-- Seven-day staff invitations, acceptance by the invited account, role-bounded revocation and membership audit events.
+- Seven-day staff invitations, renewal of expired/revoked invitations, acceptance by the invited account, role-bounded revocation and membership audit events.
 - Merchant onboarding REST endpoints whose actor identity is resolved from the verified authentication context.
 - Optimistic aggregate version checks and atomic audit writes for merchant/store create and update operations.
 - Environment-variable based datasource configuration.
