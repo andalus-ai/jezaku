@@ -74,6 +74,31 @@ public class SpatialSafetyResource extends tech.kayys.jezaku.auth.CallerAwareRes
         return service.history(caller.principal(), restrictionId);
     }
 
+    /**
+     * Ordered durable invalidation feed. Consumers resume from the last
+     * processed revision and re-evaluate affected operations; events do not
+     * authorize an operation or replace route assessment expiry.
+     */
+    @GET @Path("/changes")
+    public SpatialSafetyDtos.PolicyChangesResponse policyChanges(
+            @QueryParam("afterRevision") @DefaultValue("0") long afterRevision,
+            @QueryParam("limit") @DefaultValue("100") int limit) {
+        AuthContext.requireService(requestContext, ServiceScopes.SPATIAL_POLICY_EVALUATE);
+        if (afterRevision < 0) {
+            throw new BadRequestException("afterRevision must be non-negative");
+        }
+        if (limit < 1 || limit > 500) {
+            throw new BadRequestException("limit must be between 1 and 500");
+        }
+        long currentRevision = repository.currentPolicyRevision();
+        if (afterRevision > currentRevision) {
+            throw new BadRequestException("afterRevision cannot exceed the current policy revision");
+        }
+        List<SpatialPolicyChangeEvent> events = repository.findPolicyChangesAfter(afterRevision, limit);
+        return new SpatialSafetyDtos.PolicyChangesResponse(
+                currentRevision, afterRevision, events.size(), events);
+    }
+
     @POST @Path("/evaluate")
     public EvaluationResponse evaluate(EvaluationRequest request) {
         AuthContext.requireService(requestContext, ServiceScopes.SPATIAL_POLICY_EVALUATE);
