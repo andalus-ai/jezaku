@@ -80,7 +80,7 @@ public class JdbcMerchantRepository implements MerchantRepository {
             UPDATE commerce_merchant
             SET legal_name = ?, display_name = ?, jurisdiction = ?, status = ?,
                 updated_at = ?, version = version + 1
-            WHERE id = ? AND version = ?
+            WHERE id = ? AND version = ? AND updated_at <= ?
             """;
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -91,6 +91,7 @@ public class JdbcMerchantRepository implements MerchantRepository {
             JdbcCommerceSupport.bindInstant(statement, 5, merchant.updatedAt());
             statement.setString(6, merchant.id());
             statement.setLong(7, expectedVersion);
+            JdbcCommerceSupport.bindInstant(statement, 8, merchant.updatedAt());
             if (statement.executeUpdate() == 0) return Optional.empty();
             JdbcCommerceSupport.audit(connection, "MERCHANT", merchant.id(), merchant.id(),
                     actorId, action, expectedVersion, merchant.version(), merchant.updatedAt(), reasonCode);
