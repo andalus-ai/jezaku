@@ -81,6 +81,30 @@ class SpatialSafetyEnforcerTest {
     }
 
     @Test
+    void routeEvaluationUsesOneSnapshotAndBlocksAnIntersectingSegment() {
+        FakeRepository repository = new FakeRepository(List.of(restriction(
+                SpatialRestriction.Outcome.PROHIBITED, SpatialRestriction.Activity.NAVIGATE)), false);
+        SpatialSafetyEnforcer enforcer = new SpatialSafetyEnforcer();
+        enforcer.repository = repository;
+        var snapshot = enforcer.captureSnapshot();
+        var route = List.of(
+                new SpatialRouteGeometry.Point(-6.9, 107.59),
+                new SpatialRouteGeometry.Point(-6.9, 107.61));
+
+        var decision = enforcer.evaluateRoute(snapshot, route, 0,
+                SpatialRestriction.Activity.NAVIGATE);
+
+        assertEquals(1, repository.readCount);
+        assertEquals(SpatialRestriction.Outcome.PROHIBITED, decision.outcome());
+        assertEquals(List.of(0), decision.affectedSegmentIndices());
+        WebApplicationException denied = assertThrows(WebApplicationException.class,
+                () -> enforcer.requireRoutePermitted(snapshot, route, 0,
+                        SpatialRestriction.Activity.NAVIGATE));
+        assertEquals(403, denied.getResponse().getStatus());
+        assertEquals(1, repository.readCount, "route evaluation must not reload policy");
+    }
+
+    @Test
     void snapshotCopiesRestrictionsAndUsesOneEvaluationInstant() {
         List<SpatialRestriction> mutable = new ArrayList<>();
         mutable.add(restriction(SpatialRestriction.Outcome.CAUTION, SpatialRestriction.Activity.RENDER));
