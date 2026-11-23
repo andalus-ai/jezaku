@@ -275,7 +275,7 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
     @Override
     @Transactional
     public SpatialRestriction revokeRestriction(String restrictionId, int expectedVersion,
-            String actorId, String reason, Instant revokedAt) {
+            String actorId, String reason) {
         SpatialRestriction current = findRestriction(restrictionId)
                 .orElseThrow(() -> new IllegalArgumentException("Restriction not found: " + restrictionId));
         if (current.version() != expectedVersion) {
@@ -287,7 +287,7 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
         SpatialRestriction revoked = new SpatialRestriction(current.id(), current.version() + 1,
                 current.issuerType(), current.issuerId(), current.jurisdiction(), current.legalBasis(),
                 current.centerLatitude(), current.centerLongitude(), current.radiusMeters(),
-                current.outcome(), current.activities(), current.effectiveFrom(), revokedAt, false);
+                current.outcome(), current.activities(), current.effectiveFrom(), current.expiresAt(), false);
         saveRestriction(revoked, actorId, "REVOKED", reason);
         return revoked;
     }
