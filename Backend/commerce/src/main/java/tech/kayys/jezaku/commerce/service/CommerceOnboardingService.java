@@ -59,7 +59,7 @@ public class CommerceOnboardingService {
         Merchant merchant = merchants.findById(merchantId)
                 .orElseThrow(() -> new NotFoundException("Merchant not found"));
         if (merchant.status() != MerchantStatus.VERIFIED) {
-            throw new ForbiddenException("Only verified merchants can invite staff");
+            throw new jakarta.ws.rs.WebApplicationException("Merchant must be verified before staff invitations", 409);
         }
         MerchantMembership inviter = activeMembership(merchantId, actorId);
         if (inviter.role() != MerchantMembership.Role.OWNER && inviter.role() != MerchantMembership.Role.ADMIN) {
@@ -77,7 +77,7 @@ public class CommerceOnboardingService {
             boolean expiredInvitation = previous.status() == MerchantMembership.Status.INVITED
                     && !now.isBefore(previous.invitationExpiresAt());
             if (previous.status() != MerchantMembership.Status.REVOKED && !expiredInvitation) {
-                throw new IllegalStateException("An active or unexpired invitation already exists for this merchant and user");
+                throw new jakarta.ws.rs.WebApplicationException("An active membership or unexpired invitation already exists", 409);
             }
             MerchantMembership renewed = previous.reinvite(role, now, now.plus(INVITATION_LIFETIME));
             return memberships.update(renewed, previous.version(), actorId, "INVITATION_RENEWED", "STAFF_INVITATION")
@@ -94,7 +94,12 @@ public class CommerceOnboardingService {
         MerchantMembership current = memberships.findById(merchantId, membershipId)
                 .orElseThrow(() -> new NotFoundException("Membership invitation not found"));
         if (!current.userId().equals(actorId)) throw new ForbiddenException("Only the invited account can accept this invitation");
-        MerchantMembership accepted = current.accept(clock.instant());
+        final MerchantMembership accepted;
+        try {
+            accepted = current.accept(clock.instant());
+        } catch (IllegalStateException exception) {
+            throw new jakarta.ws.rs.WebApplicationException(exception.getMessage(), 409);
+        }
         return memberships.update(accepted, current.version(), actorId, "INVITATION_ACCEPTED", null)
                 .orElseThrow(() -> new jakarta.ws.rs.WebApplicationException("Membership changed; reload and retry", 409));
     }
@@ -113,7 +118,12 @@ public class CommerceOnboardingService {
                     || current.role() == MerchantMembership.Role.ADMIN)) {
             throw new ForbiddenException("Insufficient merchant role to revoke this membership");
         }
-        MerchantMembership revoked = current.revoke(clock.instant());
+        final MerchantMembership revoked;
+        try {
+            revoked = current.revoke(clock.instant());
+        } catch (IllegalStateException exception) {
+            throw new jakarta.ws.rs.WebApplicationException(exception.getMessage(), 409);
+        }
         return memberships.update(revoked, current.version(), actorId, "MEMBERSHIP_REVOKED", "STAFF_ACCESS_REMOVED")
                 .orElseThrow(() -> new jakarta.ws.rs.WebApplicationException("Membership changed; reload and retry", 409));
     }
