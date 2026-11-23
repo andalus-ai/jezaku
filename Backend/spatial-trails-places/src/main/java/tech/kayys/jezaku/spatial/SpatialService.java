@@ -2,6 +2,8 @@ package tech.kayys.jezaku.spatial;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
 import tech.kayys.jezaku.spatial.SpatialDtos.AnchorCreateRequest;
@@ -39,14 +41,22 @@ public class SpatialService {
     private static final double DEFAULT_DISTANCE = 0;
     private static final int MAX_HISTORY = 100;
 
+    private final SpatialSafety spatialSafety;
     private final Map<String, AnchorRecord> anchors = new ConcurrentHashMap<>();
     private final Map<String, TrailRecord> trails = new ConcurrentHashMap<>();
     private final Map<String, PlaceRecord> places = new ConcurrentHashMap<>();
     private final Map<String, Set<String>> savedTrailIdsByUser = new ConcurrentHashMap<>();
 
-    public SpatialService() {
+    @Inject
+    public SpatialService(SpatialSafety spatialSafety) {
+        this.spatialSafety = spatialSafety;
         seedPlaces();
         seedAnchors();
+    }
+
+    /** Keeps isolated domain tests independent from the remote Safety service. */
+    public SpatialService() {
+        this(SpatialSafety.allowAll());
     }
 
     public Uni<List<AnchorResponse>> nearbyAnchors(
@@ -56,11 +66,15 @@ public class SpatialService {
         return Uni.createFrom().item(() -> {
             validateLatLng(latitude, longitude);
             final var radius = normalizeRadius(radiusMeters);
-            return anchors.values().stream()
-                    .map(anchor -> anchorResponse(
-                            anchor,
+            List<AnchorRecord> candidates = anchors.values().stream()
+                    .filter(anchor -> distanceMeters(latitude, longitude,
+                            anchor.position.latitude(), anchor.position.longitude()) <= radius)
+                    .toList();
+            List<AnchorRecord> permitted = spatiallyPermitted(
+                    candidates, spatialSafety.evaluate("DISCOVER", positionsOfAnchors(candidates)));
+            return permitted.stream()
+                    .map(anchor -> anchorResponse(anchor,
                             distanceMeters(latitude, longitude, anchor.position.latitude(), anchor.position.longitude())))
-                    .filter(anchor -> anchor.distanceMeters() <= radius)
                     .sorted(Comparator.comparingDouble(AnchorResponse::distanceMeters))
                     .toList();
         });
@@ -71,6 +85,7 @@ public class SpatialService {
             final var ownerId = requireText(request.ownerId(), "ownerId");
             final var title = requireText(request.title(), "title");
             final var position = requirePosition(request.position());
+            spatialSafety.requirePublishPermitted(position);
             final var visibility = defaultText(request.visibility(), "private").toLowerCase(Locale.ROOT);
             final var id = "anchor_" + UUID.randomUUID();
             final var anchor = new AnchorRecord(
@@ -183,11 +198,23 @@ public class SpatialService {
         return Uni.createFrom().item(() -> {
             validateLatLng(latitude, longitude);
             final var radius = normalizeRadius(radiusMeters);
-            return places.values().stream()
-                    .map(place -> placeSummary(
-                            place,
-                            distanceMeters(latitude, longitude, place.center.latitude(), place.center.longitude())))
-                    .filter(place -> place.distanceMeters() <= radius)
+            List<PlaceRecord> candidates = places.values().stream()
+                    .filter(place -> distanceMeters(latitude, longitude,
+                            place.center.latitude(), place.center.longitude()) <= radius)
+                    .toList();
+            List<PlaceRecord> permitted = spatiallyPermitted(
+                    candidates, spatialSafety.evaluate("DISCOVER", positionsOfPlaces(candidates)));
+            Set<String> permittedPlaceIds = permitted.stream().map(PlaceRecord::id)
+                    .collect(java.util.stream.Collectors.toSet());
+            List<AnchorRecord> anchorCandidates = anchors.values().stream()
+                    .filter(anchor -> permittedPlaceIds.contains(anchor.placeId))
+                    .toList();
+            List<AnchorRecord> visibleAnchors = spatiallyPermitted(
+                    anchorCandidates, spatialSafety.evaluate("RENDER", positionsOfAnchors(anchorCandidates)));
+            return permitted.stream()
+                    .map(place -> placeSummary(place,
+                            distanceMeters(latitude, longitude, place.center.latitude(), place.center.longitude()),
+                            visibleAnchors))
                     .sorted(Comparator.comparingDouble(PlaceSummary::distanceMeters))
                     .toList();
         });
@@ -200,19 +227,58 @@ public class SpatialService {
             if (place == null) {
                 throw new NotFoundException("place not found");
             }
-            final var placeAnchors = anchors.values().stream()
+            List<String> placeDecision = spatialSafety.evaluate("DISCOVER", List.of(place.center));
+            if (spatiallyPermitted(List.of(place), placeDecision).isEmpty()) {
+                throw new NotFoundException("place not found");
+            }
+            List<AnchorRecord> anchorCandidates = anchors.values().stream()
                     .filter(anchor -> normalizedPlaceId.equals(anchor.placeId))
+                    .toList();
+            List<AnchorRecord> visibleAnchors = spatiallyPermitted(
+                    anchorCandidates, spatialSafety.evaluate("RENDER", positionsOfAnchors(anchorCandidates)));
+            final var placeAnchors = visibleAnchors.stream()
                     .map(anchor -> anchorResponse(anchor, DEFAULT_DISTANCE))
                     .sorted(Comparator.comparing(AnchorResponse::createdAt).reversed())
                     .toList();
+            Set<String> visibleAnchorIds = visibleAnchors.stream()
+                    .map(AnchorRecord::id).collect(java.util.stream.Collectors.toSet());
             final var recentTrails = trails.values().stream()
-                    .filter(trail -> trailTouchesPlace(trail, normalizedPlaceId))
+                    .filter(trail -> trailTouchesAnchors(trail, visibleAnchorIds))
                     .sorted(Comparator.comparing(TrailRecord::finishedAt).reversed())
                     .limit(10)
                     .map(this::trailEntry)
                     .toList();
-            return new PlaceDetail(placeSummary(place, DEFAULT_DISTANCE), placeAnchors, recentTrails);
+            return new PlaceDetail(placeSummary(place, DEFAULT_DISTANCE, visibleAnchors),
+                    placeAnchors, recentTrails);
         });
+    }
+
+    private List<GeoPoint> positionsOfAnchors(List<AnchorRecord> records) {
+        return records.stream().map(AnchorRecord::position).toList();
+    }
+
+    private List<GeoPoint> positionsOfPlaces(List<PlaceRecord> records) {
+        return records.stream().map(PlaceRecord::center).toList();
+    }
+
+    private <T> List<T> spatiallyPermitted(List<T> candidates, List<String> outcomes) {
+        if (outcomes == null || outcomes.size() != candidates.size()
+                || outcomes.stream().anyMatch(outcome -> outcome == null
+                        || !Set.of("ALLOWED", "CAUTION", "RESTRICTED", "PROHIBITED", "EMERGENCY_LOCKDOWN")
+                                .contains(outcome))) {
+            throw new WebApplicationException("Spatial safety returned an incomplete decision set", 503);
+        }
+        List<T> permitted = new ArrayList<>();
+        for (int index = 0; index < candidates.size(); index++) {
+            if (isPermitted(outcomes.get(index))) {
+                permitted.add(candidates.get(index));
+            }
+        }
+        return List.copyOf(permitted);
+    }
+
+    private boolean isPermitted(String outcome) {
+        return "ALLOWED".equals(outcome) || "CAUTION".equals(outcome);
     }
 
     private TrailHistoryResponse trailHistoryResponse(String userId) {
@@ -306,12 +372,17 @@ public class SpatialService {
                 savedTrailIds.contains(trail.id));
     }
 
-    private PlaceSummary placeSummary(PlaceRecord place, double distanceMeters) {
-        final var anchorCount = (int) anchors.values().stream()
+    private PlaceSummary placeSummary(
+            PlaceRecord place,
+            double distanceMeters,
+            List<AnchorRecord> visibleAnchors) {
+        Set<String> visibleAnchorIds = visibleAnchors.stream()
                 .filter(anchor -> place.id.equals(anchor.placeId))
-                .count();
+                .map(AnchorRecord::id)
+                .collect(java.util.stream.Collectors.toSet());
+        final var anchorCount = visibleAnchorIds.size();
         final var trailCount = (int) trails.values().stream()
-                .filter(trail -> trailTouchesPlace(trail, place.id))
+                .filter(trail -> trailTouchesAnchors(trail, visibleAnchorIds))
                 .count();
         return new PlaceSummary(
                 place.id,
@@ -324,12 +395,8 @@ public class SpatialService {
                 roundDistance(distanceMeters));
     }
 
-    private boolean trailTouchesPlace(TrailRecord trail, String placeId) {
-        final var placeAnchorIds = anchors.values().stream()
-                .filter(anchor -> placeId.equals(anchor.placeId))
-                .map(AnchorRecord::id)
-                .collect(java.util.stream.Collectors.toSet());
-        return trail.memoryIds.stream().anyMatch(placeAnchorIds::contains);
+    private boolean trailTouchesAnchors(TrailRecord trail, Set<String> visibleAnchorIds) {
+        return trail.memoryIds.stream().anyMatch(visibleAnchorIds::contains);
     }
 
     private void seedPlaces() {
