@@ -4,17 +4,15 @@ Commerce is the authoritative domain for merchant identity, store/branch records
 
 ## Current implementation status
 
-The initial foundation contains domain primitives only:
+The initial domain foundation and registry persistence contract are present:
 - Merchant lifecycle and guarded verification/suspension/reinstatement transitions.
-- Store lifecycle and activation guard requiring a verified merchant and verified placement.
-- WGS84 coordinate validation and placement provenance fields.
-- Placement verification/revocation lifecycle and revision counter.
+- Store lifecycle; activation requires the verified owning merchant and verified placement.
+- WGS84 coordinate validation and placement provenance.
+- PostgreSQL/Flyway dependency and initial registry schema.
+- Repository interfaces for merchant, store and merchant-scoped membership access.
+- Merchant/store/placement/membership audit table schema.
 
-Not implemented yet:
-- Merchant/staff authentication and authorization integration.
-- Persistence, migrations, APIs, audit repository and verification workflow.
-- Campaigns, promotions, quotas, eligibility and redemption.
-- Discovery read-model projection or proximity ad delivery.
+The repository interfaces are contracts only. JDBC implementations, API resources, onboarding, staff invitation and verification workflows are not yet implemented.
 
 ## Domain invariants
 
@@ -24,12 +22,26 @@ Not implemented yet:
 - Coordinates are validated as finite WGS84 latitude/longitude; accuracy must be finite and positive.
 - Store schedules use an IANA time-zone identifier, not an unqualified local clock.
 - Domain records are immutable; transitions return a new version.
+- Membership queries and authorization must be scoped by both merchant ID and user ID.
+- State changes and their audit events must commit atomically.
+- Version mismatches are conflicts, not last-write-wins updates.
 
-The domain layer does not itself authenticate the verifier. The application/API layer must resolve an authorized server-side actor and invoke the transition only after the verification workflow authorizes it.
+The domain layer does not authenticate the verifier. The application/API layer must resolve an authorized server-side actor and invoke transitions only after the verification workflow authorizes them.
+
+## Database
+
+Flyway migration V1__commerce_registry.sql creates:
+- commerce_merchant
+- commerce_merchant_membership
+- commerce_store
+- commerce_store_placement
+- commerce_audit_event
+
+The default local database is jezaku_commerce on localhost:5432. Override with JZ_COMMERCE_DB_URL, JZ_COMMERCE_DB_USERNAME and JZ_COMMERCE_DB_PASSWORD. Configure secrets through the deployment secret manager; local defaults are development-only.
 
 ## Next implementation slices
 
-1. Repository contracts and PostgreSQL migrations with immutable audit history.
+1. JDBC repositories with optimistic locking and atomic audit writes.
 2. Merchant onboarding and staff-role authorization boundary.
 3. Store registry and audited placement review.
 4. Campaign/promotion lifecycle and store associations.
