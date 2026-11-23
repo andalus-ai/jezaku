@@ -3,6 +3,8 @@
 CREATE TABLE spatial_policy_change_outbox (
     policy_revision BIGINT PRIMARY KEY CHECK (policy_revision > 0),
     event_id VARCHAR(96) NOT NULL UNIQUE,
+    event_type VARCHAR(96) NOT NULL CHECK (event_type = 'spatial.policy.changed'),
+    event_version SMALLINT NOT NULL CHECK (event_version = 1),
     restriction_id VARCHAR(160) NOT NULL,
     restriction_version INTEGER NOT NULL CHECK (restriction_version > 0),
     action VARCHAR(16) NOT NULL CHECK (action IN ('CREATED', 'UPDATED', 'REVOKED')),
