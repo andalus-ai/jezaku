@@ -19,6 +19,7 @@ class CommerceRepositoryTest {
     @Inject MerchantRepository merchants;
     @Inject StoreRepository stores;
     @Inject MerchantMembershipRepository memberships;
+    @Inject tech.kayys.jezaku.commerce.service.CommerceOnboardingService onboarding;
     @Inject DataSource dataSource;
 
     @Test
@@ -62,6 +63,21 @@ class CommerceRepositoryTest {
         assertEquals(2, scalarLong("SELECT COUNT(*) FROM commerce_store_placement_revision WHERE store_id = ?", storeId));
     }
 
+
+
+    @Test
+    void merchantRegistrationCreatesInitialOwnerMembership() throws Exception {
+        String actorId = "registration-owner-" + UUID.randomUUID();
+        Merchant merchant = onboarding.registerMerchant(actorId, "Registered Legal Ltd", "Registered Shop", "ID");
+
+        assertEquals(MerchantStatus.PENDING_VERIFICATION, merchant.status());
+        MerchantMembership owner = memberships.findActiveMembership(merchant.id(), actorId).orElseThrow();
+        assertEquals(MerchantMembership.Role.OWNER, owner.role());
+        assertEquals(1, scalarLong("SELECT COUNT(*) FROM commerce_audit_event WHERE aggregate_type = 'MERCHANT' AND aggregate_id = ?",
+                merchant.id()));
+        assertEquals(1, scalarLong("SELECT COUNT(*) FROM commerce_audit_event WHERE aggregate_type = 'MEMBERSHIP' AND aggregate_id = ?",
+                owner.id()));
+    }
 
     @Test
     void membershipInvitationAcceptanceAndRevocationAreAuditedAndVersioned() throws Exception {
