@@ -440,8 +440,9 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
                        changes.outcome, changes.activities, changes.occurred_at
                 FROM spatial_policy_state state
                 LEFT JOIN LATERAL (
-                    SELECT policy_revision, event_id, restriction_id, restriction_version,
-                           action, jurisdiction, outcome, activities, occurred_at
+                    SELECT policy_revision, event_id, event_type, event_version,
+                           restriction_id, restriction_version, action, jurisdiction,
+                           outcome, activities, occurred_at
                     FROM spatial_policy_change_outbox
                     WHERE policy_revision > ?
                     ORDER BY policy_revision ASC
