@@ -32,6 +32,7 @@ class HttpSpatialSafetyRouteTest {
         var assessment = safety.evaluateRoutes(List.of(route), 20);
 
         assertEquals("local-unenforced", assessment.policySnapshotId());
+        assertEquals(0L, assessment.policyRevision());
         assertEquals("ALLOWED", assessment.results().getFirst().outcome());
         assertTrue(assessment.validUntil().isAfter(assessment.evaluatedAt()));
     }

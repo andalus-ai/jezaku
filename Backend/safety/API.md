@@ -80,7 +80,11 @@ Request limits: at most 5 candidates, 2,000 vertices per candidate, 5,000 vertic
 
 Each result contains the caller's route ID, strongest outcome, matching restriction IDs, reason code, affected zero-based segment indices, and whether the route is non-blocking. `CAUTION` is non-blocking only when the consuming product surfaces the caution UX and any required confirmation. Blocking alternatives remain in the response with `permitsOperation=false` so the routing orchestrator can select another candidate.
 
-The response includes an opaque per-request policy snapshot ID, shared evaluation timestamp, and a validity deadline capped at 15 seconds and shortened by an earlier matching restriction expiry. This is a short-lived assessment, not a lock or durable authorization: policy changes can occur immediately after evaluation. Re-evaluate before starting guidance and on route change, meaningful deviation, expiry, app resume, or policy invalidation. If the endpoint is unavailable or the response is incomplete, do not guide on any candidate.
+The response includes an opaque per-request policy snapshot ID, shared evaluation timestamp, a validity deadline capped at 15 seconds and shortened by an earlier matching restriction expiry, and a monotonic `policyRevision`. The revision advances once for every successfully committed restriction create, update, or revoke; the restriction mutation, audit event, and revision increment commit or roll back together. Snapshot capture reads the revision, active restrictions, and activity rows in one PostgreSQL statement snapshot.
+
+`policySnapshotId` identifies this individual assessment request. `policyRevision` identifies the durable restriction-policy generation and can be compared across assessments; it is not an authorization token or a replacement for the validity deadline. Time-based activation/expiry can change the active set without a mutation, so consumers must still honor `validUntil`. Authority-grant changes are not currently included in this restriction-policy revision.
+
+This is a short-lived assessment, not a lock or durable authorization: policy changes can occur immediately after evaluation. Re-evaluate before starting guidance and on route change, meaningful deviation, expiry, app resume, or policy invalidation. Push invalidation delivery and automatic live-session re-evaluation are not yet implemented. If the endpoint is unavailable or the response is incomplete, do not guide on any candidate.
 
 Example:
 

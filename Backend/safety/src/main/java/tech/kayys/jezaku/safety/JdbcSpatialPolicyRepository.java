@@ -232,6 +232,7 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
                 insertActivity.executeBatch();
             }
             appendAudit(connection, restriction, actorId, action, reason);
+            advancePolicyRevision(connection);
         } catch (SQLException exception) {
             throw persistenceFailure("save restriction", exception);
         }
@@ -253,23 +254,83 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
 
     @Override
     public List<SpatialRestriction> findActiveRestrictions(Instant at) {
-        String sql = restrictionSelect() + """
-                 WHERE active = TRUE AND effective_from <= ?
-                   AND (expires_at IS NULL OR expires_at > ?)
+        return findPolicySnapshot(at).restrictions();
+    }
+
+    /**
+     * Captures the global revision, active restrictions, and activity rows in
+     * one PostgreSQL statement snapshot, preventing mixed policy generations.
+     */
+    @Override
+    @Transactional
+    public PolicySnapshot findPolicySnapshot(Instant at) {
+        // One SQL statement guarantees revision, restriction rows, and activity
+        // rows are read from the same PostgreSQL statement snapshot.
+        String sql = """
+                SELECT state.revision,
+                       restriction.restriction_id, restriction.version,
+                       restriction.issuer_type, restriction.issuer_id,
+                       restriction.jurisdiction, restriction.legal_basis,
+                       restriction.center_latitude, restriction.center_longitude,
+                       restriction.radius_meters, restriction.outcome,
+                       restriction.effective_from, restriction.expires_at,
+                       restriction.active,
+                       COALESCE(array_agg(activity.activity)
+                           FILTER (WHERE activity.activity IS NOT NULL), ARRAY[]::VARCHAR[]) AS activities
+                FROM spatial_policy_state state
+                LEFT JOIN spatial_restriction restriction
+                    ON restriction.active = TRUE
+                   AND restriction.effective_from <= ?
+                   AND (restriction.expires_at IS NULL OR restriction.expires_at > ?)
+                LEFT JOIN spatial_restriction_activity activity
+                    ON activity.restriction_id = restriction.restriction_id
+                WHERE state.state_key = 'GLOBAL'
+                GROUP BY state.revision, restriction.restriction_id,
+                         restriction.version, restriction.issuer_type,
+                         restriction.issuer_id, restriction.jurisdiction,
+                         restriction.legal_basis, restriction.center_latitude,
+                         restriction.center_longitude, restriction.radius_meters,
+                         restriction.outcome, restriction.effective_from,
+                         restriction.expires_at, restriction.active
+                ORDER BY restriction.restriction_id
                 """;
         try (Connection connection = dataSource.get().getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setTimestamp(1, timestamp(at));
             statement.setTimestamp(2, timestamp(at));
             try (ResultSet result = statement.executeQuery()) {
-                List<SpatialRestriction> restrictions = new ArrayList<>();
-                while (result.next()) {
-                    restrictions.add(readRestriction(connection, result));
+                if (!result.next()) {
+                    throw new SQLException("Spatial policy revision state is missing");
                 }
-                return List.copyOf(restrictions);
+                long revision = result.getLong("revision");
+                List<SpatialRestriction> restrictions = new ArrayList<>();
+                do {
+                    String id = result.getString("restriction_id");
+                    Set<SpatialRestriction.Activity> activities = new HashSet<>();
+                    java.sql.Array activityArray = result.getArray("activities");
+                    if (activityArray != null) {
+                        Object[] values = (Object[]) activityArray.getArray();
+                        for (Object value : values) {
+                            activities.add(SpatialRestriction.Activity.valueOf(value.toString()));
+                        }
+                        activityArray.free();
+                    }
+                    if (id == null) {
+                        continue;
+                    }
+                    restrictions.add(new SpatialRestriction(id, result.getInt("version"),
+                            result.getString("issuer_type"), result.getString("issuer_id"),
+                            result.getString("jurisdiction"), result.getString("legal_basis"),
+                            result.getDouble("center_latitude"), result.getDouble("center_longitude"),
+                            result.getDouble("radius_meters"),
+                            SpatialRestriction.Outcome.valueOf(result.getString("outcome")), activities,
+                            instant(result, "effective_from"), instant(result, "expires_at"),
+                            result.getBoolean("active")));
+                } while (result.next());
+                return new PolicySnapshot(revision, restrictions);
             }
         } catch (SQLException exception) {
-            throw persistenceFailure("list active restrictions", exception);
+            throw persistenceFailure("capture policy snapshot", exception);
         }
     }
 
@@ -318,6 +379,18 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
             }
         } catch (SQLException exception) {
             throw persistenceFailure("read restriction audit", exception);
+        }
+    }
+
+    private void advancePolicyRevision(Connection connection) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                UPDATE spatial_policy_state
+                SET revision = revision + 1, updated_at = now()
+                WHERE state_key = 'GLOBAL'
+                """)) {
+            if (statement.executeUpdate() != 1) {
+                throw new SQLException("Spatial policy revision state is missing");
+            }
         }
     }
 
