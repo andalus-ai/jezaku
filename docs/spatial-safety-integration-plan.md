@@ -117,7 +117,9 @@ The enforcer must remain fail-closed:
 
 - [ ] Audit route/target endpoints in `spatial-trails-places`, journeys and any direction/Qibla feature before choosing call sites.
 - [x] Add an internal bounded spherical segment-to-circle evaluator in Safety; a point-only call is insufficient.
-- [ ] Expose a service-authenticated route-evaluation API and integrate it with a real routing-provider geometry contract before marking navigation safe.
+- [x] Expose a service-authenticated route-alternative evaluation API in the existing Safety service.
+- [x] Add a bounded `SpatialSafety` HTTP adapter that validates ordered results and fails closed.
+- [ ] Integrate a real Idrisi routing-provider geometry contract and route-preview consumer before marking navigation safe.
 - [ ] Integrate `INTERACT` at actual server-side spatial action handlers, not generic client tap events.
 - [ ] Add `DISCOVER` and `REDEEM` only when merchant/campaign endpoints exist; do not create placeholder commerce services solely for the safety plan.
 - [ ] Test restriction changes between discovery, route start, interaction and redemption.
@@ -140,7 +142,9 @@ The enforcer must remain fail-closed:
 
 - [ ] Record ADR for WGS84, units, circle boundary behavior and future geometry representation.
 - [ ] Add polygon/multipolygon support only when a concrete use case and PostGIS ownership are agreed.
-- [ ] Add route corridor/segment evaluation for navigation.
+- [x] Add bounded route corridor/segment evaluation for circular restrictions.
+- [x] Expose the route evaluation API and Jezaku-side HTTP client boundary.
+- [ ] Add monotonic policy revision/invalidation and live navigation-session integration.
 - [ ] Design policy versioning, invalidation and maximum staleness before adding distributed cache.
 - [ ] Define offline behavior: cached restrictions may be used only within a bounded validity period; missing/stale policy suppresses high-risk publish/navigation and must not be interpreted as safe.
 - [ ] Sign/authenticate policy bundles if they are distributed to offline clients.
