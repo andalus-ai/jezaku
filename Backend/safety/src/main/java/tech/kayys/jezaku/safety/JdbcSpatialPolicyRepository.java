@@ -426,6 +426,21 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
     }
 
     @Override
+    public long currentPolicyRevision() {
+        try (Connection connection = dataSource.get().getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT revision FROM spatial_policy_state WHERE state_key = 'GLOBAL'");
+             ResultSet result = statement.executeQuery()) {
+            if (!result.next()) {
+                throw new SQLException("Spatial policy revision state is missing");
+            }
+            return result.getLong("revision");
+        } catch (SQLException exception) {
+            throw persistenceFailure("read current spatial policy revision", exception);
+        }
+    }
+
+    @Override
     public List<SpatialPolicyChangeEvent> findPolicyChangesAfter(long revision, int limit) {
         if (revision < 0 || limit < 1 || limit > 500) {
             throw new IllegalArgumentException("revision must be non-negative and limit must be between 1 and 500");
