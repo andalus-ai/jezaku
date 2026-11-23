@@ -24,6 +24,7 @@ public record SpatialPolicyChangeEvent(
             throw new IllegalArgumentException("policyRevision must be positive");
         }
         if (eventId == null || eventId.isBlank()
+                || !"spatial.policy.changed".equals(eventType) || eventVersion != 1
                 || restrictionId == null || restrictionId.isBlank()
                 || restrictionVersion < 1
                 || action == null || !List.of("CREATED", "UPDATED", "REVOKED").contains(action)
