@@ -17,7 +17,9 @@ public final class JezakuTargetTypes {
             "place",
             "trail",
             "profile",
-            "presence");
+            "presence",
+            "merchant",
+            "offer");
     public static final Set<String> JOURNEY_TARGET_TYPES = Set.of(
             "anchor",
             "memory",
@@ -35,7 +37,9 @@ public final class JezakuTargetTypes {
             "profile",
             "presence",
             "event",
-            "message");
+            "message",
+            "merchant",
+            "offer");
     public static final Set<String> REWARD_SOURCE_TYPES = Set.of(
             "memory",
             "journey",
