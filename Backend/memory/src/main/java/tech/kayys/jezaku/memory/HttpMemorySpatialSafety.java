@@ -39,6 +39,23 @@ class HttpMemorySpatialSafety implements MemorySpatialSafety {
 
     @Override
     public void requirePublishPermitted(GeoPoint position) {
+        requirePermitted(position, "PUBLISH");
+    }
+
+    @Override
+    public boolean isRenderPermitted(GeoPoint position) {
+        try {
+            requirePermitted(position, "RENDER");
+            return true;
+        } catch (WebApplicationException exception) {
+            if (exception.getResponse() != null && exception.getResponse().getStatus() == 403) {
+                return false;
+            }
+            throw exception;
+        }
+    }
+
+    private void requirePermitted(GeoPoint position, String activity) {
         if (!enforced) {
             return;
         }
@@ -47,7 +64,7 @@ class HttpMemorySpatialSafety implements MemorySpatialSafety {
         }
         try {
             String body = json.writeValueAsString(new EvaluationRequest(
-                    position.latitude(), position.longitude(), "PUBLISH"));
+                    position.latitude(), position.longitude(), activity));
             HttpResponse<String> response = http.send(
                     ServiceTokenSource.request(evaluationUri())
                             .timeout(timeout)
@@ -55,6 +72,10 @@ class HttpMemorySpatialSafety implements MemorySpatialSafety {
                             .POST(HttpRequest.BodyPublishers.ofString(body))
                             .build(),
                     HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 403) {
+                throw new WebApplicationException(
+                        "AR frame operation denied by spatial safety policy", 403);
+            }
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw unavailable("Spatial safety evaluation failed with status " + response.statusCode(), null);
             }
@@ -65,7 +86,7 @@ class HttpMemorySpatialSafety implements MemorySpatialSafety {
             }
             if (!"ALLOWED".equals(outcome) && !"CAUTION".equals(outcome)) {
                 throw new WebApplicationException(
-                        "AR frame placement denied by spatial safety policy: "
+                        "AR frame operation denied by spatial safety policy: "
                                 + decision.path("reasonCode").asText("SPATIAL_POLICY_DENIED"),
                         403);
             }
