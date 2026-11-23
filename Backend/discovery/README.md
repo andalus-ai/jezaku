@@ -4,7 +4,7 @@ Discovery owns ranked, location-aware retrieval of public Jezaku targets. It doe
 
 ## Target contract
 
-The shared target taxonomy in `common` identifies `merchant` and `offer` as discoverable, engageable, and reportable target types. Their domain records remain owned by the future commerce/merchant domain; Discovery should consume a bounded read model or explicit integration contract rather than reaching into another service's persistence.
+The shared target taxonomy in `common` identifies `merchant` and `offer` as discoverable and reportable target types. They are deliberately not added to the engageable set until merchant/offer interaction ownership and authorization are implemented. Their domain records remain owned by the future commerce/merchant domain; Discovery should consume a bounded read model or explicit integration contract rather than reaching into another service's persistence.
 
 A merchant discovery candidate must provide:
 - Stable merchant/store target identity and verified publisher/merchant reference.
