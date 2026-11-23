@@ -29,7 +29,7 @@ class CommerceRepositoryTest {
         Instant updated = created.plusSeconds(60);
 
         merchants.create(new Merchant(merchantId, "Integration Legal Ltd", "Integration",
-                "ID", MerchantStatus.PENDING_VERIFICATION, created, created, 0), "test-actor");
+                "ID", MerchantStatus.PENDING_VERIFICATION, created, created, 0), "test-actor", "INTEGRATION_TEST");
 
         StorePlacement proposed = new StorePlacement(-6.2, 106.8, 8.0,
                 "integration-test", PlacementStatus.PROPOSED, null, null, 0);
