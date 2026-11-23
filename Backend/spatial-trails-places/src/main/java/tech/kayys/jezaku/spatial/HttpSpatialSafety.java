@@ -14,8 +14,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Optional;
 
 /** Service-authenticated, bounded adapter to the central Safety policy API. */
@@ -102,6 +106,140 @@ class HttpSpatialSafety implements SpatialSafety {
             throw unavailable("Spatial safety evaluation is unavailable", exception);
         }
     }
+
+    @Override
+    public RouteEvaluation evaluateRoutes(List<RouteCandidate> routes, double corridorBufferMeters) {
+        validateRouteCandidates(routes, corridorBufferMeters);
+        if (!enforced) {
+            Instant now = Instant.now();
+            Instant validUntil = now.plusSeconds(15);
+            return new RouteEvaluation("local-unenforced", now, validUntil,
+                    routes.stream().map(route -> new RouteDecision(route.routeId(), "ALLOWED",
+                            List.of(), "LOCAL_ENFORCEMENT_DISABLED", List.of(), true, validUntil)).toList());
+        }
+        try {
+            List<RouteRequest> routeRequests = routes.stream()
+                    .map(route -> new RouteRequest(route.routeId(), route.points().stream()
+                            .map(point -> new RoutePoint(point.latitude(), point.longitude())).toList()))
+                    .toList();
+            String body = json.writeValueAsString(Map.of(
+                    "corridorBufferMeters", corridorBufferMeters,
+                    "routes", routeRequests));
+            HttpResponse<String> response = http.send(
+                    ServiceTokenSource.request(routeEvaluationUri())
+                            .timeout(timeout)
+                            .header("content-type", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString(body))
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw unavailable("Spatial route safety evaluation failed with status " + response.statusCode(), null);
+            }
+            JsonNode payload = json.readTree(response.body());
+            String snapshotId = payload.path("policySnapshotId").asText("");
+            Instant evaluatedAt = parseInstant(payload.path("evaluatedAt").asText(""));
+            Instant validUntil = parseInstant(payload.path("validUntil").asText(""));
+            JsonNode results = payload.path("results");
+            if (snapshotId.isBlank() || evaluatedAt == null || validUntil == null
+                    || !validUntil.isAfter(evaluatedAt) || validUntil.isAfter(evaluatedAt.plusSeconds(15))
+                    || !results.isArray() || results.size() != routes.size()) {
+                throw unavailable("Spatial safety service returned an incomplete route assessment", null);
+            }
+            List<RouteDecision> decisions = new ArrayList<>(results.size());
+            for (int index = 0; index < results.size(); index++) {
+                JsonNode result = results.get(index);
+                RouteCandidate candidate = routes.get(index);
+                String routeId = result.path("routeId").asText("");
+                String outcome = result.path("outcome").asText("");
+                String reasonCode = result.path("reasonCode").asText("");
+                JsonNode restrictions = result.path("restrictionIds");
+                JsonNode segments = result.path("affectedSegmentIndices");
+                JsonNode permits = result.path("permitsOperation");
+                Instant routeValidUntil = parseInstant(result.path("validUntil").asText(""));
+                if (!candidate.routeId().equals(routeId) || !OUTCOMES.contains(outcome)
+                        || reasonCode.isBlank() || !restrictions.isArray() || !segments.isArray()
+                        || !permits.isBoolean() || routeValidUntil == null
+                        || routeValidUntil.isBefore(validUntil) || routeValidUntil.isAfter(evaluatedAt.plusSeconds(15))) {
+                    throw unavailable("Spatial safety service returned an invalid route decision", null);
+                }
+                boolean expectedPermits = "ALLOWED".equals(outcome) || "CAUTION".equals(outcome);
+                if (permits.asBoolean() != expectedPermits) {
+                    throw unavailable("Spatial safety service returned an inconsistent route outcome", null);
+                }
+                List<String> restrictionIds = new ArrayList<>();
+                for (JsonNode restriction : restrictions) {
+                    if (!restriction.isTextual() || restriction.asText().isBlank()) {
+                        throw unavailable("Spatial safety service returned invalid restriction references", null);
+                    }
+                    restrictionIds.add(restriction.asText());
+                }
+                List<Integer> affectedSegments = new ArrayList<>();
+                for (JsonNode segment : segments) {
+                    if (!segment.canConvertToInt() || segment.asInt() < 0
+                            || segment.asInt() >= candidate.points().size() - 1) {
+                        throw unavailable("Spatial safety service returned invalid segment references", null);
+                    }
+                    affectedSegments.add(segment.asInt());
+                }
+                decisions.add(new RouteDecision(routeId, outcome, restrictionIds, reasonCode,
+                        affectedSegments, permits.asBoolean(), routeValidUntil));
+            }
+            return new RouteEvaluation(snapshotId, evaluatedAt, validUntil, decisions);
+        } catch (WebApplicationException exception) {
+            throw exception;
+        } catch (IOException exception) {
+            throw unavailable("Spatial route safety response could not be read", exception);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw unavailable("Spatial route safety evaluation was interrupted", exception);
+        } catch (RuntimeException exception) {
+            throw unavailable("Spatial route safety evaluation is unavailable", exception);
+        }
+    }
+
+    URI routeEvaluationUri() {
+        String base = safetyBaseUrl.map(String::trim).filter(value -> !value.isEmpty())
+                .orElseThrow(() -> unavailable("jezaku.spatial.safety.base-url is not configured", null));
+        String normalized = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
+        return URI.create(normalized + "/safety/spatial/evaluate/routes");
+    }
+
+    private void validateRouteCandidates(List<RouteCandidate> routes, double corridorBufferMeters) {
+        if (routes == null || routes.isEmpty() || routes.size() > 5
+                || !Double.isFinite(corridorBufferMeters) || corridorBufferMeters < 0 || corridorBufferMeters > 500) {
+            throw unavailable("Route candidates or corridor buffer are outside supported bounds", null);
+        }
+        Set<String> ids = new HashSet<>();
+        int totalVertices = 0;
+        for (RouteCandidate route : routes) {
+            if (route == null || route.routeId() == null || route.routeId().isBlank()
+                    || route.routeId().length() > 64 || !ids.add(route.routeId())
+                    || route.points() == null || route.points().size() < 2 || route.points().size() > 2_000) {
+                throw unavailable("Route candidate is malformed or exceeds supported bounds", null);
+            }
+            totalVertices += route.points().size();
+            if (totalVertices > 5_000 || route.points().stream().anyMatch(java.util.Objects::isNull)) {
+                throw unavailable("Route batch exceeds supported geometry bounds", null);
+            }
+            for (GeoPoint point : route.points()) {
+                if (!Double.isFinite(point.latitude()) || point.latitude() < -90 || point.latitude() > 90
+                        || !Double.isFinite(point.longitude()) || point.longitude() < -180 || point.longitude() > 180) {
+                    throw unavailable("Route coordinates are outside WGS84 bounds", null);
+                }
+            }
+        }
+    }
+
+    private Instant parseInstant(String value) {
+        try {
+            return value == null || value.isBlank() ? null : Instant.parse(value);
+        } catch (RuntimeException exception) {
+            return null;
+        }
+    }
+
+    private record RouteRequest(String routeId, List<RoutePoint> points) { }
+    private record RoutePoint(double latitude, double longitude) { }
 
     URI batchEvaluationUri() {
         String base = safetyBaseUrl.map(String::trim).filter(value -> !value.isEmpty())

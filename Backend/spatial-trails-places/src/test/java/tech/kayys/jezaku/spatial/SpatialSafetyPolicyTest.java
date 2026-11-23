@@ -106,6 +106,41 @@ class SpatialSafetyPolicyTest {
         assertEquals(503, failure.getResponse().getStatus());
     }
 
+
+    @Test
+    void routeSafetyDefaultFailsClosedWhenNoAdapterIsConfigured() {
+        SpatialSafety safety = new SpatialSafety() {
+            @Override
+            public void requirePublishPermitted(GeoPoint position) {
+            }
+
+            @Override
+            public List<String> evaluate(String activity, List<GeoPoint> positions) {
+                return List.of();
+            }
+        };
+        var candidate = new SpatialSafety.RouteCandidate("candidate",
+                List.of(new GeoPoint(-6.9, 107.59, null), new GeoPoint(-6.9, 107.60, null)));
+
+        WebApplicationException failure = assertThrows(WebApplicationException.class,
+                () -> safety.evaluateRoutes(List.of(candidate), 0));
+
+        assertEquals(503, failure.getResponse().getStatus());
+    }
+
+    @Test
+    void explicitLocalAllowAllProvidesOnlyShortLivedDevelopmentAssessment() {
+        var candidate = new SpatialSafety.RouteCandidate("candidate",
+                List.of(new GeoPoint(-6.9, 107.59, null), new GeoPoint(-6.9, 107.60, null)));
+
+        var assessment = SpatialSafety.allowAll().evaluateRoutes(List.of(candidate), 0);
+
+        assertEquals("local-unenforced", assessment.policySnapshotId());
+        assertEquals(1, assessment.results().size());
+        assertEquals("ALLOWED", assessment.results().get(0).outcome());
+        assertTrue(assessment.results().get(0).validUntil().isAfter(assessment.evaluatedAt()));
+    }
+
     private static SpatialSafety denyAll() {
         return new SpatialSafety() {
             @Override
