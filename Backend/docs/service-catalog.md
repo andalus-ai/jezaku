@@ -20,6 +20,7 @@ The parent Maven project is `Backend/pom.xml`. The following catalog reflects th
 | `messaging` | 8114 | Direct, group, and spatial-context conversations |
 | `rewards` | 8115 | XP, badges, streaks, reward profiles, leaderboards |
 | `camera` | 8116 | Camera HUD context, sessions, safety zones, minimap overlays |
+| `commerce` | 8117 | Merchant verification, store registry, authoritative placement, promotions and redemption |
 
 ## Shared module
 
@@ -33,3 +34,5 @@ Each service exposes its Quarkus Swagger UI and OpenAPI document using the stand
 - OpenAPI: `http://localhost:<port>/q/openapi`
 
 See [../service-ports.md](../service-ports.md) for the complete URL table. Keep this catalog and that file synchronized when ports or module ownership changes.
+
+Commerce starts as a logical Quarkus module. Its initial domain foundation is implemented; persistence and public APIs are staged separately. See [Commerce README](../commerce/README.md).

@@ -5,9 +5,9 @@ These instructions apply to everything under `Backend/`. Read this file before c
 ## Scope and architecture
 
 - Backend is a Maven multi-module project using Quarkus and Java.
-- `Backend/pom.xml` is the aggregator and lists the runnable service modules plus the shared `common` library.
+- `Backend/pom.xml` is the aggregator and lists the runnable service modules plus shared libraries such as `common`.
 - `common` contains shared infrastructure and cross-service utilities; it is not a runnable service.
-- Each service owns its API, application/domain logic, persistence adapters, configuration, and tests. See `Backend/docs/architecture.md` and `Backend/docs/service-catalog.md`.
+- Each service owns its API, application/domain logic, persistence adapters, configuration, and tests. Commerce is a logical domain module; keep merchant and offer truth there, not in Discovery or Social. See `Backend/docs/architecture.md` and `Backend/docs/service-catalog.md`.
 - Do not introduce a new service or shared abstraction until its ownership and deployment need are clear.
 
 ## Required engineering practices

@@ -18,3 +18,4 @@
 | `messaging` | `8114` | `http://localhost:8114/q/swagger-ui` | `http://localhost:8114/q/openapi` |
 | `rewards` | `8115` | `http://localhost:8115/q/swagger-ui` | `http://localhost:8115/q/openapi` |
 | `camera` | `8116` | `http://localhost:8116/q/swagger-ui` | `http://localhost:8116/q/openapi` |
+| `commerce` | `8117` | `http://localhost:8117/q/swagger-ui` | `http://localhost:8117/q/openapi` |
