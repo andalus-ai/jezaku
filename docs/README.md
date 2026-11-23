@@ -11,6 +11,7 @@ This directory contains product direction, target architecture, implementation g
 - [API standards](api-standards.md)
 - [Security and safety](security-and-safety.md)
 - [Implementation plan](implementation-plan.md)
+- [Repository capability inventory](repository-capability-inventory.md) — source-backed current-state matrix, integration gaps, and recommended implementation sequence.
 - [Architecture decisions](decisions/)
 
 ## Existing technical documentation
