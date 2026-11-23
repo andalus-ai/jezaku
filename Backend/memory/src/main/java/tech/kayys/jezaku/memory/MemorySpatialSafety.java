@@ -11,6 +11,18 @@ interface MemorySpatialSafety {
         return true;
     }
 
+    /** Evaluates a bounded candidate set against one policy snapshot, preserving input order. */
+    default java.util.List<String> evaluateDiscover(java.util.List<GeoPoint> positions) {
+        return positions.stream().map(this::isRenderPermitted)
+                .map(allowed -> allowed ? "ALLOWED" : "PROHIBITED").toList();
+    }
+
+    /** Evaluates render eligibility for a bounded candidate set. */
+    default java.util.List<String> evaluateRender(java.util.List<GeoPoint> positions) {
+        return positions.stream().map(this::isRenderPermitted)
+                .map(allowed -> allowed ? "ALLOWED" : "PROHIBITED").toList();
+    }
+
     static MemorySpatialSafety allowAll() {
         return position -> { };
     }
