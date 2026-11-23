@@ -83,7 +83,7 @@ public class SpatialSafetyResource extends tech.kayys.jezaku.auth.CallerAwareRes
     public SpatialSafetyDtos.PolicyChangesResponse policyChanges(
             @QueryParam("afterRevision") @DefaultValue("0") long afterRevision,
             @QueryParam("limit") @DefaultValue("100") int limit) {
-        AuthContext.requireService(requestContext, ServiceScopes.SPATIAL_POLICY_EVALUATE);
+        AuthContext.requireService(requestContext, ServiceScopes.SPATIAL_POLICY_CHANGES_READ);
         if (afterRevision < 0) {
             throw new BadRequestException("afterRevision must be non-negative");
         }
