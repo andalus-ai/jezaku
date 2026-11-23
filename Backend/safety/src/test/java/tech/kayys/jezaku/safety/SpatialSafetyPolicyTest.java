@@ -107,6 +107,94 @@ class SpatialSafetyPolicyTest {
                 0, 0, SpatialRestriction.Activity.ALL, NOW));
     }
 
+    @Test
+    void blocksRouteWhenRestrictionIsBetweenClearEndpoints() {
+        SpatialRestriction restriction = new SpatialRestriction(
+                "mid-route-closure", 1, "AUTHORITY", "issuer-1", "test-jurisdiction", "",
+                0.0, 0.005, 150, SpatialRestriction.Outcome.PROHIBITED,
+                Set.of(SpatialRestriction.Activity.NAVIGATE),
+                NOW.minusSeconds(60), NOW.plusSeconds(600), true);
+
+        var decision = POLICY.evaluateRoute(
+                List.of(new SpatialRouteGeometry.Point(0.0, 0.0),
+                        new SpatialRouteGeometry.Point(0.0, 0.01)),
+                0, SpatialRestriction.Activity.NAVIGATE, NOW, List.of(restriction));
+
+        assertEquals(SpatialRestriction.Outcome.PROHIBITED, decision.outcome());
+        assertEquals(List.of("mid-route-closure"), decision.restrictionIds());
+        assertEquals(List.of(0), decision.affectedSegmentIndices());
+        assertFalse(decision.permitsOperation());
+    }
+
+    @Test
+    void routeCorridorBufferExpandsRestrictionIntersection() {
+        SpatialRestriction restriction = new SpatialRestriction(
+                "near-route", 1, "AUTHORITY", "issuer-1", "test-jurisdiction", "",
+                0.0018, 0.005, 100, SpatialRestriction.Outcome.CAUTION,
+                Set.of(SpatialRestriction.Activity.NAVIGATE),
+                NOW.minusSeconds(60), null, true);
+        List<SpatialRouteGeometry.Point> route = List.of(
+                new SpatialRouteGeometry.Point(0.0, 0.0),
+                new SpatialRouteGeometry.Point(0.0, 0.01));
+
+        var withoutBuffer = POLICY.evaluateRoute(route, 0,
+                SpatialRestriction.Activity.NAVIGATE, NOW, List.of(restriction));
+        var withBuffer = POLICY.evaluateRoute(route, 120,
+                SpatialRestriction.Activity.NAVIGATE, NOW, List.of(restriction));
+
+        assertEquals(SpatialRestriction.Outcome.ALLOWED, withoutBuffer.outcome());
+        assertEquals(SpatialRestriction.Outcome.CAUTION, withBuffer.outcome());
+        assertTrue(withBuffer.permitsOperation());
+    }
+
+    @Test
+    void routeIntersectionHandlesAntimeridianCrossing() {
+        SpatialRestriction restriction = new SpatialRestriction(
+                "dateline-closure", 1, "AUTHORITY", "issuer-1", "test-jurisdiction", "",
+                0.0, 180.0, 2_000, SpatialRestriction.Outcome.PROHIBITED,
+                Set.of(SpatialRestriction.Activity.NAVIGATE),
+                NOW.minusSeconds(60), null, true);
+
+        var decision = POLICY.evaluateRoute(
+                List.of(new SpatialRouteGeometry.Point(0.0, 179.9),
+                        new SpatialRouteGeometry.Point(0.0, -179.9)),
+                0, SpatialRestriction.Activity.NAVIGATE, NOW, List.of(restriction));
+
+        assertEquals(SpatialRestriction.Outcome.PROHIBITED, decision.outcome());
+        assertEquals(List.of(0), decision.affectedSegmentIndices());
+    }
+
+    @Test
+    void routeEvaluationHonorsActivityAndTimeWindows() {
+        SpatialRestriction restriction = new SpatialRestriction(
+                "publish-only", 1, "AUTHORITY", "issuer-1", "test-jurisdiction", "",
+                0.0, 0.005, 500, SpatialRestriction.Outcome.PROHIBITED,
+                Set.of(SpatialRestriction.Activity.PUBLISH),
+                NOW.plusSeconds(60), NOW.plusSeconds(600), true);
+
+        var decision = POLICY.evaluateRoute(
+                List.of(new SpatialRouteGeometry.Point(0.0, 0.0),
+                        new SpatialRouteGeometry.Point(0.0, 0.01)),
+                0, SpatialRestriction.Activity.NAVIGATE, NOW, List.of(restriction));
+
+        assertEquals(SpatialRestriction.Outcome.ALLOWED, decision.outcome());
+    }
+
+    @Test
+    void rejectsMalformedOrUnboundedRouteGeometry() {
+        assertThrows(IllegalArgumentException.class, () -> SpatialRouteGeometry.validate(
+                List.of(new SpatialRouteGeometry.Point(0, 0)), 0));
+        assertThrows(IllegalArgumentException.class, () -> SpatialRouteGeometry.validate(
+                List.of(new SpatialRouteGeometry.Point(0, 0),
+                        new SpatialRouteGeometry.Point(0, 0)), 0));
+        assertThrows(IllegalArgumentException.class, () -> SpatialRouteGeometry.validate(
+                List.of(new SpatialRouteGeometry.Point(0, 0),
+                        new SpatialRouteGeometry.Point(0, 2)), 0));
+        assertThrows(IllegalArgumentException.class, () -> SpatialRouteGeometry.validate(
+                List.of(new SpatialRouteGeometry.Point(91, 0),
+                        new SpatialRouteGeometry.Point(0, 1)), 0));
+    }
+
     private SpatialSafetyPolicy.Context context(SpatialRestriction.Activity activity) {
         return new SpatialSafetyPolicy.Context(-6.890620, 107.610790, activity, NOW);
     }
