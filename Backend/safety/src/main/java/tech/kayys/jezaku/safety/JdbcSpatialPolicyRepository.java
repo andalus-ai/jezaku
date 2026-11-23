@@ -306,9 +306,6 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
                 List<SpatialRestriction> restrictions = new ArrayList<>();
                 do {
                     String id = result.getString("restriction_id");
-                    if (id == null) {
-                        continue;
-                    }
                     Set<SpatialRestriction.Activity> activities = new HashSet<>();
                     java.sql.Array activityArray = result.getArray("activities");
                     if (activityArray != null) {
@@ -317,6 +314,9 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
                             activities.add(SpatialRestriction.Activity.valueOf(value.toString()));
                         }
                         activityArray.free();
+                    }
+                    if (id == null) {
+                        continue;
                     }
                     restrictions.add(new SpatialRestriction(id, result.getInt("version"),
                             result.getString("issuer_type"), result.getString("issuer_id"),
