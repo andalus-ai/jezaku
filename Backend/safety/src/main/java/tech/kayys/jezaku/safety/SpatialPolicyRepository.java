@@ -11,6 +11,7 @@ public interface SpatialPolicyRepository {
     void saveRestriction(SpatialRestriction restriction, String actorId, String action, String reason);
     Optional<SpatialRestriction> findRestriction(String restrictionId);
     List<SpatialRestriction> findActiveRestrictions(Instant at);
+    List<SpatialPolicyChangeEvent> findPolicyChangesAfter(long revision, int limit);
 
     /**
      * Returns active policy and its monotonic revision from one consistent
