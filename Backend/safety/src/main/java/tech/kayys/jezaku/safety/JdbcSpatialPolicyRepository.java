@@ -34,7 +34,7 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
 
     @Override
     @Transactional
-    public void saveAuthority(AuthorityPrincipal principal) {
+    public void saveAuthority(AuthorityPrincipal principal, String actorId) {
         String upsert = """
                 INSERT INTO spatial_authority (principal_id, issuer_type, status, valid_from, expires_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, now())
@@ -45,8 +45,16 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
                     expires_at = EXCLUDED.expires_at,
                     updated_at = now()
                 """;
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(upsert)) {
+        try (Connection connection = dataSource.getConnection()) {
+            boolean existed;
+            try (PreparedStatement exists = connection.prepareStatement(
+                    "SELECT 1 FROM spatial_authority WHERE principal_id = ?")) {
+                exists.setString(1, principal.principalId());
+                try (ResultSet rows = exists.executeQuery()) {
+                    existed = rows.next();
+                }
+            }
+            try (PreparedStatement statement = connection.prepareStatement(upsert)) {
             statement.setString(1, principal.principalId());
             statement.setString(2, principal.issuerType());
             statement.setString(3, principal.status().name());
@@ -82,8 +90,37 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
                 }
                 insertPermission.executeBatch();
             }
+            appendAuthorityAudit(connection, principal, actorId, existed ? "UPDATED" : "CREATED");
+            }
         } catch (SQLException exception) {
             throw persistenceFailure("save authority", exception);
+        }
+    }
+
+    @Override
+    public List<AuthorityAuditEvent> findAuthorityAuditHistory(String principalId) {
+        String sql = """
+                SELECT event_id, principal_id, action, actor_id,
+                       snapshot_json::text AS snapshot_json, occurred_at
+                FROM spatial_authority_audit
+                WHERE principal_id = ?
+                ORDER BY occurred_at DESC, event_id DESC
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, principalId);
+            try (ResultSet result = statement.executeQuery()) {
+                List<AuthorityAuditEvent> events = new ArrayList<>();
+                while (result.next()) {
+                    events.add(new AuthorityAuditEvent(result.getString("event_id"),
+                            result.getString("principal_id"), result.getString("action"),
+                            result.getString("actor_id"), result.getString("snapshot_json"),
+                            instant(result, "occurred_at")));
+                }
+                return List.copyOf(events);
+            }
+        } catch (SQLException exception) {
+            throw persistenceFailure("read authority audit", exception);
         }
     }
 
@@ -275,6 +312,29 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
             }
         } catch (SQLException exception) {
             throw persistenceFailure("read restriction audit", exception);
+        }
+    }
+
+    private void appendAuthorityAudit(Connection connection, AuthorityPrincipal principal,
+            String actorId, String action) throws SQLException {
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(principal);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Unable to serialize authority audit snapshot", exception);
+        }
+        String sql = """
+                INSERT INTO spatial_authority_audit
+                    (event_id, principal_id, action, actor_id, snapshot_json)
+                VALUES (?, ?, ?, ?, CAST(? AS JSONB))
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, "authority_audit_" + UUID.randomUUID());
+            statement.setString(2, principal.principalId());
+            statement.setString(3, action);
+            statement.setString(4, actorId);
+            statement.setString(5, json);
+            statement.executeUpdate();
         }
     }
 
