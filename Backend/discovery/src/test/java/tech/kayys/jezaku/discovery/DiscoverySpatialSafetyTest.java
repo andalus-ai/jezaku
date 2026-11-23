@@ -3,6 +3,7 @@ package tech.kayys.jezaku.discovery;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -76,5 +77,45 @@ class DiscoverySpatialSafetyTest {
 
         assertThrows(jakarta.ws.rs.WebApplicationException.class,
                 () -> service.nearby(LAT, LNG, 500.0, "viewer", null).await().indefinitely());
+    }
+
+    @Test
+    void unknownPolicyOutcomeFailsClosed() {
+        DiscoveryService service = new DiscoveryService();
+        service.spatialSafety = positions -> positions.stream().map(ignored -> "UNKNOWN").toList();
+
+        assertThrows(jakarta.ws.rs.WebApplicationException.class,
+                () -> service.nearby(LAT, LNG, 500.0, "viewer", null).await().indefinitely());
+    }
+
+    @Test
+    void developmentBypassIsExplicitAndReturnsOneOutcomePerCandidate() {
+        HttpDiscoverySpatialSafety adapter = new HttpDiscoverySpatialSafety(false, Optional.empty(), 3);
+
+        var outcomes = adapter.evaluate(List.of(
+                new DiscoveryDtos.GeoPoint(LAT, LNG, null),
+                new DiscoveryDtos.GeoPoint(LAT + 0.001, LNG, null)));
+
+        assertEquals(List.of("ALLOWED", "ALLOWED"), outcomes);
+    }
+
+    @Test
+    void enabledAdapterFailsClosedWhenSafetyEndpointIsNotConfigured() {
+        HttpDiscoverySpatialSafety adapter = new HttpDiscoverySpatialSafety(true, Optional.empty(), 3);
+
+        var exception = assertThrows(jakarta.ws.rs.WebApplicationException.class,
+                () -> adapter.evaluate(List.of(new DiscoveryDtos.GeoPoint(LAT, LNG, null))));
+
+        assertEquals(503, exception.getResponse().getStatus());
+    }
+
+    @Test
+    void adapterRejectsOversizedCandidateBatch() {
+        HttpDiscoverySpatialSafety adapter = new HttpDiscoverySpatialSafety(false, Optional.empty(), 3);
+        List<DiscoveryDtos.GeoPoint> positions = java.util.stream.IntStream.range(0, 501)
+                .mapToObj(index -> new DiscoveryDtos.GeoPoint(LAT, LNG, null))
+                .toList();
+
+        assertThrows(jakarta.ws.rs.WebApplicationException.class, () -> adapter.evaluate(positions));
     }
 }
