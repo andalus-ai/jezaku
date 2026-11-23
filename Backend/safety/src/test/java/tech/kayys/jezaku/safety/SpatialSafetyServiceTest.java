@@ -43,6 +43,27 @@ class SpatialSafetyServiceTest {
     }
 
     @Test
+    void requiresEmergencyPermissionToModifyExistingLockdown() {
+        var repository = new FakeRepository();
+        var service = new SpatialSafetyService();
+        service.repository = repository;
+        var emergency = new SpatialRestriction("restriction-emergency", 1, "GOVERNMENT", "authority-1",
+                "ID.32", "emergency order", -6.9, 107.6, 250,
+                SpatialRestriction.Outcome.EMERGENCY_LOCKDOWN, Set.of(SpatialRestriction.Activity.ALL),
+                NOW.minusSeconds(60), NOW.plusSeconds(600), true);
+        repository.saveRestriction(emergency, "authority-1", "CREATED", "test");
+        var principal = authority(Set.of(AuthorityPrincipal.Permission.UPDATE_RESTRICTION));
+
+        var request = new SpatialSafetyDtos.RestrictionUpdateRequest(1, "ID.32", "downgrade",
+                -6.9, 107.6, 250, SpatialRestriction.Outcome.ALLOWED,
+                Set.of(SpatialRestriction.Activity.NAVIGATE), NOW.minusSeconds(10), NOW.plusSeconds(600));
+
+        assertThrows(jakarta.ws.rs.ForbiddenException.class,
+                () -> service.update(principal, principal.principalId(), emergency.id(), request));
+        assertEquals(1, repository.findRestriction(emergency.id()).orElseThrow().version());
+    }
+
+    @Test
     void evaluationUsesPersistedActiveRestrictions() {
         var repository = new FakeRepository();
         var service = new SpatialSafetyService();
