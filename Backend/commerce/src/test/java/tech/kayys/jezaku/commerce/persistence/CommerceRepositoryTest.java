@@ -93,7 +93,14 @@ class CommerceRepositoryTest {
         MerchantMembership revoked = accepted.revoke(now.plusSeconds(60));
         assertTrue(memberships.update(revoked, 1, ownerId, "MEMBERSHIP_REVOKED", "TEST").isPresent());
         assertTrue(memberships.findActiveMembership(merchantId, staffId).isEmpty());
-        assertEquals(3, scalarLong("SELECT COUNT(*) FROM commerce_audit_event WHERE aggregate_type = 'MEMBERSHIP' AND aggregate_id = ?",
+
+        MerchantMembership renewed = revoked.reinvite(MerchantMembership.Role.ANALYST,
+                now.plusSeconds(120), now.plusSeconds(7200));
+        assertTrue(memberships.update(renewed, 2, ownerId, "INVITATION_RENEWED", "TEST").isPresent());
+        MerchantMembership persistedRenewal = memberships.findById(merchantId, invitation.id()).orElseThrow();
+        assertEquals(MerchantMembership.Status.INVITED, persistedRenewal.status());
+        assertEquals(now.plusSeconds(7200), persistedRenewal.invitationExpiresAt());
+        assertEquals(4, scalarLong("SELECT COUNT(*) FROM commerce_audit_event WHERE aggregate_type = 'MEMBERSHIP' AND aggregate_id = ?",
                 invitation.id()));
     }
 
