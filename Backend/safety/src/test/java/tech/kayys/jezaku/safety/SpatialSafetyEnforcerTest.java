@@ -4,6 +4,7 @@ import jakarta.ws.rs.WebApplicationException;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -59,7 +60,67 @@ class SpatialSafetyEnforcerTest {
         assertEquals(SpatialRestriction.Outcome.ALLOWED, decision.outcome());
     }
 
-    private SpatialRestriction restriction(SpatialRestriction.Outcome outcome,
+    @Test
+    void capturesOneSnapshotAndReusesItAcrossBatch() {
+        FakeRepository repository = new FakeRepository(List.of(restriction(
+                SpatialRestriction.Outcome.PROHIBITED, SpatialRestriction.Activity.DISCOVER)), false);
+        SpatialSafetyEnforcer enforcer = new SpatialSafetyEnforcer();
+        enforcer.repository = repository;
+
+        var snapshot = enforcer.captureSnapshot();
+        var decisions = enforcer.evaluateBatch(snapshot, List.of(
+                new SpatialSafetyEnforcer.EvaluationTarget(LAT, LON, SpatialRestriction.Activity.DISCOVER),
+                new SpatialSafetyEnforcer.EvaluationTarget(-6.9005, 107.6005, SpatialRestriction.Activity.DISCOVER),
+                new SpatialSafetyEnforcer.EvaluationTarget(LAT, LON, SpatialRestriction.Activity.RENDER)));
+
+        assertEquals(1, repository.readCount);
+        assertEquals(SpatialRestriction.Outcome.PROHIBITED, decisions.get(0).outcome());
+        assertEquals(SpatialRestriction.Outcome.PROHIBITED, decisions.get(1).outcome());
+        assertEquals(SpatialRestriction.Outcome.ALLOWED, decisions.get(2).outcome());
+        assertEquals(3, decisions.size());
+    }
+
+    @Test
+    void snapshotCopiesRestrictionsAndUsesOneEvaluationInstant() {
+        List<SpatialRestriction> mutable = new ArrayList<>();
+        mutable.add(restriction(SpatialRestriction.Outcome.CAUTION, SpatialRestriction.Activity.RENDER));
+        Instant evaluatedAt = Instant.now();
+        var snapshot = new SpatialSafetyEnforcer.PolicySnapshot(evaluatedAt, mutable);
+        mutable.clear();
+
+        assertEquals(1, snapshot.restrictions().size());
+        assertEquals(evaluatedAt, snapshot.evaluatedAt());
+        assertThrows(UnsupportedOperationException.class, () -> snapshot.restrictions().clear());
+    }
+
+    @Test
+    void rejectsOversizedBatchBeforeEvaluating() {
+        SpatialSafetyEnforcer enforcer = new SpatialSafetyEnforcer();
+        FakeRepository repository = new FakeRepository(List.of(), false);
+        enforcer.repository = repository;
+        var snapshot = enforcer.captureSnapshot();
+        List<SpatialSafetyEnforcer.EvaluationTarget> targets = java.util.stream.IntStream
+                .range(0, SpatialSafetyEnforcer.MAX_BATCH_SIZE + 1)
+                .mapToObj(index -> new SpatialSafetyEnforcer.EvaluationTarget(
+                        LAT, LON, SpatialRestriction.Activity.DISCOVER))
+                .toList();
+
+        assertThrows(IllegalArgumentException.class, () -> enforcer.evaluateBatch(snapshot, targets));
+        assertEquals(1, repository.readCount, "only snapshot capture may read policy storage");
+    }
+
+    @Test
+    void failsClosedWhenRepositoryReturnsNullSnapshot() {
+        SpatialSafetyEnforcer enforcer = new SpatialSafetyEnforcer();
+        enforcer.repository = new FakeRepository(null, false);
+
+        WebApplicationException exception = assertThrows(WebApplicationException.class,
+                enforcer::captureSnapshot);
+
+        assertEquals(503, exception.getResponse().getStatus());
+    }
+
+    private static SpatialRestriction restriction(SpatialRestriction.Outcome outcome,
             SpatialRestriction.Activity activity) {
         Instant now = Instant.now();
         return new SpatialRestriction("restriction-test", 1, "GOVERNMENT", "authority-test",
@@ -70,6 +131,7 @@ class SpatialSafetyEnforcerTest {
     private static final class FakeRepository implements SpatialPolicyRepository {
         private final List<SpatialRestriction> restrictions;
         private final boolean unavailable;
+        private int readCount;
 
         private FakeRepository(List<SpatialRestriction> restrictions, boolean unavailable) {
             this.restrictions = restrictions;
@@ -81,6 +143,7 @@ class SpatialSafetyEnforcerTest {
         @Override public void saveRestriction(SpatialRestriction restriction, String actorId, String action, String reason) { }
         @Override public Optional<SpatialRestriction> findRestriction(String restrictionId) { return Optional.empty(); }
         @Override public List<SpatialRestriction> findActiveRestrictions(Instant at) {
+            readCount++;
             if (unavailable) throw new IllegalStateException("database unavailable");
             return restrictions;
         }

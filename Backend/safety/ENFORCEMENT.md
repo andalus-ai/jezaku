@@ -10,7 +10,7 @@ Every affected command handler must call the enforcer after it has resolved the 
 
 1. Authenticate and authorize the user/service for the product operation.
 2. Resolve the coordinate from trusted server-side state or a validated location claim. Do not accept an arbitrary client coordinate as proof of where a merchant, asset, or destination is located.
-3. Call `SpatialSafetyEnforcer.requirePermitted(latitude, longitude, activity)`.
+3. For a single candidate, call `SpatialSafetyEnforcer.requirePermitted(latitude, longitude, activity)`. For a multi-candidate response, capture one snapshot before evaluating candidates and use `evaluateBatch(snapshot, targets)` or `requirePermitted(snapshot, ...)` against that same snapshot.
 4. If it returns, continue the operation. Preserve and surface `CAUTION` messaging to the user where appropriate.
 5. If it throws, do not publish, expose, navigate, redeem, or execute the operation.
 
@@ -36,7 +36,7 @@ For multi-stage operations, evaluate each relevant stage. A successful publish-t
 - `RESTRICTED`, `PROHIBITED`, `EMERGENCY_LOCKDOWN`: reject the operation.
 - Policy repository failure or missing authoritative result: return 503 and reject the operation. Never interpret unavailable policy data as ALLOWED.
 
-The enforcer currently reads active persisted restrictions for each evaluation; it intentionally does not introduce a cache that could serve stale policy. Any future cache must have explicit versioning/invalidation and a documented maximum staleness budget, and must preserve emergency lockdown propagation.
+The enforcer supports an explicit immutable `PolicySnapshot`. A feature request evaluating multiple candidates should call `captureSnapshot()` once, then pass that snapshot to `evaluate(...)`, `evaluateBatch(...)`, or `requirePermitted(snapshot, ...)`. Snapshot evaluation uses one fixed `evaluatedAt` instant and one copied restriction list; it performs no additional repository reads. Batches are capped at 500 candidates and preserve input order. Larger result sets must be paged or chunked; do not silently truncate them. A snapshot is request-scoped, not a cross-request cache, and must not be retained beyond the operation/request boundary. Emergency policy changes that occur after capture are observed by the next snapshot; security-sensitive multi-stage operations must capture a fresh snapshot at each stage boundary.
 
 ## Coordinate trust and freshness
 
