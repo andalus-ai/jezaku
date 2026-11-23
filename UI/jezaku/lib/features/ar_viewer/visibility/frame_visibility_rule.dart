@@ -25,10 +25,15 @@ class FrameVisibilityCandidate {
   const FrameVisibilityCandidate({
     required this.memory,
     required this.horizontalDistanceMeters,
+    this.wasViewable = false,
   });
 
   final AnchorMemory memory;
   final double horizontalDistanceMeters;
+
+  /// Whether the viewer could see this frame a moment ago. Proximity rules use
+  /// it to avoid flicker at the edge of the radius.
+  final bool wasViewable;
 }
 
 /// Who the viewer is relative to a frame's author.

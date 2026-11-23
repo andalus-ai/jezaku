@@ -42,7 +42,7 @@ Candidate future rules: age or expiry, time-of-day or event windows, family and 
 
 - **Owner and friends are not known to the client.** `AnchorMemory` records only `isPrivate`; there is no owner id and no friends list. `FrameViewerContext.localStore()` treats every on-device memory as the viewer's own, so the audience rule is complete and tested but cannot hide anything in the app today. It starts to matter when the backend feed delivers other people's frames with an owner id and a three-way visibility, and `frameAudienceOf` and `FrameViewerContext` are fed from it.
 - **Own private frames stay visible to their owner.** A person who hangs a private frame still sees it where they hung it. Change `FrameAudienceRule` if the product wants otherwise.
-- **GPS jitter at the edge.** A frame about 20 m away can flicker in and out with GPS noise. There is no hysteresis yet. Frames hung in the current AR session are placed by AR tracking, but the policy measures geographic distance.
+- **GPS jitter at the edge.** A frame that was visible stays visible up to 5 m past the radius (`defaultFrameExitMarginMeters`), so jitter at 20 m no longer makes it blink; a frame not yet visible still needs the viewer inside 20 m. Not yet validated on a device. Accuracy-aware radius and a user setting are still open. Frames hung in the current AR session are placed by AR tracking, but the policy measures geographic distance.
 - **The radius is a constant.** It is not a setting and it is not per frame.
 - **Not validated on a device.** See `ar-device-demo-lab.md`.
 
@@ -65,7 +65,7 @@ Order of work, one pull request per slice, each with tests and doc updates.
 | 4 | Tap the frame object in AR to open the photo page (native hit-test of the frame quad, event to Dart) | not built; needs a device |
 | 5 | Backend-fed audience and owner: three-way visibility and owner id on the memory model, friends from the social graph, `FrameViewerContext` fed from them | not built; needs the memory/social contract |
 | 6 | Persist and sync comments to the memory service's friends-only comment endpoints | not built; the client is not wired |
-| 7 | Edge behaviour: hysteresis for the radius, accuracy-aware radius, optional setting | not built |
+| 7 | Edge behaviour: exit-margin hysteresis and a "your nearest frame is N m away, walk closer" cue (own frames only, never other people's) | built, not validated on a device; accuracy-aware radius and a setting still open |
 | 11 | Own-frames gallery: Instagram-style grid of the owner's frames, viewable anywhere (Profile), with detail, comments and edit | built: My frames screen (Profile → My frames), 3-column grid, All/AR/Videos/Private/Needs calibration filters, opens the memory detail; today every on-device frame counts as own, `ownFramesProvider` narrows it once slice 5 supplies the owner id; comments and edit come from the existing detail screen. Not yet validated on a device |
 | 12 | On-site gate for other people's frames: Gallery, Search, Social hub, Notifications and the photo/comments page open someone else's frame only inside the physical radius; remote surfaces show a locked "Go to <place>" card with distance | planned |
 | 8 | Frame persistence across AR sessions | see [ar-frame-persistence-plan.md](ar-frame-persistence-plan.md) |

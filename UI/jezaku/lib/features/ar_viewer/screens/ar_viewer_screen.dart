@@ -109,7 +109,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   bool _isRadarExpanded = true;
   double _headingDegrees = 56;
   bool _didApplyInitialFocus = false;
-  List<ARMemoryProjection> _eligibleAnchors = const <ARMemoryProjection>[];
+  FrameVisibilityOutcome _frameVisibility = FrameVisibilityOutcome.empty;
   bool _isResolvingTrailLaunch = false;
   late String? _focusedMemoryId;
   late ARTrailSession? _trailSession;
