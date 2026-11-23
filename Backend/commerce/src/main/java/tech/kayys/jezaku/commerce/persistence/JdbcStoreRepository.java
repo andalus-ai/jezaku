@@ -14,6 +14,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Optional;
+import java.util.List;
+import java.util.ArrayList;
+import tech.kayys.jezaku.commerce.domain.StorePlacementRevision;
 
 @ApplicationScoped
 public class JdbcStoreRepository implements StoreRepository {
@@ -49,6 +52,7 @@ public class JdbcStoreRepository implements StoreRepository {
                 statement.executeUpdate();
             }
             insertPlacement(connection, store.id(), store.placement());
+            insertPlacementRevision(connection, store.id(), store.placement(), "CREATED", actorId, store.createdAt(), null);
             JdbcCommerceSupport.audit(connection, "STORE", store.id(), store.merchantId(),
                     actorId, "CREATED", null, store.version(), store.createdAt(), null);
             JdbcCommerceSupport.audit(connection, "PLACEMENT", store.id(), store.merchantId(),
@@ -70,6 +74,38 @@ public class JdbcStoreRepository implements StoreRepository {
     }
 
     @Override
+    public List<StorePlacementRevision> findPlacementHistory(String storeId) {
+        String sql = """
+            SELECT store_id, revision, latitude, longitude, horizontal_accuracy_meters, source,
+                   status, verified_by, verified_at, action, recorded_by, recorded_at, reason_code
+            FROM commerce_store_placement_revision
+            WHERE store_id = ?
+            ORDER BY revision ASC
+            """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, storeId);
+            try (ResultSet result = statement.executeQuery()) {
+                List<StorePlacementRevision> history = new ArrayList<>();
+                while (result.next()) {
+                    Object verified = result.getObject("verified_at");
+                    history.add(new StorePlacementRevision(
+                            result.getString("store_id"), result.getLong("revision"),
+                            result.getDouble("latitude"), result.getDouble("longitude"),
+                            result.getDouble("horizontal_accuracy_meters"), result.getString("source"),
+                            PlacementStatus.valueOf(result.getString("status")), result.getString("verified_by"),
+                            verified == null ? null : JdbcCommerceSupport.readInstant(result, "verified_at"),
+                            result.getString("action"), result.getString("recorded_by"),
+                            JdbcCommerceSupport.readInstant(result, "recorded_at"), result.getString("reason_code")));
+                }
+                return List.copyOf(history);
+            }
+        } catch (SQLException exception) {
+            throw JdbcCommerceSupport.persistenceFailure("placement history lookup", exception);
+        }
+    }
+
+    @Override
     @Transactional
     public Optional<Store> update(Store store, long expectedVersion,
                                   String actorId, String action, String reasonCode) {
@@ -78,6 +114,11 @@ public class JdbcStoreRepository implements StoreRepository {
             throw new IllegalArgumentException("Updated store version must equal expectedVersion + 1");
         }
         try (Connection connection = dataSource.getConnection()) {
+            StorePlacement previousPlacement = findPlacement(connection, store.id());
+            boolean placementChanged = !previousPlacement.equals(store.placement());
+            if (placementChanged && store.placement().revision() != previousPlacement.revision() + 1) {
+                throw new IllegalArgumentException("Changed placement must increment revision by exactly one");
+            }
             String sql = """
                 UPDATE commerce_store
                 SET name = ?, time_zone = ?, status = ?, updated_at = ?, version = version + 1
@@ -94,11 +135,16 @@ public class JdbcStoreRepository implements StoreRepository {
                 JdbcCommerceSupport.bindInstant(statement, 8, store.updatedAt());
                 if (statement.executeUpdate() == 0) return Optional.empty();
             }
-            updatePlacement(connection, store.id(), store.placement());
+            if (placementChanged) {
+                updatePlacement(connection, store.id(), store.placement(), previousPlacement.revision());
+                insertPlacementRevision(connection, store.id(), store.placement(), action, actorId, store.updatedAt(), reasonCode);
+            }
             JdbcCommerceSupport.audit(connection, "STORE", store.id(), store.merchantId(),
                     actorId, action, expectedVersion, store.version(), store.updatedAt(), reasonCode);
-            JdbcCommerceSupport.audit(connection, "PLACEMENT", store.id(), store.merchantId(),
-                    actorId, "UPDATED", null, store.placement().revision(), store.updatedAt(), reasonCode);
+            if (placementChanged) {
+                JdbcCommerceSupport.audit(connection, "PLACEMENT", store.id(), store.merchantId(),
+                        actorId, action, previousPlacement.revision(), store.placement().revision(), store.updatedAt(), reasonCode);
+            }
             return Optional.of(store);
         } catch (SQLException exception) {
             throw JdbcCommerceSupport.persistenceFailure("store update", exception);
@@ -157,12 +203,12 @@ public class JdbcStoreRepository implements StoreRepository {
     }
 
     private static void updatePlacement(Connection connection, String storeId,
-                                        StorePlacement placement) throws SQLException {
+                                        StorePlacement placement, long expectedRevision) throws SQLException {
         String sql = """
             UPDATE commerce_store_placement
             SET latitude = ?, longitude = ?, horizontal_accuracy_meters = ?, source = ?,
                 status = ?, verified_by = ?, verified_at = ?, revision = ?
-            WHERE store_id = ?
+            WHERE store_id = ? AND revision = ?
             """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setDouble(1, placement.latitude());
@@ -178,7 +224,57 @@ public class JdbcStoreRepository implements StoreRepository {
             }
             statement.setLong(8, placement.revision());
             statement.setString(9, storeId);
-            if (statement.executeUpdate() == 0) throw new SQLException("Store placement row is missing");
+            statement.setLong(10, expectedRevision);
+            if (statement.executeUpdate() == 0) throw new SQLException("Store placement revision conflict or missing row");
+        }
+    }
+
+
+    private static StorePlacement findPlacement(Connection connection, String storeId) throws SQLException {
+        String sql = """
+            SELECT latitude, longitude, horizontal_accuracy_meters, source, status,
+                   verified_by, verified_at, revision
+            FROM commerce_store_placement WHERE store_id = ? FOR UPDATE
+            """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, storeId);
+            try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) throw new SQLException("Store placement row is missing");
+                Object verified = result.getObject("verified_at");
+                return new StorePlacement(result.getDouble("latitude"), result.getDouble("longitude"),
+                        result.getDouble("horizontal_accuracy_meters"), result.getString("source"),
+                        PlacementStatus.valueOf(result.getString("status")), result.getString("verified_by"),
+                        verified == null ? null : JdbcCommerceSupport.readInstant(result, "verified_at"),
+                        result.getLong("revision"));
+            }
+        }
+    }
+
+    private static void insertPlacementRevision(Connection connection, String storeId,
+            StorePlacement placement, String action, String actorId, java.time.Instant recordedAt,
+            String reasonCode) throws SQLException {
+        String sql = """
+            INSERT INTO commerce_store_placement_revision
+              (store_id, revision, latitude, longitude, horizontal_accuracy_meters, source, status,
+               verified_by, verified_at, action, recorded_by, recorded_at, reason_code)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, storeId);
+            statement.setLong(2, placement.revision());
+            statement.setDouble(3, placement.latitude());
+            statement.setDouble(4, placement.longitude());
+            statement.setDouble(5, placement.horizontalAccuracyMeters());
+            statement.setString(6, placement.source());
+            statement.setString(7, placement.status().name());
+            statement.setString(8, placement.status() == PlacementStatus.VERIFIED ? placement.verifiedBy() : null);
+            if (placement.status() == PlacementStatus.VERIFIED) JdbcCommerceSupport.bindInstant(statement, 9, placement.verifiedAt());
+            else statement.setNull(9, java.sql.Types.TIMESTAMP_WITH_TIMEZONE);
+            statement.setString(10, action);
+            statement.setString(11, actorId);
+            JdbcCommerceSupport.bindInstant(statement, 12, recordedAt);
+            statement.setString(13, reasonCode);
+            statement.executeUpdate();
         }
     }
 
