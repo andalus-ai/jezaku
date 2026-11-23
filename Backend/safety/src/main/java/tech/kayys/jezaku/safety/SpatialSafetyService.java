@@ -53,6 +53,7 @@ public class SpatialSafetyService {
         SpatialRestriction current = requireRestriction(restrictionId);
         requireOwner(principal, current);
         AuthorityPrincipal.Permission permission = request.outcome() == SpatialRestriction.Outcome.EMERGENCY_LOCKDOWN
+                || current.outcome() == SpatialRestriction.Outcome.EMERGENCY_LOCKDOWN
                 ? AuthorityPrincipal.Permission.ISSUE_EMERGENCY_LOCKDOWN
                 : AuthorityPrincipal.Permission.UPDATE_RESTRICTION;
         authorize(principal, request.jurisdiction(), permission);
@@ -63,7 +64,11 @@ public class SpatialSafetyService {
                 principal.issuerType(), principal.principalId(), request.jurisdiction(), request.legalBasis(),
                 request.centerLatitude(), request.centerLongitude(), request.radiusMeters(), request.outcome(),
                 request.activities(), request.effectiveFrom(), request.expiresAt(), true);
-        repository.saveRestriction(updated, actorId, "UPDATED", "Updated by authorized authority");
+        try {
+            repository.saveRestriction(updated, actorId, "UPDATED", "Updated by authorized authority");
+        } catch (IllegalStateException exception) {
+            throw new WebApplicationException(exception.getMessage(), 409);
+        }
         return updated;
     }
 
