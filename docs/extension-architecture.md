@@ -19,7 +19,7 @@ A package declares publisher-qualified ID, name, semantic version, manifest sche
 Illustrative manifest fields:
 - manifestVersion
 - id and version
-- compatibility.j ezakuApi (formal schema must use compatibility.jezakuApi)
+- compatibility.jezakuApi
 - capabilities[]
 - permissions[]
 - objects[]
