@@ -83,7 +83,7 @@ Do not interpret this catalog as a reason to add another service. Extend the own
 | Navigation and Qibla | **Planned / partial primitives** | Geospatial coordinates, bearing helpers, compass/sensor dependencies and trail guidance provide primitives. | No evidence in this inventory of a complete route graph, safe route validation, generic target/instruction API or Qibla experience contract. Straight-line bearing is not a navigable route. |
 | Spatial safety evaluator | **Implemented foundation** | `SpatialSafetyPolicy` evaluates circular restrictions, activity scope, active window and precedence: emergency lockdown, prohibited, restricted, caution, allowed. | Current evaluator handles supplied circular rules; polygon geometry, richer hazard geometry and all enforcement call sites remain gaps. |
 | Authority identity and authorization | **Implemented foundation** | `AuthorityPrincipal` and authorization checks cover verified status, validity, jurisdiction scopes and permissions. | Authority onboarding, identity proofing/feed ingestion and operational workflows need integration and threat review. |
-| Spatial policy persistence and audit | **Implemented foundation** | `SpatialPolicyRepository`, JDBC adapter and PostgreSQL/Flyway migrations persist authorities, scopes, permissions, restrictions and audit snapshots. PRs #121, #122 and #123 are merged. | The merged persistence slice explicitly does not yet wire spatial-policy REST endpoints or enforcement call sites to the repository. Verify migration in PostgreSQL-backed CI/integration tests. |
+| Spatial policy persistence and audit | **Implemented foundation** | `SpatialPolicyRepository`, JDBC adapter and PostgreSQL/Flyway migrations persist authorities, scopes, permissions, restrictions and audit snapshots. PRs #121, #122 and #123 are merged. | The REST resource and application service now connect authority operations and evaluation to the repository. Verify the API's authentication/authorization behavior and migration in PostgreSQL-backed CI/integration tests; feature-service enforcement call sites remain a separate gap. |
 | Safety enforcement across publish/discovery/render/navigation/redeem | **Partial / planned integration** | Policy activity enum includes publish, discover, render, navigate, redeem and interact. | Evaluator and persistence do not prove every operation is gated. Build an enforcement matrix and fail-safe behavior before public publishing or commerce. |
 | Generic asset pipeline | **Partial primitives** | Media service owns upload and moderation; AR packages validate/render model assets and cache models. | No inspected end-to-end reusable asset catalog with licenses, variants, provenance, spatial constraints and marketplace lifecycle. |
 | Extension SDK/marketplace | **Planned** | Target architecture and extension guidance exist in `docs/extension-architecture.md`. | No inspected extension manifest registry, package signing/validation/publishing, permission broker, sandbox or revocation pipeline. |
@@ -110,7 +110,9 @@ A memory frame is one important kind of spatial content, but its owner, visibili
 
 ### 5.3 Safety has progressed beyond the earlier target docs
 
-Spatial safety is not merely a proposed idea anymore: evaluator, authority authorization and persistence/audit slices have landed. However, **persistence is not enforcement**. The next safety work is API/authentication integration, repository-backed evaluation, geometry expansion, cache/version propagation and explicit call-site enforcement.
+Spatial safety is not merely a proposal: the repository contains authority authorization, PostgreSQL persistence/audit, a REST resource/application service, a circular-geofence evaluator, and a shared fail-closed `SpatialSafetyEnforcer`. The API is documented in `Backend/safety/API.md`; the feature call order is documented in `Backend/safety/ENFORCEMENT.md`.
+
+However, **an API and reusable enforcer are not proof that every feature path is protected**. The next work is request-scoped/batch evaluation, explicit enforcement in discovery and memory publish/render paths, route geometry validation, authority provisioning/operational hardening, and later geometry/cache/offline evolution.
 
 The safety service must remain the policy authority. UI-side suppression is defense in depth, not the security boundary.
 
@@ -178,12 +180,13 @@ This sequence updates the proposed implementation plan based on the actual repos
 
 ### M1 — Spatial safety integration (highest priority before public extensibility)
 
-- [ ] Add/confirm authenticated authority-facing API boundary and server-resolved principal; never accept authority identity from request body.
-- [ ] Connect REST operations to `SpatialPolicyRepository` and repository-backed evaluation.
-- [ ] Define and implement enforcement call sites for publish, discover, render eligibility, navigate, redeem and interact.
-- [ ] Define geometry support roadmap (circle now; polygon/corridor/vertical bounds as needed) and explicit CRS/units.
-- [ ] Add policy version, cache invalidation/expiry and offline stale-policy behavior.
-- [ ] Add PostgreSQL-backed repository tests, REST authorization tests and enforcement matrix tests.
+- [x] Implement authority-facing REST API and server-resolved authority principal (see `Backend/safety/API.md`).
+- [x] Connect authority operations and evaluation to `SpatialPolicyRepository` and persisted restrictions.
+- [x] Add shared fail-closed `SpatialSafetyEnforcer` and unit tests.
+- [ ] Integrate enforcement into discovery, memory publish/render, navigation, interaction and (future) redemption call sites.
+- [ ] Add request-scoped/batch policy snapshots before list-endpoint integration to avoid N+1 database reads.
+- [ ] Define route geometry validation, policy version/cache invalidation and offline stale-policy behavior.
+- [ ] Add PostgreSQL-backed repository tests and feature-level enforcement integration tests.
 - [ ] Keep existing guardian safety-zone/report behavior intact.
 
 ### M2 — Spatial vocabulary and compatibility contracts
