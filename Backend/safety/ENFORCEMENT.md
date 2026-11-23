@@ -51,3 +51,10 @@ The enforcer supports an explicit immutable `PolicySnapshot`. A feature request 
 The Safety service exposes `POST /safety/spatial/evaluate/batch` for service-authenticated candidate sets. It captures one snapshot and returns ordered decisions with one timestamp. Discovery uses this endpoint for nearby, search, trending, and for-you candidates; `CAUTION` items remain visible with `safetyOutcome=CAUTION`, while all blocking outcomes are omitted. A missing, failed, or incomplete policy response fails the entire discovery request with 503. Memory publishing continues to use its existing single-coordinate `PUBLISH` integration. Memory feed/minimap/nearby/render-time filtering is not yet wired and remains a separate integration step. Each feature integration must retain tests proving that a matching restriction blocks the response or side effect.
 
 The current evaluator supports circular geofences. Route-segment intersection, polygon/multipolygon rules, offline signed policy bundles, and distributed invalidation are future work.
+
+
+## Route geometry primitive
+
+The Safety module includes `SpatialRouteGeometry` and route methods on `SpatialSafetyPolicy` / `SpatialSafetyEnforcer`. They validate bounded WGS84 polylines and evaluate every great-circle segment against active circular restrictions using one captured policy snapshot. The current bounds are 2,000 vertices, 100 km per segment, 500 km total route length, and a server-enforced maximum 500 m corridor buffer. The result contains an outcome and affected zero-based segment indices, not restriction geometry.
+
+This is an internal enforcement primitive only. It does not generate routes, expose an HTTP route endpoint, select alternatives, or authorize any current Flutter guidance. Those remain follow-up integration work. The spherical calculation is appropriate for bounded route segments but is not a substitute for road/path topology, terrain, closures, or physical-safety data.
