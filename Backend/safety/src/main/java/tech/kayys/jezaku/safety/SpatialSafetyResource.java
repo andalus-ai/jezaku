@@ -17,6 +17,7 @@ import tech.kayys.jezaku.auth.AuthenticatedService;
 import tech.kayys.jezaku.auth.AuthenticatedUser;
 import tech.kayys.jezaku.auth.ServiceScopes;
 import tech.kayys.jezaku.safety.SpatialSafetyDtos.EvaluationRequest;
+import tech.kayys.jezaku.safety.SpatialSafetyDtos.EvaluationBatchItem;
 import tech.kayys.jezaku.safety.SpatialSafetyDtos.EvaluationBatchRequest;
 import tech.kayys.jezaku.safety.SpatialSafetyDtos.EvaluationBatchResponse;
 import tech.kayys.jezaku.safety.SpatialSafetyDtos.EvaluationResponse;
@@ -88,8 +89,9 @@ public class SpatialSafetyResource extends tech.kayys.jezaku.auth.CallerAwareRes
         return new EvaluationBatchResponse(results, snapshot.evaluatedAt());
     }
 
-    private SpatialSafetyEnforcer.EvaluationTarget toTarget(EvaluationRequest request) {
-        if (request == null || request.activity() == null || request.activity() == SpatialRestriction.Activity.ALL) {
+    private SpatialSafetyEnforcer.EvaluationTarget toTarget(EvaluationBatchItem request) {
+        if (request == null || request.latitude() == null || request.longitude() == null
+                || request.activity() == null || request.activity() == SpatialRestriction.Activity.ALL) {
             throw new BadRequestException("A concrete activity is required for every batch item");
         }
         if (!Double.isFinite(request.latitude()) || request.latitude() < -90 || request.latitude() > 90
