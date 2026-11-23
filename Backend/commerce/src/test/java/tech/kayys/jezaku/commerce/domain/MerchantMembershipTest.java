@@ -39,6 +39,20 @@ class MerchantMembershipTest {
                 CREATED, CREATED.plusSeconds(3600)));
     }
 
+
+    @Test
+    void expiredOrRevokedMembershipCanBeReinvitedWithoutCreatingDuplicateIdentityRows() {
+        MerchantMembership invitation = MerchantMembership.invite("membership-5", "merchant-1",
+                "user-5", MerchantMembership.Role.ANALYST, CREATED, CREATED.plusSeconds(3600));
+        MerchantMembership renewed = invitation.reinvite(MerchantMembership.Role.STORE_MANAGER,
+                CREATED.plusSeconds(3600), CREATED.plusSeconds(7200));
+        assertEquals(invitation.id(), renewed.id());
+        assertEquals(MerchantMembership.Role.STORE_MANAGER, renewed.role());
+        assertEquals(1, renewed.version());
+        assertThrows(IllegalStateException.class,
+                () -> invitation.reinvite(MerchantMembership.Role.ANALYST, CREATED.plusSeconds(10), CREATED.plusSeconds(7200)));
+    }
+
     @Test
     void revokedMembershipCannotBeAcceptedOrRevokedAgain() {
         MerchantMembership invitation = MerchantMembership.invite("membership-4", "merchant-1",
