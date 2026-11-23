@@ -47,7 +47,7 @@ No request body. Only the authenticated user whose ID matches the invitation tar
 
 `GET /commerce/merchants/{merchantId}/memberships`
 
-OWNER, ADMIN, and STORE_MANAGER can list membership records. ANALYST is denied access to staff enumeration.
+Only OWNER and ADMIN can list membership records. STORE_MANAGER and ANALYST cannot enumerate staff.
 
 ## Revoke staff access
 
