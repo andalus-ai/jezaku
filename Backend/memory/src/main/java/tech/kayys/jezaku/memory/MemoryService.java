@@ -154,7 +154,8 @@ public class MemoryService {
             MemoryRecord memory = repository.findById(id);
             if (memory == null
                     || !onSite.withinReach(memory, viewerId, lat, lng, Double.MAX_VALUE)
-                    || !viewableBy(memory, viewerId, relationshipsTo(viewerId, memory.ownerId()))) {
+                    || !viewableBy(memory, viewerId, relationshipsTo(viewerId, memory.ownerId()))
+                    || (!memory.ownerId().equals(viewerId) && !spatialSafety.isRenderPermitted(memory.position()))) {
                 throw new NotFoundException("Memory not found: " + id);
             }
             GeoPoint viewer = lat == null || lng == null ? memory.position() : new GeoPoint(lat, lng, null);
@@ -259,6 +260,7 @@ public class MemoryService {
                             memory -> excludedOwner == null || !memory.ownerId().equals(excludedOwner),
                             memory -> onSite.withinReach(memory, viewerId, lat, lng, radius))
                     .stream()
+                    .filter(memory -> spatialSafety.isRenderPermitted(memory.position()))
                     .map(memory -> toDot(memory, origin, radius))
                     .filter(dot -> dot.distanceMeters() <= radius)
                     .sorted(Comparator.comparingDouble(MiniMapDot::distanceMeters))
@@ -302,6 +304,7 @@ public class MemoryService {
                             memory -> excludedOwner == null || !memory.ownerId().equals(excludedOwner),
                             memory -> onSite.withinReach(memory, viewerId, lat, lng, radius))
                     .stream()
+                    .filter(memory -> spatialSafety.isRenderPermitted(memory.position()))
                     .map(memory -> toMinimapDot(memory, origin, orientation, radius))
                     .filter(dot -> dot.distanceMeters() <= radius)
                     .sorted(Comparator.comparingDouble(MemoryMinimapDot::distanceMeters))
@@ -341,6 +344,9 @@ public class MemoryService {
             List<MemoryResponse> result = repository.findAll().stream()
                     .filter(memory -> memory.ownerId().equals(normalizedUserId))
                     .filter(memory -> viewableBy(memory, viewerId, relationships))
+                    // The owner's profile is their gallery; other users' public profiles are render surfaces.
+                    .filter(memory -> memory.ownerId().equals(viewerId)
+                            || spatialSafety.isRenderPermitted(memory.position()))
                     .sorted(Comparator.comparing(MemoryRecord::capturedAt).reversed())
                     .map(memory -> toResponse(memory, memory.position()))
                     .toList();
@@ -360,6 +366,7 @@ public class MemoryService {
                             memory -> true,
                             memory -> onSite.withinReach(memory, viewerId, lat, lng, Double.MAX_VALUE))
                     .stream()
+                    .filter(memory -> spatialSafety.isRenderPermitted(memory.position()))
                     .sorted(Comparator.comparing(MemoryRecord::capturedAt).reversed())
                     .map(memory -> toResponse(memory, viewer == null ? memory.position() : viewer))
                     .toList();
