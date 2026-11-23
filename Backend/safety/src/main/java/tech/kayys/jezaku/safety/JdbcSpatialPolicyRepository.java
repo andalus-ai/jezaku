@@ -402,9 +402,9 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
             String action, long revision) throws SQLException {
         String sql = """
                 INSERT INTO spatial_policy_change_outbox (
-                    policy_revision, event_id, restriction_id, restriction_version,
-                    action, jurisdiction, outcome, activities
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    policy_revision, event_id, event_type, event_version, restriction_id,
+                    restriction_version, action, jurisdiction, outcome, activities
+                ) VALUES (?, ?, 'spatial.policy.changed', 1, ?, ?, ?, ?, ?, ?)
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setLong(1, revision);
