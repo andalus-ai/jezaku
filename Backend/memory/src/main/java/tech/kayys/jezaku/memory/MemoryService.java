@@ -255,12 +255,12 @@ public class MemoryService {
             GeoPoint origin = new GeoPoint(lat, lng, null);
             double radius = normalizeRadius(radiusMeters);
             String excludedOwner = optionalTrim(excludeOwnerId, null);
-            return readable(
-                            viewerId,
-                            memory -> excludedOwner == null || !memory.ownerId().equals(excludedOwner),
-                            memory -> onSite.withinReach(memory, viewerId, lat, lng, radius))
+            List<MemoryRecord> candidates = readable(
+                    viewerId,
+                    memory -> excludedOwner == null || !memory.ownerId().equals(excludedOwner),
+                    memory -> onSite.withinReach(memory, viewerId, lat, lng, radius));
+            return spatiallyPermitted(candidates, spatialSafety.evaluateDiscover(positionsOf(candidates)))
                     .stream()
-                    .filter(memory -> spatialSafety.isRenderPermitted(memory.position()))
                     .map(memory -> toDot(memory, origin, radius))
                     .filter(dot -> dot.distanceMeters() <= radius)
                     .sorted(Comparator.comparingDouble(MiniMapDot::distanceMeters))
@@ -299,12 +299,13 @@ public class MemoryService {
             double radius = normalizeRadius(radiusMeters);
             int normalizedLimit = normalizeMinimapLimit(limit);
             String excludedOwner = optionalTrim(excludeOwnerId, null);
-            List<MemoryMinimapDot> available = readable(
-                            viewerId,
-                            memory -> excludedOwner == null || !memory.ownerId().equals(excludedOwner),
-                            memory -> onSite.withinReach(memory, viewerId, lat, lng, radius))
+            List<MemoryRecord> candidates = readable(
+                    viewerId,
+                    memory -> excludedOwner == null || !memory.ownerId().equals(excludedOwner),
+                    memory -> onSite.withinReach(memory, viewerId, lat, lng, radius));
+            List<MemoryMinimapDot> available = spatiallyPermitted(
+                    candidates, spatialSafety.evaluateDiscover(positionsOf(candidates)))
                     .stream()
-                    .filter(memory -> spatialSafety.isRenderPermitted(memory.position()))
                     .map(memory -> toMinimapDot(memory, origin, orientation, radius))
                     .filter(dot -> dot.distanceMeters() <= radius)
                     .sorted(Comparator.comparingDouble(MemoryMinimapDot::distanceMeters))
@@ -341,13 +342,18 @@ public class MemoryService {
                 return new MemoryFeedResponse(normalizedUserId, 0, List.of());
             }
             Map<String, MemoryRelationship> relationships = relationshipsTo(viewerId, normalizedUserId);
-            List<MemoryResponse> result = repository.findAll().stream()
+            List<MemoryRecord> profileCandidates = repository.findAll().stream()
                     .filter(memory -> memory.ownerId().equals(normalizedUserId))
                     .filter(memory -> viewableBy(memory, viewerId, relationships))
                     // The owner's profile is their gallery; other users' public profiles are render surfaces.
-                    .filter(memory -> memory.ownerId().equals(viewerId)
-                            || spatialSafety.isRenderPermitted(memory.position()))
                     .sorted(Comparator.comparing(MemoryRecord::capturedAt).reversed())
+                    .toList();
+            // Owners retain their unrestricted gallery; only another person's profile is a render surface.
+            List<MemoryRecord> renderable = normalizedUserId.equals(viewerId)
+                    ? profileCandidates
+                    : spatiallyPermitted(
+                            profileCandidates, spatialSafety.evaluateRender(positionsOf(profileCandidates)));
+            List<MemoryResponse> result = renderable.stream()
                     .map(memory -> toResponse(memory, memory.position()))
                     .toList();
             return new MemoryFeedResponse(normalizedUserId, result.size(), result);
@@ -361,12 +367,12 @@ public class MemoryService {
     public Uni<List<MemoryResponse>> feed(Double lat, Double lng, String viewerId) {
         return Uni.createFrom().item(() -> {
             GeoPoint viewer = lat == null || lng == null ? null : new GeoPoint(lat, lng, null);
-            return readable(
-                            viewerId,
-                            memory -> true,
-                            memory -> onSite.withinReach(memory, viewerId, lat, lng, Double.MAX_VALUE))
+            List<MemoryRecord> candidates = readable(
+                    viewerId,
+                    memory -> true,
+                    memory -> onSite.withinReach(memory, viewerId, lat, lng, Double.MAX_VALUE));
+            return spatiallyPermitted(candidates, spatialSafety.evaluateDiscover(positionsOf(candidates)))
                     .stream()
-                    .filter(memory -> spatialSafety.isRenderPermitted(memory.position()))
                     .sorted(Comparator.comparing(MemoryRecord::capturedAt).reversed())
                     .map(memory -> toResponse(memory, viewer == null ? memory.position() : viewer))
                     .toList();
@@ -932,6 +938,28 @@ public class MemoryService {
                 stale,
                 0,
                 List.of());
+    }
+
+    private List<GeoPoint> positionsOf(List<MemoryRecord> memories) {
+        return memories.stream().map(MemoryRecord::position).toList();
+    }
+
+    /** Rejects incomplete or unknown policy results rather than returning a partially checked listing. */
+    private List<MemoryRecord> spatiallyPermitted(List<MemoryRecord> memories, List<String> outcomes) {
+        if (outcomes == null || outcomes.size() != memories.size()
+                || outcomes.stream().anyMatch(outcome -> outcome == null
+                        || !Set.of("ALLOWED", "CAUTION", "RESTRICTED", "PROHIBITED", "EMERGENCY_LOCKDOWN")
+                                .contains(outcome))) {
+            throw new jakarta.ws.rs.WebApplicationException("Spatial safety returned an incomplete decision set", 503);
+        }
+        List<MemoryRecord> permitted = new java.util.ArrayList<>();
+        for (int index = 0; index < memories.size(); index++) {
+            String outcome = outcomes.get(index);
+            if ("ALLOWED".equals(outcome) || "CAUTION".equals(outcome)) {
+                permitted.add(memories.get(index));
+            }
+        }
+        return List.copyOf(permitted);
     }
 
     /**
