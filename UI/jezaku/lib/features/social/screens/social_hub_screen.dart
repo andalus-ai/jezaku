@@ -4,9 +4,11 @@ import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/social/models/social_post.dart';
 import 'package:jejaku/features/social/screens/comments_screen.dart';
 import 'package:jejaku/features/social/screens/discover_screen.dart';
-import 'package:jejaku/features/social/states/social_providers.dart';
+import 'package:jejaku/features/social/states/social_post_providers.dart';
 import 'package:jejaku/features/social/widgets/social_post_card.dart';
 import 'package:jejaku/features/settings/states/settings_providers.dart';
+
+import '../states/social_post_report_provider.dart';
 
 enum _FeedFilter { all, saved }
 

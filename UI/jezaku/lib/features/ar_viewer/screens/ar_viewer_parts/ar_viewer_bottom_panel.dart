@@ -99,7 +99,13 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (anchors.isEmpty && !isWallTrail) ...[
-          const FrameRadiusEmptyHint(radiusMeters: defaultFrameViewRadiusMeters),
+          FrameRadiusEmptyHint(
+            radiusMeters: ref.watch(frameVisibilityPolicyProvider).enforcesRadius
+                ? defaultFrameViewRadiusMeters
+                : null,
+            nearestOwnFrameMeters:
+                _frameVisibility.nearestOwnFrameOutsideRadiusMeters,
+          ),
           const SizedBox(height: 8),
         ],
         if (showInfoDashboard && hasTroubleshootingIssue) ...[

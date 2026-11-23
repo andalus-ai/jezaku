@@ -7,6 +7,7 @@ import 'package:jejaku/features/camera/models/capture_sensor_snapshot.dart';
 import 'package:jejaku/features/camera/services/capture_metadata_service.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_visibility.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
+import 'package:jejaku/features/home/models/frame_audience.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
 import 'package:jejaku/features/sync/models/anchor_media_sync_manifest.dart';
 import 'package:jejaku/features/sync/services/local_first_sync_runtime.dart';
@@ -4297,19 +4298,23 @@ void main() {
 
     await tester.scrollUntilVisible(
       find.byKey(
-        const ValueKey('private_memory_switch'),
+        const ValueKey('publish_audience_selector'),
         skipOffstage: false,
       ),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    final publishPrivateSwitch = find.byKey(
-      const ValueKey('private_memory_switch'),
+    final audienceSelector = find.descendant(
+      of: find.byKey(
+        const ValueKey('publish_audience_selector'),
+        skipOffstage: false,
+      ),
+      matching: find.byType(SegmentedButton<FrameAudience>),
       skipOffstage: false,
     );
     expect(
-      tester.widget<SwitchListTile>(publishPrivateSwitch).value,
-      isTrue,
+      tester.widget<SegmentedButton<FrameAudience>>(audienceSelector).selected,
+      {FrameAudience.private},
     );
 
     await tester.enterText(
@@ -6065,6 +6070,12 @@ void main() {
     await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(
+      find.text('Moderation Queue'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     expect(find.text('Moderation Queue'), findsOneWidget);
     expect(find.text('1 flagged memory'), findsOneWidget);
 

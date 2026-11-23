@@ -1,7 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/settings/states/settings_providers.dart';
-import 'package:jejaku/features/social/states/social_providers.dart';
+import 'package:jejaku/features/social/states/social_post_providers.dart';
+
+import '../states/social_comment_provider.dart';
 import 'package:jejaku/features/social/widgets/comment_composer.dart';
 import 'package:jejaku/features/social/widgets/comment_tile.dart';
 

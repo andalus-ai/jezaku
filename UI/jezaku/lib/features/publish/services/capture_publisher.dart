@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/camera/states/capture_session_provider.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
+import 'package:jejaku/features/home/models/frame_audience.dart';
 import 'package:jejaku/features/home/services/anchor_media_repository.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
 import 'package:jejaku/features/settings/states/settings_providers.dart';
@@ -12,7 +13,7 @@ class CapturePublishOptions {
   const CapturePublishOptions({
     required this.radiusMeters,
     required this.gpsAccuracyMeters,
-    required this.isPrivate,
+    required this.audience,
     required this.allowComments,
     this.caption = '',
     this.wallIds = const <String>[],
@@ -26,14 +27,16 @@ class CapturePublishOptions {
     return CapturePublishOptions(
       radiusMeters: session.anchorRadiusMeters,
       gpsAccuracyMeters: session.activeSnapshot.gpsAccuracyMeters,
-      isPrivate: settings.privateByDefault,
+      audience: settings.privateByDefault
+          ? FrameAudience.private
+          : FrameAudience.public,
       allowComments: settings.commentsEnabledByDefault,
     );
   }
 
   final double radiusMeters;
   final double gpsAccuracyMeters;
-  final bool isPrivate;
+  final FrameAudience audience;
   final bool allowComments;
   final String caption;
   final List<String> wallIds;
@@ -64,7 +67,7 @@ AnchorMemory publishCapturedMemory(
   final memory = ref.read(nearbyAnchorsProvider.notifier).addCapturedMemory(
         caption: options.caption,
         radiusMeters: options.radiusMeters,
-        isPrivate: options.isPrivate,
+        audience: options.audience,
         allowComments: options.allowComments,
         capturedAt: captureSession.capturedAt,
         latitude: snapshot.latitude,

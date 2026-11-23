@@ -1,4 +1,4 @@
-import 'package:jejaku/features/social/models/social_post.dart';
+import 'package:jejaku/features/social/models/social_comment.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// One comment row: avatar, bold username followed by the text, and its age.

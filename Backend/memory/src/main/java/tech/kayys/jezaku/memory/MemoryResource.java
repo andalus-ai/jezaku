@@ -123,7 +123,7 @@ public class MemoryResource {
             @QueryParam("radiusMeters") @DefaultValue("100") Double radiusMeters,
             @QueryParam("excludeOwnerId") String excludeOwnerId) {
         requireCoordinates(lat, lng);
-        return service.nearbyDots(lat, lng, radiusMeters, excludeOwnerId);
+        return service.nearbyDots(lat, lng, radiusMeters, excludeOwnerId, caller());
     }
 
     @GET
@@ -146,7 +146,8 @@ public class MemoryResource {
                 compassDegrees,
                 radiusMeters,
                 excludeOwnerId,
-                limit);
+                limit,
+                caller());
     }
 
     @GET
@@ -154,7 +155,7 @@ public class MemoryResource {
     public Uni<List<MemoryResponse>> feed(
             @QueryParam("lat") Double lat,
             @QueryParam("lng") Double lng) {
-        return service.feed(lat, lng);
+        return service.feed(lat, lng, caller());
     }
 
     @GET

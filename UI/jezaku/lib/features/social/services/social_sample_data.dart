@@ -1,5 +1,9 @@
 import 'package:jejaku/features/social/models/social_post.dart';
 
+import '../models/chat_message.dart';
+import '../models/social_comment.dart';
+import '../models/social_notification.dart';
+
 class SocialSampleData {
   const SocialSampleData();
 

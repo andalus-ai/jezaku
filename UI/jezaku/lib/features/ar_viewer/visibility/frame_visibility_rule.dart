@@ -25,10 +25,15 @@ class FrameVisibilityCandidate {
   const FrameVisibilityCandidate({
     required this.memory,
     required this.horizontalDistanceMeters,
+    this.wasViewable = false,
   });
 
   final AnchorMemory memory;
   final double horizontalDistanceMeters;
+
+  /// Whether the viewer could see this frame a moment ago. Proximity rules use
+  /// it to avoid flicker at the edge of the radius.
+  final bool wasViewable;
 }
 
 /// Who the viewer is relative to a frame's author.
@@ -43,6 +48,32 @@ class FrameViewerContext {
   /// from other people carry an owner id and the social graph is wired.
   const FrameViewerContext.localStore()
       : relationTo = _ownerOfEverything;
+
+  /// The real graph: frames without an author id were captured on this device
+  /// and are the viewer's own; frames by [userId] are their own; frames by a
+  /// user in [friendIds] are a friend's; anyone else is a stranger.
+  FrameViewerContext.forUser({
+    required String? userId,
+    Set<String> friendIds = const {},
+  }) : relationTo = ((memory) {
+          final ownerId = memory.ownerId;
+          if (ownerId == null || ownerId == userId) {
+            return FrameViewerRelation.owner;
+          }
+          return friendIds.contains(ownerId)
+              ? FrameViewerRelation.friend
+              : FrameViewerRelation.none;
+        });
+
+  /// Demo and prototyping: anyone who is not the owner counts as a friend, so
+  /// friends-only frames show. Production uses the real graph instead.
+  FrameViewerContext.everyoneIsAFriend(FrameViewerContext base)
+      : relationTo = ((memory) {
+          final relation = base.relationTo(memory);
+          return relation == FrameViewerRelation.none
+              ? FrameViewerRelation.friend
+              : relation;
+        });
 
   final FrameViewerRelation Function(AnchorMemory memory) relationTo;
 

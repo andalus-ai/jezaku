@@ -22,6 +22,26 @@ This project uses Quarkus, the Supersonic Subatomic Java Framework.
 
 If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
 
+## Who can read a memory
+
+An authenticated caller always reads their own memories. Anyone else sees a memory only if it is shared with them:
+
+- `public` (and approved media): everyone except people the owner blocked.
+- `friends`: the owner's direct, unblocked friends. The service asks the social service (`POST /social/relationships/context/batch`, scope `social:audience`, this service's own token) and applies the answer to `GET /memories/{id}` and `GET /memories/users/{userId}`.
+- `private`: the owner only.
+
+A memory a caller may not see looks absent (404). `jezaku.memory.friends-visibility.enforced` (default `false`, like `jezaku.auth.required`) switches the friend lookup on; while off, `friends` memories are visible to their owner alone. If the social service cannot be reached the lookup returns nothing, so `friends` memories stay hidden (fail closed) while public ones are unaffected. Configure `jezaku.memory.social-base-url`, `jezaku.auth.service-secret` and the `social:audience` scope in production.
+
+### On-site viewing
+
+Other people's memories are read only on site. With `jezaku.memory.on-site-view.enforced=true` (production; off by default, like `jezaku.auth.required`) an authenticated caller reads their own memories from anywhere, and anyone else's only while within `jezaku.memory.on-site-view.radius-meters` (default 20) of the `lat`/`lng` they report:
+
+- `GET /memories/{id}`: a non-owner without a position, or outside the radius, gets 404.
+- `GET /memories/users/{userId}`: empty for anyone but that user; browsing a profile does not reveal frames.
+- `GET /memories/feed`, `/nearby`, `/minimap`: the caller's own memories plus others' that are shared with them (public, or friends-only for friends) and within reach. `radiusMeters` can narrow the reach for others, never widen it; the caller's own memories still use the requested radius. With enforcement on, the caller's own non-public memories also appear in these listings.
+
+Anonymous callers (authentication not enforced) are never restricted. The position is client-reported, so this stops browsing rather than a determined spoofer; it sits alongside the audience and moderation checks. The client enforces the same rule in `UI/docs/frame-visibility-and-roadmap.md` (`strict` mode).
+
 ## Running the application in dev mode
 
 You can run your application in dev mode that enables live coding using:

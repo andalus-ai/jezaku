@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/home/models/anchor_journey_step.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
+import 'package:jejaku/features/home/models/frame_audience.dart';
 import 'package:jejaku/features/home/services/anchor_media_repository.dart';
 import 'package:jejaku/features/home/services/anchor_memory_store.dart';
 import 'package:jejaku/features/home/services/anchor_spatial_journey_service.dart';
@@ -129,7 +130,9 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
   AnchorMemory addCapturedMemory({
     required String caption,
     required double radiusMeters,
-    required bool isPrivate,
+    bool isPrivate = false,
+    FrameAudience? audience,
+    String? ownerId,
     bool allowComments = true,
     DateTime? capturedAt,
     double latitude = -6.9175,
@@ -183,6 +186,8 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
       ),
       mediaAttachment: mediaAttachment?.detached(),
       isPrivate: isPrivate,
+      audience: audience,
+      ownerId: ownerId,
       allowComments: allowComments,
       syncStatus: AnchorSyncStatus.queued,
       syncReason: AnchorSyncReason.newCapture,

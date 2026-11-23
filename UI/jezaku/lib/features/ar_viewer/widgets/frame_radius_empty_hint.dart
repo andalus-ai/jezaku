@@ -1,11 +1,35 @@
 import 'package:material_ui/material_ui.dart';
 
-/// Shown when no frame hangs within the viewer's physical radius. It says
-/// nothing about frames elsewhere, so it cannot be used to find them.
+/// Shown when there is no frame to show. With a radius it explains the
+/// physical range; with a null [radiusMeters] (demo rules, no radius) it only
+/// says there is nothing to show yet.
+///
+/// It may point toward the viewer's own nearest frame
+/// ([nearestOwnFrameMeters]); it says nothing about other people's frames, so
+/// it cannot be used to find them.
 class FrameRadiusEmptyHint extends StatelessWidget {
-  const FrameRadiusEmptyHint({required this.radiusMeters, super.key});
+  const FrameRadiusEmptyHint({
+    required this.radiusMeters,
+    this.nearestOwnFrameMeters,
+    super.key,
+  });
 
-  final double radiusMeters;
+  final double? radiusMeters;
+  final double? nearestOwnFrameMeters;
+
+  String get message {
+    final radius = radiusMeters;
+    if (radius == null) {
+      return 'No frames to show yet. Capture one to hang it here.';
+    }
+    final nearest = nearestOwnFrameMeters;
+    if (nearest != null && nearest.isFinite) {
+      return 'No frames within ${radius.round()} m. Your nearest frame '
+          'is ${nearest.round()} m away; walk closer.';
+    }
+    return 'No frames within ${radius.round()} m. '
+        'Walk around; frames appear as you get close.';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,8 +48,7 @@ class FrameRadiusEmptyHint extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'No frames within ${radiusMeters.round()} m. '
-                  'Walk around; frames appear as you get close.',
+                  message,
                   style: const TextStyle(color: Colors.white),
                 ),
               ),

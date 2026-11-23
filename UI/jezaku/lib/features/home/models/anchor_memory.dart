@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:ar_engine/ar_engine.dart';
+import 'package:jejaku/features/home/models/frame_audience.dart';
 
 const _unchanged = Object();
 
@@ -23,10 +24,13 @@ class AnchorMemory {
     this.moderationStatus = AnchorModerationStatus.approved,
     this.reportReason,
     this.reportCount = 0,
-    this.isPrivate = false,
+    bool isPrivate = false,
+    FrameAudience? audience,
+    this.ownerId,
     this.allowComments = true,
     this.hasArExperience = true,
-  });
+  }) : audience = audience ??
+            (isPrivate ? FrameAudience.private : FrameAudience.public);
 
   final String id;
   final String title;
@@ -45,9 +49,17 @@ class AnchorMemory {
   final AnchorModerationStatus moderationStatus;
   final String? reportReason;
   final int reportCount;
-  final bool isPrivate;
+  /// Who the frame is shared with. `isPrivate` on the constructor and
+  /// `copyWith` is a shorthand for private versus public.
+  final FrameAudience audience;
+
+  /// The author's user id, or null for frames captured on this device before
+  /// the app knows who the user is (they are the viewer's own).
+  final String? ownerId;
   final bool allowComments;
   final bool hasArExperience;
+
+  bool get isPrivate => audience == FrameAudience.private;
 
   AnchorMemory copyWith({
     String? id,
@@ -68,6 +80,8 @@ class AnchorMemory {
     String? reportReason,
     int? reportCount,
     bool? isPrivate,
+    FrameAudience? audience,
+    String? ownerId,
     bool? allowComments,
     bool? hasArExperience,
   }) {
@@ -91,7 +105,11 @@ class AnchorMemory {
       moderationStatus: moderationStatus ?? this.moderationStatus,
       reportReason: reportReason ?? this.reportReason,
       reportCount: reportCount ?? this.reportCount,
-      isPrivate: isPrivate ?? this.isPrivate,
+      audience: audience ??
+          (isPrivate == null
+              ? this.audience
+              : (isPrivate ? FrameAudience.private : FrameAudience.public)),
+      ownerId: ownerId ?? this.ownerId,
       allowComments: allowComments ?? this.allowComments,
       hasArExperience: hasArExperience ?? this.hasArExperience,
     );

@@ -5,7 +5,7 @@ import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/screens/memory_photo_screen.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
 import 'package:jejaku/features/settings/states/settings_providers.dart';
-import 'package:jejaku/features/social/states/social_providers.dart';
+import 'package:jejaku/features/social/states/social_comment_provider.dart';
 import 'package:material_ui/material_ui.dart';
 
 AnchorMemory _addFrame(

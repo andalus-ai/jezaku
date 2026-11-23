@@ -175,6 +175,8 @@ BUILD_CMD=(
     --dart-define=ENABLE_FCM_PUSH="$ENABLE_FCM_PUSH"
     --dart-define=CHAT_USER_ID_SOURCE="$CHAT_USER_ID_SOURCE"
     --dart-define=ADMIN_BASE_URL="$ADMIN_BASE_URL"
+    # Production runs the real frame rules (audience, friends, physical radius).
+    --dart-define=JEZAKU_FRAME_RULES=strict
 )
 
 if [[ "$NO_CODESIGN" == true ]]; then
