@@ -42,6 +42,14 @@ Other people's memories are read only on site. With `jezaku.memory.on-site-view.
 
 Anonymous callers (authentication not enforced) are never restricted. The position is client-reported, so this stops browsing rather than a determined spoofer; it sits alongside the audience and moderation checks. The client enforces the same rule in `UI/docs/frame-visibility-and-roadmap.md` (`strict` mode).
 
+### Spatial publishing enforcement
+
+Production defaults to `jezaku.memory.spatial-safety.enforced=true`. Before `POST /memories` persists a frame, and before `PATCH /memories/{id}/anchor` persists a relocation, Memory calls the Safety service's `POST /safety/spatial/evaluate` endpoint with activity `PUBLISH`. `ALLOWED` and `CAUTION` proceed; restricted outcomes return 403. Missing configuration, an unavailable Safety service, or an invalid evaluation response returns 503 and does not save the frame or anchor change.
+
+Configure `JEZAKU_SAFETY_BASE_URL` (or `jezaku.memory.spatial-safety.base-url`) and grant the Memory service the `spatial:policy-evaluate` service-token scope. Local development and tests explicitly disable this remote check so offline demos and isolated tests continue to run; production must not disable it.
+
+The policy is evaluated at the requested destination anchor. The coordinate is still device-submitted capture/placement data, not hardware-attested proof of the publisher's physical location. This check enforces rules against the stored placement but does not prevent GPS spoofing. The owner's gallery/read path is unchanged. Public render/discovery enforcement is a separate integration step and is not claimed by this publishing slice.
+
 ## Running the application in dev mode
 
 You can run your application in dev mode that enables live coding using:
