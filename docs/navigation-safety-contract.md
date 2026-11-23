@@ -103,27 +103,22 @@ The safety result is presentation-independent. Flutter may render an approved ro
 - Do not encourage trespass, crossing barriers, entering private property, or obstructing public paths to align with an AR overlay.
 - If AR tracking, compass heading, localization, or camera permission is unavailable, degrade to a supported non-AR presentation rather than guessing.
 
-## 8. API evolution proposal
+## 8. Route evaluation API
 
-Add a geometry-aware operation to the existing Safety API rather than expanding the point batch into an ambiguous contract. Proposed shape (names are provisional):
+The existing Safety service now exposes:
 
-`POST /safety/spatial/evaluate/route`
+`POST /safety/spatial/evaluate/routes`
 
-Request:
-- activity: `NAVIGATE`
-- coordinateReferenceSystem: `EPSG:4326`
-- geometry: ordered route vertices
-- corridorBufferMeters: optional bounded request hint; server minimum/maximum remain authoritative
-- alternatives: bounded list of candidate geometries
+It requires the existing `spatial:policy-evaluate` service scope and accepts up to five provider-generated alternatives. Each candidate carries a caller-owned `routeId` and ordered WGS84 latitude/longitude vertices. The server fixes the activity to `NAVIGATE`, validates all geometry, and evaluates all candidates against one captured immutable policy snapshot.
 
-Response:
-- evaluatedAt, policyRevision, validUntil
-- per-route outcome, bounded reason codes, and affected segment index ranges
-- no raw restriction records or authority-only metadata
+The response includes:
+- `policySnapshotId`: opaque per-request identifier only; it is not a monotonic policy revision, reusable authorization token, or cache key.
+- `evaluatedAt` and `validUntil`: a shared evaluation instant and a maximum 15-second validity window, shortened by an earlier matching restriction expiry.
+- Per-route outcome, reason code, matching restriction IDs, affected zero-based segment indices, and `permitsOperation`.
 
-The endpoint must authenticate the calling service with a dedicated scope or the existing spatial policy evaluation scope after an explicit scope review. It must validate all geometry and evaluate every alternative against a single captured snapshot. It must fail closed with 503 when policy storage or geometry evaluation is unavailable.
+The endpoint does not generate routes, rank alternatives, subscribe to policy changes, or authorize a live navigation session. It is a short-lived assessment. Consumers must fail closed on timeout or incomplete responses, select only non-blocked alternatives, and re-evaluate before starting guidance and when route/session state changes.
 
-Before implementation, confirm whether Idrisi already exposes a route geometry contract and whether it can provide stable route/segment identifiers. Keep the Safety contract provider-neutral.
+A future monotonic policy revision and push invalidation mechanism remain open work. Until then, the short validity window limits—but does not eliminate—the stale-policy interval. Keep the API provider-neutral; Idrisi's routing endpoint is still planned and must supply the actual route geometry when implemented.
 
 ## 9. Implementation sequence and acceptance gates
 
@@ -140,17 +135,20 @@ Before implementation, confirm whether Idrisi already exposes a route geometry c
 - [x] Return affected zero-based segment indices without exposing restriction geometry.
 - [x] Reuse a captured policy snapshot through the enforcer; no per-segment repository reads.
 - [x] Test a restriction between clear endpoints, corridor expansion, antimeridian crossing, activity/time filtering, and malformed geometry.
-- [ ] Add the authenticated route-evaluation HTTP endpoint, stable DTOs, alternatives batch semantics, policy revision, and response validity contract.
+- [x] Add the service-authenticated route-evaluation HTTP endpoint, stable DTOs, bounded alternatives batch semantics, opaque per-request snapshot ID, and short response validity contract.
+- [ ] Add a monotonic policy revision and emergency invalidation mechanism; the current snapshot ID is not a policy revision.
 
-**Exit:** the pure geometry/enforcer primitive is implemented. Route API exposure and alternatives remain open; no consumer may claim route authorization yet.
+**Exit:** the geometry primitive and bounded Safety route-assessment API are implemented. Route generation, orchestration, and live navigation authorization remain open.
 
 ### N3 — Jezaku route assessment adapter
-- Add a service-authenticated adapter in the existing navigation orchestration boundary.
-- Validate provider geometry before forwarding.
-- Preserve provider route identity and version; never treat provider safety flags as authoritative.
-- Fail closed on timeout, malformed response, missing segment decisions, or unknown outcomes.
+- [x] Add a service-authenticated `SpatialSafety` route-assessment boundary in the existing spatial-trails-places module.
+- [x] Add an HTTP adapter for the central Safety route endpoint.
+- [x] Validate bounded provider geometry before forwarding and validate route IDs, ordered result count, outcomes, affected segment indices, and validity on response.
+- [x] Fail closed on missing configuration, timeout, malformed response, incomplete decisions, or unknown outcomes.
+- [ ] Connect a real routing-provider response to a route-preview/orchestration use case when Idrisi exposes route generation.
+- [ ] Add HTTP contract tests for permitted, caution, blocked, timeout, and partial/malformed upstream responses.
 
-**Exit:** integration tests cover permitted, caution, blocked, malformed, timeout, and partial results.
+**Exit:** the Safety client boundary exists and fails closed. No route-preview consumer or live navigation session is wired yet.
 
 ### N4 — Alternative selection and live invalidation
 - Filter blocked alternatives before ranking.
