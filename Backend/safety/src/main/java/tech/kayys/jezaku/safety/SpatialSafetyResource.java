@@ -26,7 +26,8 @@ import tech.kayys.jezaku.safety.SpatialSafetyDtos.RestrictionRevokeRequest;
 import tech.kayys.jezaku.safety.SpatialSafetyDtos.RestrictionUpdateRequest;
 
 import java.util.List;
-import java.util.Optional;\nimport java.time.Duration;\nimport java.time.Instant;\nimport java.util.ArrayList;\nimport java.util.HashSet;\nimport java.util.UUID;
+import java.util.Optional;
+import java.time.Duration;\nimport java.time.Instant;\nimport java.util.ArrayList;\nimport java.util.HashSet;\nimport java.util.UUID;
 
 @Path("/safety/spatial")
 @Consumes(MediaType.APPLICATION_JSON)
