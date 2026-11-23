@@ -8,11 +8,14 @@ This directory contains product direction, target architecture, implementation g
 - [Platform architecture](platform-architecture.md)
 - [Spatial Core specification](spatial-core.md)
 - [Extension architecture](extension-architecture.md)
+- [Commerce domain architecture](commerce-architecture.md) — merchant/store ownership, authoritative placement, offers, discovery projection and redemption boundaries.
 - [API standards](api-standards.md)
 - [Security and safety](security-and-safety.md)
 - [Implementation plan](implementation-plan.md)
 - [Repository capability inventory](repository-capability-inventory.md) — source-backed current-state matrix, integration gaps, and recommended implementation sequence.
 - [Spatial safety integration plan](spatial-safety-integration-plan.md) — existing safety foundations, feature enforcement matrix, phased integration tickets, and release gates.
+- [Navigation safety contract](navigation-safety-contract.md) — provider-neutral route geometry, segment-level safety, alternatives, live invalidation, and implementation gates.
+- [ADR-0002: Navigation and routing ownership](decisions/ADR-0002-navigation-and-routing-ownership.md) — routing-provider ownership, authoritative safety evaluation, and presentation boundaries.
 - [Architecture decisions](decisions/)
 
 ## Existing technical documentation
