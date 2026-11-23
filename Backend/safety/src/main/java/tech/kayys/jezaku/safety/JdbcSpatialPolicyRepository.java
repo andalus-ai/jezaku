@@ -108,7 +108,7 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
                 WHERE principal_id = ?
                 ORDER BY occurred_at DESC, event_id DESC
                 """;
-        try (Connection connection = dataSource.getConnection();
+        try (Connection connection = dataSource.get().getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, principalId);
             try (ResultSet result = statement.executeQuery()) {
@@ -132,7 +132,7 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
                 SELECT principal_id, issuer_type, status, valid_from, expires_at
                 FROM spatial_authority WHERE principal_id = ?
                 """;
-        try (Connection connection = dataSource.getConnection();
+        try (Connection connection = dataSource.get().getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, principalId);
             try (ResultSet result = statement.executeQuery()) {
@@ -199,7 +199,7 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
                     updated_at = now()
                 WHERE spatial_restriction.version < EXCLUDED.version
                 """;
-        try (Connection connection = dataSource.getConnection();
+        try (Connection connection = dataSource.get().getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, restriction.id());
             statement.setInt(2, restriction.version());
@@ -240,7 +240,7 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
     @Override
     public Optional<SpatialRestriction> findRestriction(String restrictionId) {
         String sql = restrictionSelect() + " WHERE restriction_id = ?";
-        try (Connection connection = dataSource.getConnection();
+        try (Connection connection = dataSource.get().getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, restrictionId);
             try (ResultSet result = statement.executeQuery()) {
@@ -257,7 +257,7 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
                  WHERE active = TRUE AND effective_from <= ?
                    AND (expires_at IS NULL OR expires_at > ?)
                 """;
-        try (Connection connection = dataSource.getConnection();
+        try (Connection connection = dataSource.get().getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setTimestamp(1, timestamp(at));
             statement.setTimestamp(2, timestamp(at));
@@ -302,7 +302,7 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
                 WHERE restriction_id = ?
                 ORDER BY occurred_at DESC, event_id DESC
                 """;
-        try (Connection connection = dataSource.getConnection();
+        try (Connection connection = dataSource.get().getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, restrictionId);
             try (ResultSet result = statement.executeQuery()) {
