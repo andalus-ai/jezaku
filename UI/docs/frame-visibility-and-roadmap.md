@@ -46,6 +46,19 @@ Candidate future rules: age or expiry, time-of-day or event windows, family and 
 - **The radius is a constant.** It is not a setting and it is not per frame.
 - **Not validated on a device.** See `ar-device-demo-lab.md`.
 
+## Demo and strict rules
+
+The rules run in one of two modes, chosen per build with `--dart-define=JEZAKU_FRAME_RULES=demo|strict`:
+
+| Mode | Audience | Radius | Use |
+| --- | --- | --- | --- |
+| `demo` | everyone who is not the owner counts as a friend (private frames stay private, moderation still applies) | not enforced | offline demos and prototyping, so every sample frame can be shown |
+| `strict` | public, friends, own | 20 m (plus the 5 m exit margin) | production; the backend enforces the same rules |
+
+A build that does not pass the define runs `demo` for now. Any other value than `demo` or empty is read as `strict`, so a typo never loosens the rules. The Android and iOS production scripts pass `strict`. Physical-device validation of the radius and edge behaviour must run `strict`, for example `scripts/run_demo_android.sh --dart-define=JEZAKU_FRAME_RULES=strict`.
+
+The backend has no demo mode: it is not used offline, and its friends rule is switched by `jezaku.memory.friends-visibility.enforced` (see the memory README).
+
 ## Own gallery versus on-site friends (product rule, 2026-11-23)
 
 - The owner sees all of their own frames anywhere, as a gallery (grid, then detail, comments, edit, delete, change audience).

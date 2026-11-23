@@ -241,6 +241,8 @@ BUILD_CMD+=(
     --dart-define=ADMIN_BASE_URL="$ADMIN_BASE_URL"
     --dart-define=BUILD_SHA="$BUILD_SHA"
     --dart-define=BUILD_TIME="$BUILD_TIME"
+    # Production runs the real frame rules (audience, friends, physical radius).
+    --dart-define=JEZAKU_FRAME_RULES=strict
 )
 
 if [[ "$ENABLE_FCM_PUSH" == "true" ]]; then

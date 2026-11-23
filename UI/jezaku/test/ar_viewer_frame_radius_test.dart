@@ -9,10 +9,17 @@ import 'package:material_ui/material_ui.dart';
 /// Sample frames: "Courtyard sketch" hangs at the viewer's fallback position;
 /// the others are 50 m or more away. A negative radius hides every frame.
 void main() {
-  Future<void> openViewerList(WidgetTester tester, {List<Override>? overrides}) async {
+  final strictRules = frameRulesModeProvider.overrideWithValue(
+    FrameRulesMode.strict,
+  );
+
+  Future<void> openViewerList(
+    WidgetTester tester, {
+    List<Override>? overrides,
+  }) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: overrides ?? const [],
+        overrides: overrides ?? [strictRules],
         child: const JejakuApp(),
       ),
     );
@@ -33,10 +40,24 @@ void main() {
     expect(find.text('Family checkpoint'), findsNothing);
   });
 
+  testWidgets('demo rules list every frame, near or far', (tester) async {
+    await openViewerList(
+      tester,
+      overrides: [
+        frameRulesModeProvider.overrideWithValue(FrameRulesMode.demo),
+      ],
+    );
+
+    expect(find.text('Courtyard sketch'), findsWidgets);
+    expect(find.text('Rooftop sunset'), findsWidgets);
+    expect(find.text('Family checkpoint'), findsWidgets);
+  });
+
   testWidgets('a wider radius lists the farther frames too', (tester) async {
     await openViewerList(
       tester,
       overrides: [
+        strictRules,
         frameVisibilityPolicyProvider.overrideWithValue(
           FrameVisibilityPolicy.standard(radiusMeters: 500),
         ),
@@ -82,6 +103,19 @@ void main() {
       find.text(
         'No frames within 20 m. Your nearest frame is 34 m away; walk closer.',
       ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('without a radius the hint does not mention one', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: const Scaffold(body: FrameRadiusEmptyHint(radiusMeters: null)),
+      ),
+    );
+
+    expect(
+      find.text('No frames to show yet. Capture one to hang it here.'),
       findsOneWidget,
     );
   });

@@ -2,6 +2,7 @@ import 'package:jejaku/features/ar_viewer/models/ar_memory_projection.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_audience_rule.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_moderation_rule.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_physical_radius_rule.dart';
+import 'package:jejaku/features/ar_viewer/visibility/frame_rules_mode.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_visibility_outcome.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_visibility_rule.dart';
 
@@ -30,7 +31,23 @@ class FrameVisibilityPolicy {
     );
   }
 
+  /// The rule set for a build: the real rules when [FrameRulesMode.strict],
+  /// audience and moderation without the radius when [FrameRulesMode.demo].
+  factory FrameVisibilityPolicy.forMode(FrameRulesMode mode) {
+    return switch (mode) {
+      FrameRulesMode.strict => FrameVisibilityPolicy.standard(),
+      FrameRulesMode.demo => const FrameVisibilityPolicy(
+          rules: [FrameAudienceRule(), FrameModerationRule()],
+        ),
+    };
+  }
+
   final List<FrameVisibilityRule> rules;
+
+  /// Whether frames out of physical range are hidden. The UI uses it to decide
+  /// whether to talk about a radius at all.
+  bool get enforcesRadius =>
+      rules.any((rule) => rule is FramePhysicalRadiusRule);
 
   /// The first rule that hides the frame decides; otherwise it is visible.
   /// When [stage] is given only rules of that stage run.

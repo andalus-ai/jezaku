@@ -5,6 +5,7 @@ library;
 export 'frame_audience_rule.dart';
 export 'frame_moderation_rule.dart';
 export 'frame_physical_radius_rule.dart';
+export 'frame_rules_mode.dart';
 export 'frame_visibility_outcome.dart';
 export 'frame_visibility_policy.dart';
 export 'frame_visibility_providers.dart';

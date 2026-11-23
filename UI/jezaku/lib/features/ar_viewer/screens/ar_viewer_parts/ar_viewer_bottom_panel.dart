@@ -100,7 +100,9 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
       children: [
         if (anchors.isEmpty && !isWallTrail) ...[
           FrameRadiusEmptyHint(
-            radiusMeters: defaultFrameViewRadiusMeters,
+            radiusMeters: ref.watch(frameVisibilityPolicyProvider).enforcesRadius
+                ? defaultFrameViewRadiusMeters
+                : null,
             nearestOwnFrameMeters:
                 _frameVisibility.nearestOwnFrameOutsideRadiusMeters,
           ),
