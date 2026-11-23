@@ -90,13 +90,12 @@ public class SpatialSafetyResource extends tech.kayys.jezaku.auth.CallerAwareRes
         if (limit < 1 || limit > 500) {
             throw new BadRequestException("limit must be between 1 and 500");
         }
-        long currentRevision = repository.currentPolicyRevision();
-        if (afterRevision > currentRevision) {
+        SpatialPolicyRepository.PolicyChangePage page = repository.findPolicyChangesAfter(afterRevision, limit);
+        if (afterRevision > page.currentRevision()) {
             throw new BadRequestException("afterRevision cannot exceed the current policy revision");
         }
-        List<SpatialPolicyChangeEvent> events = repository.findPolicyChangesAfter(afterRevision, limit);
         return new SpatialSafetyDtos.PolicyChangesResponse(
-                currentRevision, afterRevision, events.size(), events);
+                page.currentRevision(), afterRevision, page.events().size(), page.events());
     }
 
     @POST @Path("/evaluate")
