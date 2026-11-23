@@ -59,9 +59,17 @@ public interface SpatialSafety {
     }
 
     record RouteEvaluation(String policySnapshotId, Instant evaluatedAt, Instant validUntil,
-            List<RouteDecision> results) {
+            List<RouteDecision> results, long policyRevision) {
         public RouteEvaluation {
             results = results == null ? List.of() : List.copyOf(results);
+            if (policyRevision < 0) {
+                throw new IllegalArgumentException("policyRevision cannot be negative");
+            }
+        }
+
+        public RouteEvaluation(String policySnapshotId, Instant evaluatedAt, Instant validUntil,
+                List<RouteDecision> results) {
+            this(policySnapshotId, evaluatedAt, validUntil, results, 0L);
         }
     }
 }
