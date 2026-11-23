@@ -70,10 +70,19 @@ public class CommerceOnboardingService {
             throw new ForbiddenException("Administrators cannot grant administrator privileges");
         }
         if (inviteeUserId == null || inviteeUserId.isBlank()) throw new IllegalArgumentException("inviteeUserId is required");
-        if (memberships.findByMerchantAndUser(merchantId, inviteeUserId).isPresent()) {
-            throw new IllegalStateException("A membership already exists for this merchant and user");
-        }
         Instant now = clock.instant();
+        var existing = memberships.findByMerchantAndUser(merchantId, inviteeUserId);
+        if (existing.isPresent()) {
+            MerchantMembership previous = existing.get();
+            boolean expiredInvitation = previous.status() == MerchantMembership.Status.INVITED
+                    && !now.isBefore(previous.invitationExpiresAt());
+            if (previous.status() != MerchantMembership.Status.REVOKED && !expiredInvitation) {
+                throw new IllegalStateException("An active or unexpired invitation already exists for this merchant and user");
+            }
+            MerchantMembership renewed = previous.reinvite(role, now, now.plus(INVITATION_LIFETIME));
+            return memberships.update(renewed, previous.version(), actorId, "INVITATION_RENEWED", "STAFF_INVITATION")
+                    .orElseThrow(() -> new jakarta.ws.rs.WebApplicationException("Membership changed; reload and retry", 409));
+        }
         MerchantMembership invitation = MerchantMembership.invite(UUID.randomUUID().toString(), merchantId,
                 inviteeUserId, role, now, now.plus(INVITATION_LIFETIME));
         return memberships.create(invitation, actorId, "STAFF_INVITATION");
