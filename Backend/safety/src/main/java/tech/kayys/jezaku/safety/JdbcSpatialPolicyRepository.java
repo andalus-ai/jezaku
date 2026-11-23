@@ -35,6 +35,7 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
     @Override
     @Transactional
     public void saveAuthority(AuthorityPrincipal principal, String actorId) {
+        requireText(actorId, "actorId");
         String upsert = """
                 INSERT INTO spatial_authority (principal_id, issuer_type, status, valid_from, expires_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, now())
@@ -171,6 +172,10 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
     @Override
     @Transactional
     public void saveRestriction(SpatialRestriction restriction, String actorId, String action, String reason) {
+        requireText(actorId, "actorId");
+        if (!Set.of("CREATED", "UPDATED", "REVOKED").contains(action)) {
+            throw new IllegalArgumentException("Unsupported restriction audit action: " + action);
+        }
         String sql = """
                 INSERT INTO spatial_restriction (
                     restriction_id, version, issuer_type, issuer_id, jurisdiction, legal_basis,
@@ -391,6 +396,13 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
                        effective_from, expires_at, active
                 FROM spatial_restriction
                 """;
+    }
+
+    private String requireText(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " is required");
+        }
+        return value.trim();
     }
 
     private Timestamp timestamp(Instant instant) {
