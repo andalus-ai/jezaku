@@ -1,6 +1,7 @@
 package tech.kayys.jezaku.discovery;
 
 import tech.kayys.jezaku.auth.CallerAwareResource;
+import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
@@ -19,6 +20,7 @@ import tech.kayys.jezaku.discovery.DiscoveryDtos.FeedbackResponse;
 import tech.kayys.jezaku.discovery.DiscoveryDtos.SearchResponse;
 
 @Path("/discovery")
+@Blocking
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 public class DiscoveryResource extends CallerAwareResource {
