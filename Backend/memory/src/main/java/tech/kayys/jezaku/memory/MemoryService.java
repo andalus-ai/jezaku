@@ -75,11 +75,13 @@ public class MemoryService {
 
     private final MemoryRepository repository;
     private final MemoryMediaResolver mediaResolver;
+    private final MemoryAudience audience;
 
     @Inject
-    public MemoryService(MemoryRepository repository, MemoryMediaResolver mediaResolver) {
+    MemoryService(MemoryRepository repository, MemoryMediaResolver mediaResolver, MemoryAudience audience) {
         this.repository = repository;
         this.mediaResolver = mediaResolver;
+        this.audience = audience;
         seed();
     }
 
@@ -127,7 +129,7 @@ public class MemoryService {
     public Uni<MemoryResponse> get(String id, Double lat, Double lng, String viewerId) {
         return Uni.createFrom().item(() -> {
             MemoryRecord memory = repository.findById(id);
-            if (memory == null || !MemoryAccessPolicy.canView(memory.ownerId(), viewerId, publicVisible(memory))) {
+            if (memory == null || !viewableBy(memory, viewerId, relationshipsTo(viewerId, memory.ownerId()))) {
                 throw new NotFoundException("Memory not found: " + id);
             }
             GeoPoint viewer = lat == null || lng == null ? memory.position() : new GeoPoint(lat, lng, null);
@@ -278,9 +280,10 @@ public class MemoryService {
     public Uni<MemoryFeedResponse> userMemories(String userId, String viewerId) {
         return Uni.createFrom().item(() -> {
             String normalizedUserId = requireText(userId, "userId");
+            Map<String, MemoryRelationship> relationships = relationshipsTo(viewerId, normalizedUserId);
             List<MemoryResponse> result = repository.findAll().stream()
                     .filter(memory -> memory.ownerId().equals(normalizedUserId))
-                    .filter(memory -> MemoryAccessPolicy.canView(memory.ownerId(), viewerId, publicVisible(memory)))
+                    .filter(memory -> viewableBy(memory, viewerId, relationships))
                     .sorted(Comparator.comparing(MemoryRecord::capturedAt).reversed())
                     .map(memory -> toResponse(memory, memory.position()))
                     .toList();
@@ -858,6 +861,28 @@ public class MemoryService {
                 stale,
                 0,
                 List.of());
+    }
+
+    /** The viewer's relationship to one owner; empty for anonymous callers and for the owner themself. */
+    private Map<String, MemoryRelationship> relationshipsTo(String viewerId, String ownerId) {
+        if (viewerId == null || viewerId.equals(ownerId)) {
+            return Map.of();
+        }
+        return audience.relationshipsOf(viewerId, Set.of(ownerId));
+    }
+
+    private boolean viewableBy(MemoryRecord memory, String viewerId, Map<String, MemoryRelationship> relationships) {
+        return MemoryAccessPolicy.canView(
+                memory.ownerId(),
+                viewerId,
+                publicVisible(memory),
+                friendsVisible(memory),
+                relationships.get(memory.ownerId()));
+    }
+
+    private boolean friendsVisible(MemoryRecord memory) {
+        return "friends".equals(memory.visibility())
+                && (memory.mediaId() == null || publicMemoryEligible(memory));
     }
 
     private boolean publicVisible(MemoryRecord memory) {

@@ -22,6 +22,18 @@ This project uses Quarkus, the Supersonic Subatomic Java Framework.
 
 If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
 
+## Who can read a memory
+
+An authenticated caller always reads their own memories. Anyone else sees a memory only if it is shared with them:
+
+- `public` (and approved media): everyone except people the owner blocked.
+- `friends`: the owner's direct, unblocked friends. The service asks the social service (`POST /social/relationships/context/batch`, scope `social:audience`, this service's own token) and applies the answer to `GET /memories/{id}` and `GET /memories/users/{userId}`.
+- `private`: the owner only.
+
+A memory a caller may not see looks absent (404). `jezaku.memory.friends-visibility.enforced` (default `false`, like `jezaku.auth.required`) switches the friend lookup on; while off, `friends` memories are visible to their owner alone. If the social service cannot be reached the lookup returns nothing, so `friends` memories stay hidden (fail closed) while public ones are unaffected. Configure `jezaku.memory.social-base-url`, `jezaku.auth.service-secret` and the `social:audience` scope in production.
+
+Known gap: `/memories/feed`, `/memories/nearby` and `/memories/minimap` carry no caller yet, so they list public memories only and never `friends` ones. The product rule that other people see a frame only on site, within the physical radius, is not enforced here yet; see `UI/docs/frame-visibility-and-roadmap.md`.
+
 ## Running the application in dev mode
 
 You can run your application in dev mode that enables live coding using:
