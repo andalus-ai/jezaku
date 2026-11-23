@@ -232,6 +232,7 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
                 insertActivity.executeBatch();
             }
             appendAudit(connection, restriction, actorId, action, reason);
+            advancePolicyRevision(connection);
         } catch (SQLException exception) {
             throw persistenceFailure("save restriction", exception);
         }
@@ -253,23 +254,46 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
 
     @Override
     public List<SpatialRestriction> findActiveRestrictions(Instant at) {
-        String sql = restrictionSelect() + """
-                 WHERE active = TRUE AND effective_from <= ?
-                   AND (expires_at IS NULL OR expires_at > ?)
-                """;
-        try (Connection connection = dataSource.get().getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setTimestamp(1, timestamp(at));
-            statement.setTimestamp(2, timestamp(at));
-            try (ResultSet result = statement.executeQuery()) {
-                List<SpatialRestriction> restrictions = new ArrayList<>();
-                while (result.next()) {
-                    restrictions.add(readRestriction(connection, result));
+        return findPolicySnapshot(at).restrictions();
+    }
+
+    /**
+     * Captures the global revision and active restrictions under one
+     * PostgreSQL REPEATABLE READ transaction. Nested activity reads therefore
+     * cannot observe a newer policy mutation than the returned revision.
+     */
+    @Override
+    @Transactional
+    public PolicySnapshot findPolicySnapshot(Instant at) {
+        try (Connection connection = dataSource.get().getConnection()) {
+            connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+            long revision;
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "SELECT revision FROM spatial_policy_state WHERE state_key = 'GLOBAL'");
+                 ResultSet result = statement.executeQuery()) {
+                if (!result.next()) {
+                    throw new SQLException("Spatial policy revision state is missing");
                 }
-                return List.copyOf(restrictions);
+                revision = result.getLong("revision");
             }
+
+            String sql = restrictionSelect() + """
+                     WHERE active = TRUE AND effective_from <= ?
+                       AND (expires_at IS NULL OR expires_at > ?)
+                    """;
+            List<SpatialRestriction> restrictions = new ArrayList<>();
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setTimestamp(1, timestamp(at));
+                statement.setTimestamp(2, timestamp(at));
+                try (ResultSet result = statement.executeQuery()) {
+                    while (result.next()) {
+                        restrictions.add(readRestriction(connection, result));
+                    }
+                }
+            }
+            return new PolicySnapshot(revision, restrictions);
         } catch (SQLException exception) {
-            throw persistenceFailure("list active restrictions", exception);
+            throw persistenceFailure("capture policy snapshot", exception);
         }
     }
 
@@ -318,6 +342,18 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
             }
         } catch (SQLException exception) {
             throw persistenceFailure("read restriction audit", exception);
+        }
+    }
+
+    private void advancePolicyRevision(Connection connection) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                UPDATE spatial_policy_state
+                SET revision = revision + 1, updated_at = now()
+                WHERE state_key = 'GLOBAL'
+                """)) {
+            if (statement.executeUpdate() != 1) {
+                throw new SQLException("Spatial policy revision state is missing");
+            }
         }
     }
 
