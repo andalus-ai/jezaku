@@ -64,7 +64,7 @@ class CommerceDomainTest {
         assertEquals(StoreStatus.ACTIVE, active.status());
         assertEquals(1, active.version());
 
-        Merchant pending = merchant("merchant-2", MerchantStatus.PENDING_VERIFICATION);
+        Merchant pending = merchant("merchant-1", MerchantStatus.PENDING_VERIFICATION);
         assertThrows(IllegalStateException.class, () -> draft.activate(pending, UPDATED));
         assertThrows(IllegalArgumentException.class,
                 () -> draft.activate(merchant("merchant-other", MerchantStatus.VERIFIED), UPDATED));
