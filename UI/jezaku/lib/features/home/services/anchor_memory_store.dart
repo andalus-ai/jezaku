@@ -124,6 +124,8 @@ Map<String, Object?> _memoryToJson(AnchorMemory memory) {
     'isPrivate': memory.isPrivate,
     'audience': memory.audience.name,
     'ownerId': memory.ownerId,
+    'frameLook': memory.frameLookId,
+    'frameColor': memory.frameColorValue,
     'allowComments': memory.allowComments,
     'hasArExperience': memory.hasArExperience,
     'captureMetadata': _captureMetadataToJson(memory.captureMetadata),
@@ -169,6 +171,10 @@ AnchorMemory? _memoryFromJson(Map<String, Object?> json) {
       _bool(json['isPrivate']) ? FrameAudience.private : FrameAudience.public,
     ),
     ownerId: json['ownerId'] as String?,
+    frameLookId: json['frameLook'] is String
+        ? json['frameLook']! as String
+        : 'classic',
+    frameColorValue: json['frameColor'] is int ? json['frameColor']! as int : null,
     allowComments: _bool(json['allowComments'], fallback: true),
     hasArExperience: _bool(json['hasArExperience'], fallback: true),
     captureMetadata: _captureMetadataFromJson(

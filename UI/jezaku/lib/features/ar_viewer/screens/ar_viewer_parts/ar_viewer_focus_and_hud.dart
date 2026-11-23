@@ -26,6 +26,7 @@ class _FocusedAnchorPanel extends StatelessWidget {
     required this.onOpenWall,
     required this.onRecenter,
     this.onRehang,
+    this.onChangeFrame,
   });
 
   final ARMemoryProjection anchor;
@@ -41,6 +42,9 @@ class _FocusedAnchorPanel extends StatelessWidget {
   /// Non-null when the frame is only placed from GPS in this session and can
   /// be re-hung on the wall the camera is aimed at.
   final VoidCallback? onRehang;
+
+  /// Opens the frame gallery. Non-null only for the author's own frames.
+  final VoidCallback? onChangeFrame;
 
   @override
   Widget build(BuildContext context) {
@@ -207,6 +211,18 @@ class _FocusedAnchorPanel extends StatelessWidget {
                 label: const Text('Photo & comments'),
               ),
             ),
+            if (onChangeFrame != null) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  key: const ValueKey('focused_anchor_change_frame_button'),
+                  onPressed: onChangeFrame,
+                  icon: const Icon(Icons.filter_frames_outlined),
+                  label: const Text('Change frame'),
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             LayoutBuilder(
               builder: (context, constraints) {

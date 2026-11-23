@@ -52,6 +52,15 @@ class AppSettingsController extends Notifier<AppSettings> {
     _update(state.copyWith(privateByDefault: value));
   }
 
+  void setDefaultFrame({required String lookId, int? colorValue}) {
+    _update(
+      state.copyWith(
+        defaultFrameLookId: lookId,
+        defaultFrameColorValue: colorValue,
+      ),
+    );
+  }
+
   void setHighAccuracyMode(bool value) {
     _update(state.copyWith(highAccuracyMode: value));
   }

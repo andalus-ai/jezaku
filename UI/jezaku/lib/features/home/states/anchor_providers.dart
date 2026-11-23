@@ -133,6 +133,8 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
     bool isPrivate = false,
     FrameAudience? audience,
     String? ownerId,
+    String frameLookId = 'classic',
+    int? frameColorValue,
     bool allowComments = true,
     DateTime? capturedAt,
     double latitude = -6.9175,
@@ -188,6 +190,8 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
       isPrivate: isPrivate,
       audience: audience,
       ownerId: ownerId,
+      frameLookId: frameLookId,
+      frameColorValue: frameColorValue,
       allowComments: allowComments,
       syncStatus: AnchorSyncStatus.queued,
       syncReason: AnchorSyncReason.newCapture,
@@ -260,6 +264,23 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
             syncStatus: _syncStatusAfterLocalChange(memory.syncStatus),
             syncReason: _syncReasonAfterLocalChange(memory.syncReason),
           )
+        else
+          memory,
+    ];
+    _persistLocalMemories();
+  }
+
+  /// Changes how a frame looks. A look change is local and cosmetic: it does
+  /// not queue the frame for upload.
+  void updateFrameStyle({
+    required String memoryId,
+    required String lookId,
+    int? colorValue,
+  }) {
+    state = [
+      for (final memory in state)
+        if (memory.id == memoryId)
+          memory.copyWith(frameLookId: lookId, frameColorValue: colorValue)
         else
           memory,
     ];

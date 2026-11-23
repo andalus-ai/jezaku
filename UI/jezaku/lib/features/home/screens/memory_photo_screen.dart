@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
+import 'package:jejaku/features/frame_styles/widgets/frame_style_sheet.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/services/anchor_media_resolver.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
@@ -42,6 +43,13 @@ class MemoryPhotoScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Photo'),
         actions: [
+          if (memory.ownerId == null)
+            IconButton(
+              key: const ValueKey('memory_photo_change_frame_button'),
+              tooltip: 'Change frame',
+              icon: const Icon(Icons.filter_frames_outlined),
+              onPressed: () => changeFrameStyle(context, ref, memory),
+            ),
           IconButton(
             key: const ValueKey('memory_photo_details_button'),
             tooltip: 'Frame details',

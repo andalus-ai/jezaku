@@ -24,6 +24,7 @@ import 'package:jejaku/features/ar_viewer/hud/ar_hud_settings_sheet.dart';
 import 'package:jejaku/features/ar_viewer/hud/ar_hud_state.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_visibility.dart';
 import 'package:jejaku/features/ar_viewer/widgets/frame_radius_empty_hint.dart';
+import 'package:jejaku/features/frame_styles/widgets/frame_style_sheet.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_debug_log_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_overlay_anchor_selector.dart';
@@ -104,7 +105,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   static const _nativeSessionHealthPolicy = ARViewerHealthPolicy.viewing;
   static const _screenRecordingMaxPixelRatio = 1.5;
   static int _diagnosticsSessionSerial = 0;
-
   ARHudState _hud = const ARHudState();
   bool _isRadarExpanded = true;
   double _headingDegrees = 56;

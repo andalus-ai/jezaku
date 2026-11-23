@@ -1,3 +1,5 @@
+const _keep = Object();
+
 class AppSettings {
   const AppSettings({
     required this.nearbyNotifications,
@@ -11,8 +13,14 @@ class AppSettings {
     required this.commentsEnabledByDefault,
     required this.profileDiscoverable,
     required this.blockedAccounts,
+    this.defaultFrameLookId = 'classic',
+    this.defaultFrameColorValue,
   });
 
+  /// The look (and optional colour) new frames get. Changing it never touches
+  /// frames that already exist.
+  final String defaultFrameLookId;
+  final int? defaultFrameColorValue;
   final bool nearbyNotifications;
   final bool privateByDefault;
   final bool highAccuracyMode;
@@ -60,6 +68,8 @@ class AppSettings {
       'commentsEnabledByDefault': commentsEnabledByDefault,
       'profileDiscoverable': profileDiscoverable,
       'blockedAccounts': blockedAccounts,
+      'defaultFrameLook': defaultFrameLookId,
+      'defaultFrameColor': defaultFrameColorValue,
     };
   }
 
@@ -100,6 +110,14 @@ class AppSettings {
       profileDiscoverable:
           flag('profileDiscoverable', fallback.profileDiscoverable),
       blockedAccounts: List.unmodifiable(blocked),
+      defaultFrameLookId: json['defaultFrameLook'] is String
+          ? json['defaultFrameLook']! as String
+          : fallback.defaultFrameLookId,
+      defaultFrameColorValue: json.containsKey('defaultFrameColor')
+          ? (json['defaultFrameColor'] is int
+              ? json['defaultFrameColor']! as int
+              : null)
+          : fallback.defaultFrameColorValue,
     );
   }
 
@@ -115,6 +133,8 @@ class AppSettings {
     bool? commentsEnabledByDefault,
     bool? profileDiscoverable,
     List<String>? blockedAccounts,
+    String? defaultFrameLookId,
+    Object? defaultFrameColorValue = _keep,
   }) {
     return AppSettings(
       nearbyNotifications: nearbyNotifications ?? this.nearbyNotifications,
@@ -129,6 +149,10 @@ class AppSettings {
           commentsEnabledByDefault ?? this.commentsEnabledByDefault,
       profileDiscoverable: profileDiscoverable ?? this.profileDiscoverable,
       blockedAccounts: blockedAccounts ?? this.blockedAccounts,
+      defaultFrameLookId: defaultFrameLookId ?? this.defaultFrameLookId,
+      defaultFrameColorValue: identical(defaultFrameColorValue, _keep)
+          ? this.defaultFrameColorValue
+          : defaultFrameColorValue as int?,
     );
   }
 }
