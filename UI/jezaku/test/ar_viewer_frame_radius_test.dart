@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_visibility.dart';
+import 'package:jejaku/features/ar_viewer/widgets/frame_radius_empty_hint.dart';
 import 'package:jejaku/main.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -62,5 +63,44 @@ void main() {
 
     expect(find.byKey(const ValueKey('ar_no_frames_in_radius')), findsOneWidget);
     expect(find.textContaining('No frames within 20 m'), findsOneWidget);
+  });
+
+  testWidgets('points to the nearest own frame when none is in range',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: const Scaffold(
+          body: FrameRadiusEmptyHint(
+            radiusMeters: 20,
+            nearestOwnFrameMeters: 34.4,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.text(
+        'No frames within 20 m. Your nearest frame is 34 m away; walk closer.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('keeps the generic hint when no own frame is known',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: const Scaffold(
+          body: FrameRadiusEmptyHint(radiusMeters: 20),
+        ),
+      ),
+    );
+
+    expect(
+      find.text(
+        'No frames within 20 m. Walk around; frames appear as you get close.',
+      ),
+      findsOneWidget,
+    );
   });
 }

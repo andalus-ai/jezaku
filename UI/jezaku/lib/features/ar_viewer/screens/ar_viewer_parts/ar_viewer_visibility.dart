@@ -11,9 +11,16 @@ extension _ARViewerVisibility on _ARViewerScreenState {
   ) {
     final policy = ref.watch(frameVisibilityPolicyProvider);
     final viewer = ref.watch(frameViewerContextProvider);
-    _eligibleAnchors = policy.eligible(projected, viewer);
-    return policy.viewable(_eligibleAnchors, viewer);
+    _frameVisibility = policy.resolve(
+      projected,
+      viewer,
+      previouslyViewableIds: _frameVisibility.viewableIds,
+    );
+    return _frameVisibility.viewable;
   }
+
+  /// Who may see a frame wherever they stand; guidance only, never drawn.
+  List<ARMemoryProjection> get _eligibleAnchors => _frameVisibility.eligible;
 
   List<ARMemoryProjection> _activeProjectedAnchors(
     List<ARMemoryProjection> anchors,

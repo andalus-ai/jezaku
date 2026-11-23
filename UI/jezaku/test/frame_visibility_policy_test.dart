@@ -143,6 +143,100 @@ void main() {
     });
   });
 
+  group('edge of the radius', () {
+    test('a frame already viewable stays visible within the exit margin', () {
+      final projected = _project([_memory('edge', metersNorth: 23)]);
+
+      expect(_ids(policy.viewable(projected, owner)), isEmpty);
+      expect(
+        _ids(
+          policy.viewable(
+            projected,
+            owner,
+            previouslyViewableIds: {'edge'},
+          ),
+        ),
+        ['edge'],
+      );
+    });
+
+    test('the margin ends: past radius plus margin it hides even if seen', () {
+      final projected = _project([_memory('gone', metersNorth: 30)]);
+
+      expect(
+        _ids(
+          policy.viewable(
+            projected,
+            owner,
+            previouslyViewableIds: {'gone'},
+          ),
+        ),
+        isEmpty,
+      );
+    });
+
+    test('walking out of range and back does not flicker at the edge', () {
+      final frames = [_memory('edge')];
+      var seen = <String>{};
+      final shown = <bool>[];
+      // Viewer walks 18, 21, 24, 22, 19 m away from the frame, then 26 m.
+      for (final distance in [18.0, 21.0, 24.0, 22.0, 19.0, 26.0]) {
+        final outcome = policy.resolve(
+          _project(frames, viewerMetersNorth: distance),
+          owner,
+          previouslyViewableIds: seen,
+        );
+        seen = outcome.viewableIds;
+        shown.add(seen.contains('edge'));
+      }
+
+      expect(shown, [true, true, true, true, true, false]);
+    });
+
+    test('a frame that was never viewable still needs the real radius', () {
+      final outcome = policy.resolve(
+        _project([_memory('new', metersNorth: 22)]),
+        owner,
+      );
+
+      expect(outcome.viewable, isEmpty);
+    });
+  });
+
+  group('nearest own frame cue', () {
+    test('reports the closest own frame that is out of range', () {
+      final outcome = policy.resolve(
+        _project([
+          _memory('here', metersNorth: 5),
+          _memory('far', metersNorth: 80),
+          _memory('farther', metersNorth: 150),
+        ]),
+        owner,
+      );
+
+      expect(_ids(outcome.viewable), ['here']);
+      expect(outcome.nearestOwnFrameOutsideRadiusMeters, closeTo(80, 1));
+    });
+
+    test('is null when every own frame is already in range', () {
+      final outcome = policy.resolve(
+        _project([_memory('here', metersNorth: 5)]),
+        owner,
+      );
+
+      expect(outcome.nearestOwnFrameOutsideRadiusMeters, isNull);
+    });
+
+    test('never reports other people\'s frames, so it cannot find them', () {
+      final outcome = policy.resolve(
+        _project([_memory('theirs', metersNorth: 80)]),
+        viewerWith(FrameViewerRelation.friend),
+      );
+
+      expect(outcome.nearestOwnFrameOutsideRadiusMeters, isNull);
+    });
+  });
+
   group('audience', () {
     test('public frames are visible to strangers, friends and the owner', () {
       final projected = _project([_memory('public')]);
