@@ -105,6 +105,6 @@ class MemorySpatialBatchPolicyTest {
         return service.create(new MemoryCreateRequest(
                 owner, null, "https://cdn.jezaku.local/frame.jpg", "https://cdn.jezaku.local/frame-thumb.jpg",
                 "Batch spatial policy test", POSITION, 5.0, 345.0, -12.5, 1.25, 3.2,
-                "HYBRID", "public", List.of(), null, null, null)).await().indefinitely();
+                "HYBRID", "public", List.of(), null, null)).await().indefinitely();
     }
 }
