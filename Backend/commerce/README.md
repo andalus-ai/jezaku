@@ -4,46 +4,48 @@ Commerce is the authoritative domain for merchant identity, store/branch records
 
 ## Current implementation status
 
-The initial domain foundation and registry persistence contract are present:
-- Merchant lifecycle and guarded verification/suspension/reinstatement transitions.
-- Store lifecycle; activation requires the verified owning merchant and verified placement.
-- WGS84 coordinate validation and placement provenance.
-- PostgreSQL/Flyway dependency and initial registry schema.
-- Repository interfaces for merchant, store and merchant-scoped membership access.
-- Merchant/store/placement/membership audit table schema.
+Implemented:
+- Guarded merchant lifecycle and store activation invariants.
+- WGS84 placement validation and provenance.
+- PostgreSQL/Flyway schema for merchants, merchant-scoped memberships, stores, placements and audit events.
+- JDBC merchant and store repositories, including placement persistence.
+- JDBC active-membership lookup scoped by both merchant ID and user ID.
+- Optimistic aggregate version checks and atomic audit writes for merchant/store create and update operations.
+- Environment-variable based datasource configuration.
 
-The repository interfaces are contracts only. JDBC implementations, API resources, onboarding, staff invitation and verification workflows are not yet implemented.
+Not yet implemented:
+- Merchant onboarding and staff membership mutation/invitation APIs.
+- Authorized placement review endpoints and verification-role resolution.
+- Campaign, promotion, quota, eligibility and redemption persistence.
+- Full PostgreSQL integration test suite.
 
-## Domain invariants
+## Persistence guarantees
 
-- Client input never directly sets a merchant to VERIFIED.
-- A store cannot become ACTIVE unless its owning merchant is VERIFIED and its placement is VERIFIED.
-- A verified placement records the reviewing actor and timestamp.
-- Coordinates are validated as finite WGS84 latitude/longitude; accuracy must be finite and positive.
-- Store schedules use an IANA time-zone identifier, not an unqualified local clock.
-- Domain records are immutable; transitions return a new version.
-- Membership queries and authorization must be scoped by both merchant ID and user ID.
-- State changes and their audit events must commit atomically.
-- Version mismatches are conflicts, not last-write-wins updates.
-
-The domain layer does not authenticate the verifier. The application/API layer must resolve an authorized server-side actor and invoke transitions only after the verification workflow authorizes them.
+- Merchant and store updates require the expected aggregate version. A mismatch returns an empty result and does not append an audit event.
+- State mutation and audit append execute in one Quarkus JTA transaction. An audit failure rolls back the aggregate write.
+- Update timestamps cannot move backwards.
+- Store creation persists the store, initial placement and both audit records atomically.
+- Membership lookup is always constrained by merchant ID, user ID and ACTIVE status.
+- Database uniqueness prevents duplicate membership for the same merchant/user pair.
+- Client-submitted coordinates remain proposals; the repository does not authorize verification. The application layer must resolve a trusted server-side reviewer before invoking the domain transition.
 
 ## Database
 
-Flyway migration V1__commerce_registry.sql creates:
-- commerce_merchant
-- commerce_merchant_membership
-- commerce_store
-- commerce_store_placement
-- commerce_audit_event
+Flyway migration V1__commerce_registry.sql creates commerce_merchant, commerce_merchant_membership, commerce_store, commerce_store_placement and commerce_audit_event.
 
-The default local database is jezaku_commerce on localhost:5432. Override with JZ_COMMERCE_DB_URL, JZ_COMMERCE_DB_USERNAME and JZ_COMMERCE_DB_PASSWORD. Configure secrets through the deployment secret manager; local defaults are development-only.
+The local database defaults to jezaku_commerce on localhost:5432. Override using JZ_COMMERCE_DB_URL, JZ_COMMERCE_DB_USERNAME and JZ_COMMERCE_DB_PASSWORD. Configure deployment credentials through a secret manager.
 
-## Next implementation slices
+## Operational notes
 
-1. JDBC repositories with optimistic locking and atomic audit writes.
-2. Merchant onboarding and staff-role authorization boundary.
-3. Store registry and audited placement review.
-4. Campaign/promotion lifecycle and store associations.
-5. Discovery projection and Safety integration.
-6. Atomic, idempotent redemption.
+The current store-placement table holds the latest placement snapshot. The audit event records the placement revision and action, but does not yet retain a full immutable copy of every prior coordinate payload. A dedicated placement revision/history table should be introduced before exposing self-service placement editing at scale.
+
+The repository adapters are persistence primitives, not authorization boundaries. Callers must authorize merchant-scoped operations before invoking them.
+
+## Next slices
+
+1. Add PostgreSQL-backed repository integration tests and verify Flyway against the supported PostgreSQL version.
+2. Add merchant onboarding and server-resolved staff authorization.
+3. Add audited placement review/revocation workflows and immutable placement history.
+4. Add campaign/promotion lifecycle and store associations.
+5. Add Discovery projection and Safety integration.
+6. Add atomic, idempotent redemption.
