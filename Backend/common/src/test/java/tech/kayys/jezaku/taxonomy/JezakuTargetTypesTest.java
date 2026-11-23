@@ -10,15 +10,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class JezakuTargetTypesTest {
     @Test
     void exposesFeatureSpecificTargetTypeSets() {
-        assertEquals(Set.of("memory", "media", "event", "place", "trail", "profile"),
+        assertEquals(Set.of("memory", "media", "event", "place", "trail", "profile", "merchant", "offer"),
                 JezakuTargetTypes.ENGAGEABLE_TARGET_TYPES);
-        assertEquals(Set.of("memory", "media", "event", "place", "trail", "profile", "presence"),
+        assertEquals(Set.of("memory", "media", "event", "place", "trail", "profile", "presence", "merchant", "offer"),
                 JezakuTargetTypes.DISCOVERABLE_TARGET_TYPES);
         assertEquals(Set.of("anchor", "memory", "place", "event", "media"),
                 JezakuTargetTypes.JOURNEY_TARGET_TYPES);
         assertEquals(Set.of("place", "event", "journey", "memory"),
                 JezakuTargetTypes.MESSAGING_TARGET_TYPES);
-        assertEquals(Set.of("memory", "media", "profile", "presence", "event", "message"),
+        assertEquals(Set.of("memory", "media", "profile", "presence", "event", "message", "merchant", "offer"),
                 JezakuTargetTypes.REPORTABLE_TARGET_TYPES);
         assertEquals(Set.of("memory", "journey", "checkpoint", "event", "comment", "report", "presence"),
                 JezakuTargetTypes.REWARD_SOURCE_TYPES);
