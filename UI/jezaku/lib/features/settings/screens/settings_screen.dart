@@ -6,6 +6,8 @@ import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
 import 'package:jejaku/features/camera/services/ar_capture_diagnostics_cache_store.dart';
 import 'package:jejaku/features/camera/states/capture_session_provider.dart';
+import 'package:jejaku/features/frame_styles/widgets/frame_look_preview.dart';
+import 'package:jejaku/features/frame_styles/widgets/frame_style_sheet.dart';
 import 'package:jejaku/features/home/services/anchor_media_maintenance_service.dart';
 import 'package:jejaku/features/home/services/anchor_media_repository.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
@@ -172,6 +174,21 @@ class SettingsScreen extends ConsumerWidget {
             onClearCache: arDiagnosticsBundleCache.isEmpty
                 ? null
                 : () => _clearARSceneDiagnosticsBundleCache(context, ref),
+          ),
+          ListTile(
+            key: const ValueKey('default_frame_tile'),
+            leading: const Icon(Icons.filter_frames_outlined),
+            title: const Text('Default frame'),
+            subtitle: Text(
+              '${frameLookLabel(settings.defaultFrameLookId)} - used for new '
+              'frames. Change a frame later from its photo page.',
+            ),
+            trailing: FrameLookPreview(
+              lookId: settings.defaultFrameLookId,
+              colorValue: settings.defaultFrameColorValue,
+              size: 28,
+            ),
+            onTap: () => changeDefaultFrameStyle(context, ref),
           ),
           ListTile(
             key: const ValueKey('privacy_safety_tile'),

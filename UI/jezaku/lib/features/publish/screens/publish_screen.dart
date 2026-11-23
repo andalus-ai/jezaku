@@ -321,6 +321,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   }
 
   void _publish() {
+    final settings = ref.read(appSettingsProvider);
     final memory = publishCapturedMemory(
       ref,
       CapturePublishOptions(
@@ -329,6 +330,8 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
         gpsAccuracyMeters: _gpsAccuracy,
         audience: _audience,
         allowComments: _allowComments,
+        frameLookId: settings.defaultFrameLookId,
+        frameColorValue: settings.defaultFrameColorValue,
         wallIds: _selectedWallIds.toList(growable: false),
         recordingQualityReviewed: _acceptedRecordingQualityReview,
       ),

@@ -81,6 +81,7 @@ Order of work, one pull request per slice, each with tests and doc updates.
 | 7 | Edge behaviour: exit-margin hysteresis and a "your nearest frame is N m away, walk closer" cue (own frames only, never other people's) | built, not validated on a device; accuracy-aware radius and a setting still open |
 | 11 | Own-frames gallery: Instagram-style grid of the owner's frames, viewable anywhere (Profile), with detail, comments and edit | built: My frames screen (Profile → My frames), 3-column grid, All/AR/Videos/Private/Needs calibration filters, opens the memory detail; today every on-device frame counts as own, `ownFramesProvider` narrows it once slice 5 supplies the owner id; comments and edit come from the existing detail screen. Not yet validated on a device |
 | 12 | On-site gate for other people's frames: Gallery, Search, Social hub, Notifications and the photo/comments page open someone else's frame only inside the physical radius; remote surfaces show a locked "Go to <place>" card with distance | planned |
+| 13 | Frame gallery: several default looks, default in Settings, author changes a published frame's look or colour from the photo page / AR panel | built, see [frame-styles.md](frame-styles.md); not synced to the backend and not validated on a device |
 | 8 | Frame persistence across AR sessions | see [ar-frame-persistence-plan.md](ar-frame-persistence-plan.md) |
 | 9 | Diagnose the app lag (needs a device debug log) | open |
 | 10 | Physical-device validation of slices 1-4 | open |

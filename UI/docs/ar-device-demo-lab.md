@@ -124,6 +124,14 @@ A frame's stored AR pose (`localAnchorPose`) is expressed in the coordinate fram
 - [ ] Test cancellation and verify a cancelled recording is not presented as a successful export.
 - [ ] Repeat with low light and device thermal/load conditions.
 
+### 4b. Frame styles
+
+- [ ] Settings → Default frame: pick Gold, publish a new frame; it hangs gold in AR.
+- [ ] Focus your own frame, tap Change frame, pick Dark gallery and a colour; the hung frame updates without re-placing it.
+- [ ] Previously published frames keep their look when the default changes.
+- [ ] Floating glass stays readable against a bright and a dark background.
+- [ ] Someone else's frame shows no Change frame button.
+
 ### 5. Offline behavior
 
 - [ ] Enable airplane mode after the app is installed.

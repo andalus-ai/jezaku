@@ -27,6 +27,8 @@ class AnchorMemory {
     bool isPrivate = false,
     FrameAudience? audience,
     this.ownerId,
+    this.frameLookId = 'classic',
+    this.frameColorValue,
     this.allowComments = true,
     this.hasArExperience = true,
   }) : audience = audience ??
@@ -56,6 +58,12 @@ class AnchorMemory {
   /// The author's user id, or null for frames captured on this device before
   /// the app knows who the user is (they are the viewer's own).
   final String? ownerId;
+
+  /// The frame's look, an id from the frame style catalog.
+  final String frameLookId;
+
+  /// ARGB colour the author picked for the frame, or null for the look's own.
+  final int? frameColorValue;
   final bool allowComments;
   final bool hasArExperience;
 
@@ -82,6 +90,8 @@ class AnchorMemory {
     bool? isPrivate,
     FrameAudience? audience,
     String? ownerId,
+    String? frameLookId,
+    Object? frameColorValue = _unchanged,
     bool? allowComments,
     bool? hasArExperience,
   }) {
@@ -110,6 +120,10 @@ class AnchorMemory {
               ? this.audience
               : (isPrivate ? FrameAudience.private : FrameAudience.public)),
       ownerId: ownerId ?? this.ownerId,
+      frameLookId: frameLookId ?? this.frameLookId,
+      frameColorValue: identical(frameColorValue, _unchanged)
+          ? this.frameColorValue
+          : frameColorValue as int?,
       allowComments: allowComments ?? this.allowComments,
       hasArExperience: hasArExperience ?? this.hasArExperience,
     );

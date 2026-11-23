@@ -15,6 +15,8 @@ class CapturePublishOptions {
     required this.gpsAccuracyMeters,
     required this.audience,
     required this.allowComments,
+    this.frameLookId = 'classic',
+    this.frameColorValue,
     this.caption = '',
     this.wallIds = const <String>[],
     this.recordingQualityReviewed = false,
@@ -31,6 +33,8 @@ class CapturePublishOptions {
           ? FrameAudience.private
           : FrameAudience.public,
       allowComments: settings.commentsEnabledByDefault,
+      frameLookId: settings.defaultFrameLookId,
+      frameColorValue: settings.defaultFrameColorValue,
     );
   }
 
@@ -38,6 +42,8 @@ class CapturePublishOptions {
   final double gpsAccuracyMeters;
   final FrameAudience audience;
   final bool allowComments;
+  final String frameLookId;
+  final int? frameColorValue;
   final String caption;
   final List<String> wallIds;
   final bool recordingQualityReviewed;
@@ -68,6 +74,8 @@ AnchorMemory publishCapturedMemory(
         caption: options.caption,
         radiusMeters: options.radiusMeters,
         audience: options.audience,
+        frameLookId: options.frameLookId,
+        frameColorValue: options.frameColorValue,
         allowComments: options.allowComments,
         capturedAt: captureSession.capturedAt,
         latitude: snapshot.latitude,

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:jejaku/features/frame_styles/services/frame_style_resolver.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jezaku_ar/jezaku_ar.dart';
 
@@ -46,6 +47,10 @@ extension AnchorMemoryGeoAnchor on AnchorMemory {
         'anchorType': captureMetadata.anchorType,
         'captureSource': captureMetadata.captureSource,
         'localAnchorId': captureMetadata.localAnchorId,
+        ...FrameStyleResolver.sceneMetadata(
+          lookId: frameLookId,
+          colorValue: frameColorValue,
+        ),
         if (includeLocalAnchorPose && captureMetadata.localAnchorPose != null)
           'localAnchorPose': captureMetadata.localAnchorPose!.toMap(),
         'cloudAnchorId': captureMetadata.cloudAnchorId,

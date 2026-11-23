@@ -200,6 +200,9 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
               AppRoutes.memoryPhoto,
               arguments: focusedAnchor.memory.id,
             ),
+            onChangeFrame: focusedAnchor.memory.ownerId == null
+                ? () => changeFrameStyle(context, ref, focusedAnchor.memory)
+                : null,
             onDetails: () => Navigator.pushNamed(
               context,
               AppRoutes.memoryDetails,

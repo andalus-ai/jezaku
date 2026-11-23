@@ -21,6 +21,7 @@ The app currently has a central route definition in `lib/app/navigation/app_rout
 | `calibration/` | Device/environment calibration flows and related state | Keep sensor math reusable only when it is not tied to a product journey |
 | `camera/` | Camera preview, capture interaction, and camera-specific state/services | Own camera UX and orchestration; do not duplicate low-level AR engine camera/session internals |
 | `docs/` | In-app documentation/help content | Keep user-facing help distinct from engineering docs under `UI/docs/` |
+| `frame_styles/` | The frame gallery: built-in frame looks (stable ids), look/colour resolver to AR scene metadata, picker and sheets | Cosmetic only; never decides who may see a frame. Looks are referenced by id so marketplace looks can join later; see [frame styles](frame-styles.md) |
 | `gallery/` | Browsing and managing captured media | Respect media ownership, privacy, and local/offline state |
 | `home/` | Main landing/discovery experience | Coordinate entry points without absorbing other feature implementations |
 | `moderation/` | Reporting, review, and moderation-facing UI | Server-side moderation and enforcement remain authoritative |
