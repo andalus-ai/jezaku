@@ -48,7 +48,9 @@ Production defaults to `jezaku.memory.spatial-safety.enforced=true`. Before `POS
 
 Configure `JEZAKU_SAFETY_BASE_URL` (or `jezaku.memory.spatial-safety.base-url`) and grant the Memory service the `spatial:policy-evaluate` service-token scope. Local development and tests explicitly disable this remote check so offline demos and isolated tests continue to run; production must not disable it.
 
-The policy is evaluated at the requested destination anchor. The coordinate is still device-submitted capture/placement data, not hardware-attested proof of the publisher's physical location. This check enforces rules against the stored placement but does not prevent GPS spoofing. The owner's gallery/read path is unchanged. Public render/discovery enforcement is a separate integration step and is not claimed by this publishing slice.
+The policy is evaluated at the requested destination anchor. The coordinate is still device-submitted capture/placement data, not hardware-attested proof of the publisher's physical location. This check enforces rules against the stored placement but does not prevent GPS spoofing.
+
+Before returning a memory through public detail, feed, nearby, or minimap surfaces, Memory also evaluates the stored anchor with activity `RENDER`. A policy denial hides that frame from the public render surface; a Safety-service outage fails closed with 503. The owner's own direct read and `/memories/users/{userId}` gallery remain available independently of public render policy. This is distinct from the on-site visibility rule: on-site checks govern who may browse another person's content, while spatial `RENDER` rules govern whether the content may be exposed at that location.
 
 ## Running the application in dev mode
 
