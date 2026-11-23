@@ -2,7 +2,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/camera/models/capture_sensor_snapshot.dart';
 import 'package:jejaku/features/camera/states/capture_session_provider.dart';
+import 'package:jejaku/features/home/models/frame_audience.dart';
 import 'package:jejaku/features/publish/services/capture_publisher.dart';
+import 'package:jejaku/features/publish/widgets/frame_audience_selector.dart';
 import 'package:jejaku/features/settings/states/settings_providers.dart';
 import 'package:jejaku/features/virtual_wall/models/ar_wall.dart';
 import 'package:jejaku/features/virtual_wall/states/wall_providers.dart';
@@ -18,7 +20,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   final TextEditingController _captionController = TextEditingController();
   double _radius = 30;
   double _gpsAccuracy = 3.2;
-  bool _isPrivate = false;
+  FrameAudience _audience = FrameAudience.public;
   bool _allowComments = true;
   bool _acceptedPlacementReview = false;
   bool _acceptedRecordingQualityReview = false;
@@ -31,7 +33,9 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
     final settings = ref.read(appSettingsProvider);
     _gpsAccuracy = captureSession.activeSnapshot.gpsAccuracyMeters;
     _radius = captureSession.anchorRadiusMeters;
-    _isPrivate = settings.privateByDefault;
+    _audience = settings.privateByDefault
+        ? FrameAudience.private
+        : FrameAudience.public;
     _allowComments = settings.commentsEnabledByDefault;
   }
 
@@ -93,12 +97,10 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
             ),
           ],
           const SizedBox(height: 12),
-          SwitchListTile(
-            key: const ValueKey('private_memory_switch'),
-            title: const Text('Private memory'),
-            subtitle: const Text('Only approved viewers can see this anchor.'),
-            value: _isPrivate,
-            onChanged: (value) => setState(() => _isPrivate = value),
+          FrameAudienceSelector(
+            key: const ValueKey('publish_audience_selector'),
+            selected: _audience,
+            onChanged: (value) => setState(() => _audience = value),
           ),
           SwitchListTile(
             key: const ValueKey('allow_comments_switch'),
@@ -325,7 +327,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
         caption: _captionController.text,
         radiusMeters: _radius,
         gpsAccuracyMeters: _gpsAccuracy,
-        isPrivate: _isPrivate,
+        audience: _audience,
         allowComments: _allowComments,
         wallIds: _selectedWallIds.toList(growable: false),
         recordingQualityReviewed: _acceptedRecordingQualityReview,

@@ -1,20 +1,12 @@
 import 'package:jejaku/features/ar_viewer/visibility/frame_visibility_rule.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
-
-/// Who a frame was shared with. Mirrors the memory service's
-/// `public | friends | private` visibility.
-enum FrameAudience { private, friends, public }
-
-/// The client model only records private versus not private (non-private
-/// frames are public, as the privacy settings describe). When
-/// [AnchorMemory] carries the backend's three-way visibility, map it here and
-/// nowhere else.
-FrameAudience frameAudienceOf(AnchorMemory memory) {
-  return memory.isPrivate ? FrameAudience.private : FrameAudience.public;
-}
+import 'package:jejaku/features/home/models/frame_audience.dart';
 
 /// A viewer sees public frames, friends' frames and their own frames. The
 /// backend remains authoritative; this is the client's defence in depth.
+///
+/// Friends-only frames need a friend relation: the author's id must be in the
+/// viewer's friend list (see `FrameViewerContext.forUser`).
 class FrameAudienceRule implements FrameVisibilityRule {
   const FrameAudienceRule();
 
@@ -26,8 +18,9 @@ class FrameAudienceRule implements FrameVisibilityRule {
     FrameVisibilityCandidate candidate,
     FrameViewerContext viewer,
   ) {
-    final relation = viewer.relationTo(candidate.memory);
-    final allowed = switch (frameAudienceOf(candidate.memory)) {
+    final AnchorMemory memory = candidate.memory;
+    final relation = viewer.relationTo(memory);
+    final allowed = switch (memory.audience) {
       FrameAudience.public => true,
       FrameAudience.friends => relation != FrameViewerRelation.none,
       FrameAudience.private => relation == FrameViewerRelation.owner,

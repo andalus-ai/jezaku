@@ -1,10 +1,12 @@
 import 'package:jejaku/features/home/models/anchor_memory.dart';
+import 'package:jejaku/features/home/models/frame_audience.dart';
 
 /// Filters offered on the owner's own-frames gallery.
 enum MyFramesFilter {
   all('All'),
   ar('AR'),
   videos('Videos'),
+  friends('Friends'),
   private('Private'),
   needsCalibration('Needs calibration');
 
@@ -18,6 +20,7 @@ enum MyFramesFilter {
       MyFramesFilter.ar => frame.hasArExperience,
       MyFramesFilter.videos =>
         frame.mediaAttachment?.type == AnchorMediaType.arRecording,
+      MyFramesFilter.friends => frame.audience == FrameAudience.friends,
       MyFramesFilter.private => frame.isPrivate,
       MyFramesFilter.needsCalibration => frame.needsCalibrationReview,
     };

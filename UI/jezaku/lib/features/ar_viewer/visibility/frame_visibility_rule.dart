@@ -49,6 +49,22 @@ class FrameViewerContext {
   const FrameViewerContext.localStore()
       : relationTo = _ownerOfEverything;
 
+  /// The real graph: frames without an author id were captured on this device
+  /// and are the viewer's own; frames by [userId] are their own; frames by a
+  /// user in [friendIds] are a friend's; anyone else is a stranger.
+  FrameViewerContext.forUser({
+    required String? userId,
+    Set<String> friendIds = const {},
+  }) : relationTo = ((memory) {
+          final ownerId = memory.ownerId;
+          if (ownerId == null || ownerId == userId) {
+            return FrameViewerRelation.owner;
+          }
+          return friendIds.contains(ownerId)
+              ? FrameViewerRelation.friend
+              : FrameViewerRelation.none;
+        });
+
   /// Demo and prototyping: anyone who is not the owner counts as a friend, so
   /// friends-only frames show. Production uses the real graph instead.
   FrameViewerContext.everyoneIsAFriend(FrameViewerContext base)

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:ar_engine/ar_engine.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
+import 'package:jejaku/features/home/models/frame_audience.dart';
 import 'package:jejaku/features/home/services/ar_capture_diagnostics_payload.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -121,6 +122,8 @@ Map<String, Object?> _memoryToJson(AnchorMemory memory) {
     'reportReason': memory.reportReason,
     'reportCount': memory.reportCount,
     'isPrivate': memory.isPrivate,
+    'audience': memory.audience.name,
+    'ownerId': memory.ownerId,
     'allowComments': memory.allowComments,
     'hasArExperience': memory.hasArExperience,
     'captureMetadata': _captureMetadataToJson(memory.captureMetadata),
@@ -161,7 +164,11 @@ AnchorMemory? _memoryFromJson(Map<String, Object?> json) {
     ),
     reportReason: json['reportReason'] as String?,
     reportCount: _int(json['reportCount'], 0),
-    isPrivate: _bool(json['isPrivate']),
+    audience: FrameAudience.fromName(
+      json['audience'],
+      _bool(json['isPrivate']) ? FrameAudience.private : FrameAudience.public,
+    ),
+    ownerId: json['ownerId'] as String?,
     allowComments: _bool(json['allowComments'], fallback: true),
     hasArExperience: _bool(json['hasArExperience'], fallback: true),
     captureMetadata: _captureMetadataFromJson(
