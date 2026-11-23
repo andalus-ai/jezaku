@@ -76,7 +76,7 @@ class HttpDiscoverySpatialSafety implements DiscoverySpatialSafety {
             java.util.ArrayList<String> outcomes = new java.util.ArrayList<>(results.size());
             for (JsonNode result : results) {
                 String outcome = result.path("decision").path("outcome").asText("");
-                if (outcome.isBlank()) {
+                if (!List.of("ALLOWED", "CAUTION", "RESTRICTED", "PROHIBITED", "EMERGENCY_LOCKDOWN").contains(outcome)) {
                     throw unavailable("Spatial safety service returned an invalid decision", null);
                 }
                 outcomes.add(outcome);
