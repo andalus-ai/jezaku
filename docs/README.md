@@ -13,6 +13,7 @@ This directory contains product direction, target architecture, implementation g
 - [Implementation plan](implementation-plan.md)
 - [Repository capability inventory](repository-capability-inventory.md) — source-backed current-state matrix, integration gaps, and recommended implementation sequence.
 - [Spatial safety integration plan](spatial-safety-integration-plan.md) — existing safety foundations, feature enforcement matrix, phased integration tickets, and release gates.
+- [Navigation safety contract](navigation-safety-contract.md) — provider-neutral route geometry, segment-level safety, alternatives, live invalidation, and implementation gates.
 - [Architecture decisions](decisions/)
 
 ## Existing technical documentation
