@@ -56,6 +56,23 @@ public record MerchantMembership(
                 createdAt, now, null, version + 1);
     }
 
+    public MerchantMembership reinvite(Role nextRole, Instant now, Instant expiresAt) {
+        if (role == Role.OWNER || nextRole == null || nextRole == Role.OWNER) {
+            throw new IllegalArgumentException("Owner role cannot be re-invited through staff management");
+        }
+        boolean revoked = status == Status.REVOKED;
+        boolean expiredInvitation = status == Status.INVITED && now != null
+                && !now.isBefore(invitationExpiresAt);
+        if (!revoked && !expiredInvitation) {
+            throw new IllegalStateException("Only revoked or expired invitations can be re-invited");
+        }
+        if (now == null || now.isBefore(updatedAt) || expiresAt == null || !expiresAt.isAfter(now)) {
+            throw new IllegalArgumentException("Invalid re-invitation window");
+        }
+        return new MerchantMembership(id, merchantId, userId, nextRole, Status.INVITED,
+                createdAt, now, expiresAt, version + 1);
+    }
+
     public MerchantMembership revoke(Instant now) {
         if (role == Role.OWNER) throw new IllegalStateException("Owner membership cannot be revoked through staff management");
         if (status == Status.REVOKED) throw new IllegalStateException("Membership is already revoked");
