@@ -204,9 +204,17 @@ public class SpatialService {
                     .toList();
             List<PlaceRecord> permitted = spatiallyPermitted(
                     candidates, spatialSafety.evaluate("DISCOVER", positionsOfPlaces(candidates)));
+            Set<String> permittedPlaceIds = permitted.stream().map(PlaceRecord::id)
+                    .collect(java.util.stream.Collectors.toSet());
+            List<AnchorRecord> anchorCandidates = anchors.values().stream()
+                    .filter(anchor -> permittedPlaceIds.contains(anchor.placeId))
+                    .toList();
+            List<AnchorRecord> visibleAnchors = spatiallyPermitted(
+                    anchorCandidates, spatialSafety.evaluate("RENDER", positionsOfAnchors(anchorCandidates)));
             return permitted.stream()
                     .map(place -> placeSummary(place,
-                            distanceMeters(latitude, longitude, place.center.latitude(), place.center.longitude())))
+                            distanceMeters(latitude, longitude, place.center.latitude(), place.center.longitude()),
+                            visibleAnchors))
                     .sorted(Comparator.comparingDouble(PlaceSummary::distanceMeters))
                     .toList();
         });
@@ -220,7 +228,7 @@ public class SpatialService {
                 throw new NotFoundException("place not found");
             }
             List<String> placeDecision = spatialSafety.evaluate("DISCOVER", List.of(place.center));
-            if (!isPermitted(placeDecision.get(0))) {
+            if (spatiallyPermitted(List.of(place), placeDecision).isEmpty()) {
                 throw new NotFoundException("place not found");
             }
             List<AnchorRecord> anchorCandidates = anchors.values().stream()
@@ -232,13 +240,16 @@ public class SpatialService {
                     .map(anchor -> anchorResponse(anchor, DEFAULT_DISTANCE))
                     .sorted(Comparator.comparing(AnchorResponse::createdAt).reversed())
                     .toList();
+            Set<String> visibleAnchorIds = visibleAnchors.stream()
+                    .map(AnchorRecord::id).collect(java.util.stream.Collectors.toSet());
             final var recentTrails = trails.values().stream()
-                    .filter(trail -> trailTouchesPlace(trail, normalizedPlaceId))
+                    .filter(trail -> trailTouchesAnchors(trail, visibleAnchorIds))
                     .sorted(Comparator.comparing(TrailRecord::finishedAt).reversed())
                     .limit(10)
                     .map(this::trailEntry)
                     .toList();
-            return new PlaceDetail(placeSummary(place, DEFAULT_DISTANCE), placeAnchors, recentTrails);
+            return new PlaceDetail(placeSummary(place, DEFAULT_DISTANCE, visibleAnchors),
+                    placeAnchors, recentTrails);
         });
     }
 
@@ -361,12 +372,17 @@ public class SpatialService {
                 savedTrailIds.contains(trail.id));
     }
 
-    private PlaceSummary placeSummary(PlaceRecord place, double distanceMeters) {
-        final var anchorCount = (int) anchors.values().stream()
+    private PlaceSummary placeSummary(
+            PlaceRecord place,
+            double distanceMeters,
+            List<AnchorRecord> visibleAnchors) {
+        Set<String> visibleAnchorIds = visibleAnchors.stream()
                 .filter(anchor -> place.id.equals(anchor.placeId))
-                .count();
+                .map(AnchorRecord::id)
+                .collect(java.util.stream.Collectors.toSet());
+        final var anchorCount = visibleAnchorIds.size();
         final var trailCount = (int) trails.values().stream()
-                .filter(trail -> trailTouchesPlace(trail, place.id))
+                .filter(trail -> trailTouchesAnchors(trail, visibleAnchorIds))
                 .count();
         return new PlaceSummary(
                 place.id,
@@ -379,12 +395,8 @@ public class SpatialService {
                 roundDistance(distanceMeters));
     }
 
-    private boolean trailTouchesPlace(TrailRecord trail, String placeId) {
-        final var placeAnchorIds = anchors.values().stream()
-                .filter(anchor -> placeId.equals(anchor.placeId))
-                .map(AnchorRecord::id)
-                .collect(java.util.stream.Collectors.toSet());
-        return trail.memoryIds.stream().anyMatch(placeAnchorIds::contains);
+    private boolean trailTouchesAnchors(TrailRecord trail, Set<String> visibleAnchorIds) {
+        return trail.memoryIds.stream().anyMatch(visibleAnchorIds::contains);
     }
 
     private void seedPlaces() {
