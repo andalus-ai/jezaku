@@ -34,6 +34,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
 import static tech.kayys.jezaku.taxonomy.JezakuChoices.VISIBILITIES;
@@ -76,12 +78,18 @@ public class MemoryService {
     private final MemoryRepository repository;
     private final MemoryMediaResolver mediaResolver;
     private final MemoryAudience audience;
+    private final MemoryOnSiteRule onSite;
 
     @Inject
-    MemoryService(MemoryRepository repository, MemoryMediaResolver mediaResolver, MemoryAudience audience) {
+    MemoryService(
+            MemoryRepository repository,
+            MemoryMediaResolver mediaResolver,
+            MemoryAudience audience,
+            MemoryOnSiteRule onSite) {
         this.repository = repository;
         this.mediaResolver = mediaResolver;
         this.audience = audience;
+        this.onSite = onSite;
         seed();
     }
 
@@ -129,7 +137,9 @@ public class MemoryService {
     public Uni<MemoryResponse> get(String id, Double lat, Double lng, String viewerId) {
         return Uni.createFrom().item(() -> {
             MemoryRecord memory = repository.findById(id);
-            if (memory == null || !viewableBy(memory, viewerId, relationshipsTo(viewerId, memory.ownerId()))) {
+            if (memory == null
+                    || !onSite.withinReach(memory, viewerId, lat, lng, Double.MAX_VALUE)
+                    || !viewableBy(memory, viewerId, relationshipsTo(viewerId, memory.ownerId()))) {
                 throw new NotFoundException("Memory not found: " + id);
             }
             GeoPoint viewer = lat == null || lng == null ? memory.position() : new GeoPoint(lat, lng, null);
@@ -213,14 +223,25 @@ public class MemoryService {
     }
 
     public Uni<List<MiniMapDot>> nearbyDots(double lat, double lng, Double radiusMeters, String excludeOwnerId) {
+        return nearbyDots(lat, lng, radiusMeters, excludeOwnerId, null);
+    }
+
+    public Uni<List<MiniMapDot>> nearbyDots(
+            double lat,
+            double lng,
+            Double radiusMeters,
+            String excludeOwnerId,
+            String viewerId) {
         return Uni.createFrom().item(() -> {
             validateLatLng(lat, lng);
             GeoPoint origin = new GeoPoint(lat, lng, null);
             double radius = normalizeRadius(radiusMeters);
             String excludedOwner = optionalTrim(excludeOwnerId, null);
-            return repository.findAll().stream()
-                    .filter(this::publicVisible)
-                    .filter(memory -> excludedOwner == null || !memory.ownerId().equals(excludedOwner))
+            return readable(
+                            viewerId,
+                            memory -> excludedOwner == null || !memory.ownerId().equals(excludedOwner),
+                            memory -> onSite.withinReach(memory, viewerId, lat, lng, radius))
+                    .stream()
                     .map(memory -> toDot(memory, origin, radius))
                     .filter(dot -> dot.distanceMeters() <= radius)
                     .sorted(Comparator.comparingDouble(MiniMapDot::distanceMeters))
@@ -237,6 +258,19 @@ public class MemoryService {
             Double radiusMeters,
             String excludeOwnerId,
             Integer limit) {
+        return minimap(lat, lng, altitudeMeters, headingDegrees, compassDegrees, radiusMeters, excludeOwnerId, limit, null);
+    }
+
+    public Uni<MemoryMinimapResponse> minimap(
+            double lat,
+            double lng,
+            Double altitudeMeters,
+            Double headingDegrees,
+            Double compassDegrees,
+            Double radiusMeters,
+            String excludeOwnerId,
+            Integer limit,
+            String viewerId) {
         return Uni.createFrom().item(() -> {
             validateLatLng(lat, lng);
             GeoPoint origin = new GeoPoint(lat, lng, altitudeMeters);
@@ -246,9 +280,11 @@ public class MemoryService {
             double radius = normalizeRadius(radiusMeters);
             int normalizedLimit = normalizeMinimapLimit(limit);
             String excludedOwner = optionalTrim(excludeOwnerId, null);
-            List<MemoryMinimapDot> available = repository.findAll().stream()
-                    .filter(this::publicVisible)
-                    .filter(memory -> excludedOwner == null || !memory.ownerId().equals(excludedOwner))
+            List<MemoryMinimapDot> available = readable(
+                            viewerId,
+                            memory -> excludedOwner == null || !memory.ownerId().equals(excludedOwner),
+                            memory -> onSite.withinReach(memory, viewerId, lat, lng, radius))
+                    .stream()
                     .map(memory -> toMinimapDot(memory, origin, orientation, radius))
                     .filter(dot -> dot.distanceMeters() <= radius)
                     .sorted(Comparator.comparingDouble(MemoryMinimapDot::distanceMeters))
@@ -280,6 +316,10 @@ public class MemoryService {
     public Uni<MemoryFeedResponse> userMemories(String userId, String viewerId) {
         return Uni.createFrom().item(() -> {
             String normalizedUserId = requireText(userId, "userId");
+            if (onSite.appliesTo(viewerId) && !viewerId.equals(normalizedUserId)) {
+                // Other people's frames are not browsable from afar; they are read on site, one by one.
+                return new MemoryFeedResponse(normalizedUserId, 0, List.of());
+            }
             Map<String, MemoryRelationship> relationships = relationshipsTo(viewerId, normalizedUserId);
             List<MemoryResponse> result = repository.findAll().stream()
                     .filter(memory -> memory.ownerId().equals(normalizedUserId))
@@ -292,10 +332,17 @@ public class MemoryService {
     }
 
     public Uni<List<MemoryResponse>> feed(Double lat, Double lng) {
+        return feed(lat, lng, null);
+    }
+
+    public Uni<List<MemoryResponse>> feed(Double lat, Double lng, String viewerId) {
         return Uni.createFrom().item(() -> {
             GeoPoint viewer = lat == null || lng == null ? null : new GeoPoint(lat, lng, null);
-            return repository.findAll().stream()
-                    .filter(this::publicVisible)
+            return readable(
+                            viewerId,
+                            memory -> true,
+                            memory -> onSite.withinReach(memory, viewerId, lat, lng, Double.MAX_VALUE))
+                    .stream()
                     .sorted(Comparator.comparing(MemoryRecord::capturedAt).reversed())
                     .map(memory -> toResponse(memory, viewer == null ? memory.position() : viewer))
                     .toList();
@@ -861,6 +908,28 @@ public class MemoryService {
                 stale,
                 0,
                 List.of());
+    }
+
+    /**
+     * Memories the caller may read from the listing surfaces (feed, nearby, minimap). Unless on-site viewing is
+     * enforced for this caller that is every public memory passing {@code filter}, as before. When enforced it is the
+     * caller's own memories plus other people's that are shared with them and within reach of the reported position;
+     * the social lookup then runs once for the owners that remain.
+     */
+    private List<MemoryRecord> readable(
+            String viewerId,
+            Predicate<MemoryRecord> filter,
+            Predicate<MemoryRecord> reach) {
+        if (!onSite.appliesTo(viewerId)) {
+            return repository.findAll().stream().filter(this::publicVisible).filter(filter).toList();
+        }
+        List<MemoryRecord> reachable = repository.findAll().stream().filter(filter).filter(reach).toList();
+        Set<String> owners = reachable.stream()
+                .map(MemoryRecord::ownerId)
+                .filter(ownerId -> !ownerId.equals(viewerId))
+                .collect(Collectors.toSet());
+        Map<String, MemoryRelationship> relationships = audience.relationshipsOf(viewerId, owners);
+        return reachable.stream().filter(memory -> viewableBy(memory, viewerId, relationships)).toList();
     }
 
     /** The viewer's relationship to one owner; empty for anonymous callers and for the owner themself. */

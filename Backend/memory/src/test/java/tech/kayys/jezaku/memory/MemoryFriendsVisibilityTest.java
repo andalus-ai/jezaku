@@ -45,7 +45,8 @@ class MemoryFriendsVisibilityTest {
         return new MemoryService(
                 new InMemoryMemoryRepository(),
                 new SeedMemoryMediaResolver(),
-                new MemoryAudience(true, relationships));
+                new MemoryAudience(true, relationships),
+                MemoryOnSiteRule.off());
     }
 
     private static String create(MemoryService service, String ownerId, String visibility) {
@@ -121,7 +122,10 @@ class MemoryFriendsVisibilityTest {
             throw new IllegalStateException("social is down");
         };
         MemoryService service = new MemoryService(
-                new InMemoryMemoryRepository(), new SeedMemoryMediaResolver(), new MemoryAudience(true, broken));
+                new InMemoryMemoryRepository(),
+                new SeedMemoryMediaResolver(),
+                new MemoryAudience(true, broken),
+                MemoryOnSiteRule.off());
         String friendsId = create(service, "owner", "friends");
         String publicId = create(service, "owner", "public");
 
@@ -133,7 +137,10 @@ class MemoryFriendsVisibilityTest {
     @Test
     void withTheSwitchOffFriendsOnlyStaysOwnerOnly() {
         MemoryService service = new MemoryService(
-                new InMemoryMemoryRepository(), new SeedMemoryMediaResolver(), MemoryAudience.disabled());
+                new InMemoryMemoryRepository(),
+                new SeedMemoryMediaResolver(),
+                MemoryAudience.disabled(),
+                MemoryOnSiteRule.off());
         String id = create(service, "owner", "friends");
 
         assertThrows(jakarta.ws.rs.NotFoundException.class,
