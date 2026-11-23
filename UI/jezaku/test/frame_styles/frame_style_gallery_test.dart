@@ -214,6 +214,10 @@ void main() {
         300,
         scrollable: find.byType(Scrollable).first,
       );
+      // scrollUntilVisible stops as soon as the tile's edge shows; bring the
+      // whole tile on screen so the tap lands on it.
+      await tester.ensureVisible(tile);
+      await tester.pumpAndSettle();
       await tester.tap(tile);
       await tester.pumpAndSettle();
 
