@@ -49,6 +49,16 @@ class FrameViewerContext {
   const FrameViewerContext.localStore()
       : relationTo = _ownerOfEverything;
 
+  /// Demo and prototyping: anyone who is not the owner counts as a friend, so
+  /// friends-only frames show. Production uses the real graph instead.
+  FrameViewerContext.everyoneIsAFriend(FrameViewerContext base)
+      : relationTo = ((memory) {
+          final relation = base.relationTo(memory);
+          return relation == FrameViewerRelation.none
+              ? FrameViewerRelation.friend
+              : relation;
+        });
+
   final FrameViewerRelation Function(AnchorMemory memory) relationTo;
 
   static FrameViewerRelation _ownerOfEverything(AnchorMemory memory) =>

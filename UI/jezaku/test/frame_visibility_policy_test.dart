@@ -143,6 +143,57 @@ void main() {
     });
   });
 
+  group('rules mode', () {
+    test('an empty or demo define is demo; anything else is strict', () {
+      expect(FrameRulesMode.parse(null), FrameRulesMode.demo);
+      expect(FrameRulesMode.parse(''), FrameRulesMode.demo);
+      expect(FrameRulesMode.parse(' Demo '), FrameRulesMode.demo);
+      expect(FrameRulesMode.parse('strict'), FrameRulesMode.strict);
+      expect(FrameRulesMode.parse('stirct'), FrameRulesMode.strict);
+    });
+
+    test('strict enforces the radius, demo does not', () {
+      final strict = FrameVisibilityPolicy.forMode(FrameRulesMode.strict);
+      final demo = FrameVisibilityPolicy.forMode(FrameRulesMode.demo);
+      final projected = _project([
+        _memory('here'),
+        _memory('far', metersNorth: 200),
+      ]);
+
+      expect(strict.enforcesRadius, isTrue);
+      expect(demo.enforcesRadius, isFalse);
+      expect(_ids(strict.viewable(projected, owner)), ['here']);
+      expect(_ids(demo.viewable(projected, owner)), ['far', 'here']);
+    });
+
+    test('demo still honours moderation and private frames of others', () {
+      final demo = FrameVisibilityPolicy.forMode(FrameRulesMode.demo);
+      final projected = _project([
+        _memory('removed', moderation: AnchorModerationStatus.hidden),
+        _memory('secret', isPrivate: true),
+        _memory('open'),
+      ]);
+      final friend = FrameViewerContext.everyoneIsAFriend(
+        viewerWith(FrameViewerRelation.none),
+      );
+
+      expect(_ids(demo.viewable(projected, friend)), ['open']);
+    });
+
+    test('everyone is a friend, but the owner stays the owner', () {
+      final memory = _memory('any');
+      final fromNone = FrameViewerContext.everyoneIsAFriend(
+        viewerWith(FrameViewerRelation.none),
+      );
+      final fromOwner = FrameViewerContext.everyoneIsAFriend(
+        viewerWith(FrameViewerRelation.owner),
+      );
+
+      expect(fromNone.relationTo(memory), FrameViewerRelation.friend);
+      expect(fromOwner.relationTo(memory), FrameViewerRelation.owner);
+    });
+  });
+
   group('edge of the radius', () {
     test('a frame already viewable stays visible within the exit margin', () {
       final projected = _project([_memory('edge', metersNorth: 23)]);

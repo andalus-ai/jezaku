@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 
-/// Shown when no frame hangs within the viewer's physical radius.
+/// Shown when there is no frame to show. With a radius it explains the
+/// physical range; with a null [radiusMeters] (demo rules, no radius) it only
+/// says there is nothing to show yet.
 ///
 /// It may point toward the viewer's own nearest frame
 /// ([nearestOwnFrameMeters]); it says nothing about other people's frames, so
@@ -12,16 +14,20 @@ class FrameRadiusEmptyHint extends StatelessWidget {
     super.key,
   });
 
-  final double radiusMeters;
+  final double? radiusMeters;
   final double? nearestOwnFrameMeters;
 
   String get message {
+    final radius = radiusMeters;
+    if (radius == null) {
+      return 'No frames to show yet. Capture one to hang it here.';
+    }
     final nearest = nearestOwnFrameMeters;
     if (nearest != null && nearest.isFinite) {
-      return 'No frames within ${radiusMeters.round()} m. Your nearest frame '
+      return 'No frames within ${radius.round()} m. Your nearest frame '
           'is ${nearest.round()} m away; walk closer.';
     }
-    return 'No frames within ${radiusMeters.round()} m. '
+    return 'No frames within ${radius.round()} m. '
         'Walk around; frames appear as you get close.';
   }
 
