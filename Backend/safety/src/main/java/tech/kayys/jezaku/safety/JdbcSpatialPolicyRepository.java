@@ -426,40 +426,44 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
     }
 
     @Override
-    public long currentPolicyRevision() {
-        try (Connection connection = dataSource.get().getConnection();
-             PreparedStatement statement = connection.prepareStatement(
-                     "SELECT revision FROM spatial_policy_state WHERE state_key = 'GLOBAL'");
-             ResultSet result = statement.executeQuery()) {
-            if (!result.next()) {
-                throw new SQLException("Spatial policy revision state is missing");
-            }
-            return result.getLong("revision");
-        } catch (SQLException exception) {
-            throw persistenceFailure("read current spatial policy revision", exception);
-        }
-    }
-
-    @Override
-    public List<SpatialPolicyChangeEvent> findPolicyChangesAfter(long revision, int limit) {
+    public PolicyChangePage findPolicyChangesAfter(long revision, int limit) {
         if (revision < 0 || limit < 1 || limit > 500) {
             throw new IllegalArgumentException("revision must be non-negative and limit must be between 1 and 500");
         }
+        // One statement keeps the high-water revision and page rows on the same
+        // PostgreSQL snapshot, even while another authority commits a change.
         String sql = """
-                SELECT policy_revision, event_id, restriction_id, restriction_version,
-                       action, jurisdiction, outcome, activities, occurred_at
-                FROM spatial_policy_change_outbox
-                WHERE policy_revision > ?
-                ORDER BY policy_revision ASC
-                LIMIT ?
+                SELECT state.revision AS current_revision,
+                       changes.policy_revision, changes.event_id, changes.restriction_id,
+                       changes.restriction_version, changes.action, changes.jurisdiction,
+                       changes.outcome, changes.activities, changes.occurred_at
+                FROM spatial_policy_state state
+                LEFT JOIN LATERAL (
+                    SELECT policy_revision, event_id, restriction_id, restriction_version,
+                           action, jurisdiction, outcome, activities, occurred_at
+                    FROM spatial_policy_change_outbox
+                    WHERE policy_revision > ?
+                    ORDER BY policy_revision ASC
+                    LIMIT ?
+                ) changes ON TRUE
+                WHERE state.state_key = 'GLOBAL'
+                ORDER BY changes.policy_revision ASC
                 """;
         try (Connection connection = dataSource.get().getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setLong(1, revision);
             statement.setInt(2, limit);
             try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) {
+                    throw new SQLException("Spatial policy revision state is missing");
+                }
+                long currentRevision = result.getLong("current_revision");
                 List<SpatialPolicyChangeEvent> events = new ArrayList<>();
-                while (result.next()) {
+                do {
+                    String eventId = result.getString("event_id");
+                    if (eventId == null) {
+                        continue;
+                    }
                     List<String> activities = new ArrayList<>();
                     java.sql.Array activityArray = result.getArray("activities");
                     if (activityArray != null) {
@@ -472,12 +476,12 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
                         }
                     }
                     events.add(new SpatialPolicyChangeEvent(
-                            result.getLong("policy_revision"), result.getString("event_id"),
+                            result.getLong("policy_revision"), eventId,
                             result.getString("restriction_id"), result.getInt("restriction_version"),
                             result.getString("action"), result.getString("jurisdiction"),
                             result.getString("outcome"), activities, instant(result, "occurred_at")));
-                }
-                return List.copyOf(events);
+                } while (result.next());
+                return new PolicyChangePage(currentRevision, events);
             }
         } catch (SQLException exception) {
             throw persistenceFailure("read spatial policy changes", exception);
