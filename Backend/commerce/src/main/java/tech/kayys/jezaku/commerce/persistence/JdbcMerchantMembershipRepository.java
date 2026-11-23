@@ -103,7 +103,9 @@ public class JdbcMerchantMembershipRepository implements MerchantMembershipRepos
         String sql = """
             UPDATE commerce_merchant_membership
             SET role = ?, status = ?, updated_at = ?, version = version + 1,
-                invitation_expires_at = ?, activated_at = CASE WHEN ? = 'ACTIVE' THEN ? ELSE activated_at END
+                invitation_expires_at = ?,
+                invited_by = CASE WHEN ? = 'INVITED' THEN ? ELSE invited_by END,
+                activated_at = CASE WHEN ? = 'ACTIVE' THEN ? ELSE activated_at END
             WHERE merchant_id = ? AND id = ? AND version = ? AND updated_at <= ?
             """;
         try (Connection connection = dataSource.getConnection();
@@ -114,11 +116,13 @@ public class JdbcMerchantMembershipRepository implements MerchantMembershipRepos
             if (membership.invitationExpiresAt() == null) statement.setNull(4, Types.TIMESTAMP_WITH_TIMEZONE);
             else JdbcCommerceSupport.bindInstant(statement, 4, membership.invitationExpiresAt());
             statement.setString(5, membership.status().name());
-            JdbcCommerceSupport.bindInstant(statement, 6, membership.updatedAt());
-            statement.setString(7, membership.merchantId());
-            statement.setString(8, membership.id());
-            statement.setLong(9, expectedVersion);
-            JdbcCommerceSupport.bindInstant(statement, 10, membership.updatedAt());
+            statement.setString(6, actorId);
+            statement.setString(7, membership.status().name());
+            JdbcCommerceSupport.bindInstant(statement, 8, membership.updatedAt());
+            statement.setString(9, membership.merchantId());
+            statement.setString(10, membership.id());
+            statement.setLong(11, expectedVersion);
+            JdbcCommerceSupport.bindInstant(statement, 12, membership.updatedAt());
             if (statement.executeUpdate() == 0) return Optional.empty();
             JdbcCommerceSupport.audit(connection, "MEMBERSHIP", membership.id(), membership.merchantId(),
                     actorId, action, expectedVersion, membership.version(), membership.updatedAt(), reasonCode);
