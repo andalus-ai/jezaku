@@ -1,4 +1,5 @@
 import 'package:jejaku/features/home/models/anchor_memory.dart';
+import 'package:jejaku/features/home/models/frame_audience.dart';
 import 'package:jejaku/features/home/widgets/anchor_media_preview.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -43,6 +44,8 @@ class MyFrameTile extends StatelessWidget {
                       const _TileBadge(icon: Icons.videocam),
                     if (frame.mediaAttachment?.type == AnchorMediaType.arModel)
                       const _TileBadge(icon: Icons.view_in_ar),
+                    if (frame.audience == FrameAudience.friends)
+                      const _TileBadge(icon: Icons.group),
                     if (frame.isPrivate) const _TileBadge(icon: Icons.lock),
                   ],
                 ),
@@ -68,6 +71,7 @@ String myFrameSemanticLabel(AnchorMemory frame) {
   return [
     frame.title,
     if (frame.isPrivate) 'Private',
+    if (frame.audience == FrameAudience.friends) 'Friends only',
     if (frame.mediaAttachment?.type == AnchorMediaType.arRecording) 'Video',
     if (frame.mediaAttachment?.type == AnchorMediaType.arModel) '3D object',
     if (frame.syncStatus != AnchorSyncStatus.synced) frame.syncStatusLabel,

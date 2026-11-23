@@ -252,8 +252,11 @@ class AnchorSyncPrivacyPayload {
     required this.isPrivate,
     required this.allowComments,
     required this.hasArExperience,
+    this.visibility = 'public',
   });
 
+  /// The memory service's `visibility`: `private`, `friends` or `public`.
+  final String visibility;
   final bool isPrivate;
   final bool allowComments;
   final bool hasArExperience;
@@ -261,6 +264,7 @@ class AnchorSyncPrivacyPayload {
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'isPrivate': isPrivate,
+      'visibility': visibility,
       'allowComments': allowComments,
       'hasArExperience': hasArExperience,
     };
@@ -393,6 +397,7 @@ class AnchorSyncPayloadBuilder {
       ),
       privacy: AnchorSyncPrivacyPayload(
         isPrivate: memory.isPrivate,
+        visibility: memory.audience.wireName,
         allowComments: memory.allowComments,
         hasArExperience: memory.hasArExperience,
       ),

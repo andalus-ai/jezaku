@@ -2,6 +2,7 @@
 /// from here". Import this file, not the individual rules.
 library;
 
+export 'package:jejaku/features/home/models/frame_audience.dart';
 export 'frame_audience_rule.dart';
 export 'frame_moderation_rule.dart';
 export 'frame_physical_radius_rule.dart';

@@ -106,6 +106,7 @@ void main() {
 
     final privacy = payload['privacy'] as Map<String, Object?>;
     expect(privacy['isPrivate'], isTrue);
+    expect(privacy['visibility'], 'private');
     expect(privacy['allowComments'], isFalse);
 
     final media = payload['media'] as Map<String, Object?>;
