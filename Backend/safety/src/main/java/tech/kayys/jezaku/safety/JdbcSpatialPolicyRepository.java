@@ -479,6 +479,7 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
                     }
                     events.add(new SpatialPolicyChangeEvent(
                             result.getLong("policy_revision"), eventId,
+                            result.getString("event_type"), result.getInt("event_version"),
                             result.getString("restriction_id"), result.getInt("restriction_version"),
                             result.getString("action"), result.getString("jurisdiction"),
                             result.getString("outcome"), activities, instant(result, "occurred_at")));
