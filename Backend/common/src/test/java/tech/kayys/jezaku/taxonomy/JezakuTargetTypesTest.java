@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class JezakuTargetTypesTest {
     @Test
     void exposesFeatureSpecificTargetTypeSets() {
-        assertEquals(Set.of("memory", "media", "event", "place", "trail", "profile", "merchant", "offer"),
+        assertEquals(Set.of("memory", "media", "event", "place", "trail", "profile"),
                 JezakuTargetTypes.ENGAGEABLE_TARGET_TYPES);
         assertEquals(Set.of("memory", "media", "event", "place", "trail", "profile", "presence", "merchant", "offer"),
                 JezakuTargetTypes.DISCOVERABLE_TARGET_TYPES);
