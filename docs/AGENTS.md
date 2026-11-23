@@ -585,3 +585,20 @@ At minimum, create ADRs before implementation for:
 - Label examples as illustrative until they match implemented, tested contracts.
 - When guidance conflicts with current code, do not silently rewrite reality: identify the gap, document the intended migration, and update code/tests/contracts deliberately.
 - Keep root `AGENTS.md`, `Backend/AGENTS.md`, and `UI/AGENTS.md` focused on engineering workflow; link to this document for product-level direction.
+
+
+## 19. Spatial platform document map
+
+Use these focused documents alongside this guidance:
+
+- [Product vision](vision.md): positioning, product layers, principles, and experience domains.
+- [Platform roadmap](roadmap.md): stages, dependencies, and exit criteria.
+- [Platform architecture](platform-architecture.md): logical boundaries and alignment with the current repository.
+- [Spatial Core specification](spatial-core.md): object, scene, placement, coordinate, lifecycle, interaction, and event contracts.
+- [Extension architecture](extension-architecture.md): package, permission, execution, validation, and revocation model.
+- [API standards](api-standards.md): HTTP, validation, authorization, pagination, events, and compatibility.
+- [Security and safety](security-and-safety.md): cross-cutting privacy, physical-world safety, authority, advertising, and extension controls.
+- [Implementation plan](implementation-plan.md): workstreams, milestones, acceptance criteria, and risks.
+- [ADR-0001](decisions/ADR-0001-spatial-platform-principles.md): accepted strategic platform principles.
+
+These documents describe target direction. Keep implementation status grounded in source, tests, API contracts, and device validation. Update this map when documents are added, renamed, or retired.
