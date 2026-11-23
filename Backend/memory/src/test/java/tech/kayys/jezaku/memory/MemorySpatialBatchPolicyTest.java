@@ -6,7 +6,6 @@ import tech.kayys.jezaku.memory.MemoryDtos.GeoPoint;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryCreateRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryResponse;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
