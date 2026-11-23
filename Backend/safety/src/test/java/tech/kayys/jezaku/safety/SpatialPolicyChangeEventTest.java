@@ -26,7 +26,7 @@ class SpatialPolicyChangeEventTest {
     @Test
     void policyChangePageCopiesEventsAndValidatesHighWaterRevision() {
         SpatialPolicyChangeEvent event = new SpatialPolicyChangeEvent(
-                1L, "spatial_policy_change_1", "restriction-1", 1,
+                1L, "spatial_policy_change_1", "spatial.policy.changed", 1, "restriction-1", 1,
                 "CREATED", "ID.32", "PROHIBITED", List.of("NAVIGATE"),
                 Instant.parse("2026-11-23T10:00:00Z"));
         List<SpatialPolicyChangeEvent> events = new ArrayList<>(List.of(event));
