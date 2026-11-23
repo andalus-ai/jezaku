@@ -45,7 +45,7 @@ class SpatialPolicyChangeEventTest {
     void rejectsInvalidRevisionAndIncompleteEvent() {
         Instant occurredAt = Instant.parse("2026-11-23T10:00:00Z");
         assertThrows(IllegalArgumentException.class, () -> new SpatialPolicyChangeEvent(
-                0L, "event", "restriction", 1, "CREATED", "ID.32", "PROHIBITED",
+                0L, "event", "spatial.policy.changed", 1, "restriction", 1, "CREATED", "ID.32", "PROHIBITED",
                 List.of("NAVIGATE"), occurredAt));
         assertThrows(IllegalArgumentException.class, () -> new SpatialPolicyChangeEvent(
                 1L, "", "restriction", 1, "CREATED", "ID.32", "PROHIBITED",
