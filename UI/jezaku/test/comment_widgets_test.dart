@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:jejaku/features/social/models/social_post.dart';
+import 'package:jejaku/features/social/models/social_comment.dart';
 import 'package:jejaku/features/social/widgets/comment_composer.dart';
 import 'package:jejaku/features/social/widgets/comment_tile.dart';
 import 'package:material_ui/material_ui.dart';
