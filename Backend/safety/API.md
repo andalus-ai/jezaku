@@ -23,7 +23,8 @@ The evaluation endpoint is service-to-service only and requires the `spatial:pol
 | PUT | `/restrictions/{restrictionId}` | Update using `expectedVersion` |
 | POST | `/restrictions/{restrictionId}/revoke` | Revoke with expected version and reason |
 | GET | `/restrictions/{restrictionId}/history` | Read audit history (issuing authority only) |
-| POST | `/evaluate` | Evaluate a coordinate and activity against current active rules |
+| POST | `/evaluate` | Evaluate one coordinate and activity against current active rules |
+| POST | `/evaluate/batch` | Evaluate 1–500 ordered candidates against one immutable policy snapshot (service scope required) |
 
 ## Create/update payload
 
@@ -57,6 +58,19 @@ Coordinates are WGS84 decimal degrees. Radius must be greater than zero and no m
 
 Evaluation time is assigned by the server. Results include the strongest matching outcome, matching restriction IDs, a reason code, and the earliest matching expiry. `ALLOWED` and `CAUTION` are non-blocking decisions; consumers must still present caution messaging where appropriate.
 
+## Batch evaluation payload
+
+```json
+{
+  "requests": [
+    { "latitude": -6.9, "longitude": 107.6, "activity": "DISCOVER" },
+    { "latitude": -6.901, "longitude": 107.601, "activity": "DISCOVER" }
+  ]
+}
+```
+
+The response contains one result per input, in the same order, and one shared `evaluatedAt` timestamp. The server captures active restrictions once for the entire batch. Empty batches, invalid coordinates/activities, and batches over 500 are rejected; consumers must not truncate candidate lists to fit the limit. Batch evaluation is intended for server-side candidate filtering, not public client use.
+
 ## Error behavior
 
 - 400: malformed or invalid coordinates, activity, timestamps, or payload
@@ -67,4 +81,4 @@ Evaluation time is assigned by the server. Results include the strongest matchin
 
 ## Current scope and safety boundary
 
-The first API release supports circular geofences only. Polygon/multipolygon geometry, PostGIS indexes, bulk import, jurisdiction administration endpoints, emergency revocation workflows, and enforcement integration into every publishing/rendering/navigation path remain later phases. A successful evaluation endpoint call alone does not guarantee every downstream operation is protected; consuming services must integrate the policy decision before enabling the corresponding action.
+The first API release supports circular geofences only. Polygon/multipolygon geometry, PostGIS indexes, bulk import, jurisdiction administration endpoints, and emergency revocation workflows remain later phases. Discovery nearby/search/trending/for-you paths now call batch evaluation before returning candidates; memory publishing continues to use the existing single-coordinate evaluation path. Memory presentation/render-time enforcement remains a separate integration step. A successful evaluation endpoint call alone does not guarantee every downstream operation is protected; consuming services must integrate the policy decision before enabling the corresponding action.
