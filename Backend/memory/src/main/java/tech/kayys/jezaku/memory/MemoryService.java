@@ -346,11 +346,13 @@ public class MemoryService {
                     .filter(memory -> memory.ownerId().equals(normalizedUserId))
                     .filter(memory -> viewableBy(memory, viewerId, relationships))
                     // The owner's profile is their gallery; other users' public profiles are render surfaces.
-                    .filter(memory -> !memory.ownerId().equals(viewerId))
                     .sorted(Comparator.comparing(MemoryRecord::capturedAt).reversed())
                     .toList();
-            List<MemoryRecord> renderable = spatiallyPermitted(
-                    profileCandidates, spatialSafety.evaluateRender(positionsOf(profileCandidates)));
+            // Owners retain their unrestricted gallery; only another person's profile is a render surface.
+            List<MemoryRecord> renderable = normalizedUserId.equals(viewerId)
+                    ? profileCandidates
+                    : spatiallyPermitted(
+                            profileCandidates, spatialSafety.evaluateRender(positionsOf(profileCandidates)));
             List<MemoryResponse> result = renderable.stream()
                     .map(memory -> toResponse(memory, memory.position()))
                     .toList();
