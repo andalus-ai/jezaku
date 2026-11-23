@@ -13,9 +13,13 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.time.Duration;\nimport java.time.Instant;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
-import java.util.Map;\nimport java.util.ArrayList;\nimport java.util.HashSet;\nimport java.util.Set;
+import java.util.Map;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Optional;
 
 /** Service-authenticated, bounded adapter to the central Safety policy API. */
