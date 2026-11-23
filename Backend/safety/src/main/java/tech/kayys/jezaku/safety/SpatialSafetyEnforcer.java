@@ -23,7 +23,10 @@ public class SpatialSafetyEnforcer {
      * Hard upper bound for one in-memory batch. Callers with larger result sets
      * must page/chunk them while retaining a request snapshot where appropriate.
      */
-    public static final int MAX_BATCH_SIZE = 500;\n    public static final int MAX_ROUTE_CANDIDATES = 5;\n    public static final int MAX_ROUTE_BATCH_VERTICES = 5_000;\n    public static final double MAX_ROUTE_CORRIDOR_BUFFER_METERS = 500.0;
+    public static final int MAX_BATCH_SIZE = 500;
+    public static final int MAX_ROUTE_CANDIDATES = 5;
+    public static final int MAX_ROUTE_BATCH_VERTICES = 5_000;
+    public static final double MAX_ROUTE_CORRIDOR_BUFFER_METERS = 500.0;
 
     @Inject
     SpatialPolicyRepository repository;
