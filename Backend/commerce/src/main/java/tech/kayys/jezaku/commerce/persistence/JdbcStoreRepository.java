@@ -81,7 +81,7 @@ public class JdbcStoreRepository implements StoreRepository {
             String sql = """
                 UPDATE commerce_store
                 SET name = ?, time_zone = ?, status = ?, updated_at = ?, version = version + 1
-                WHERE id = ? AND merchant_id = ? AND version = ?
+                WHERE id = ? AND merchant_id = ? AND version = ? AND updated_at <= ?
                 """;
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
                 statement.setString(1, store.name());
@@ -91,6 +91,7 @@ public class JdbcStoreRepository implements StoreRepository {
                 statement.setString(5, store.id());
                 statement.setString(6, store.merchantId());
                 statement.setLong(7, expectedVersion);
+                JdbcCommerceSupport.bindInstant(statement, 8, store.updatedAt());
                 if (statement.executeUpdate() == 0) return Optional.empty();
             }
             updatePlacement(connection, store.id(), store.placement());
