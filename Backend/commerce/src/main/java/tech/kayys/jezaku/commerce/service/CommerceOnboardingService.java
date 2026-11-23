@@ -58,10 +58,10 @@ public class CommerceOnboardingService {
         }
         Merchant merchant = merchants.findById(merchantId)
                 .orElseThrow(() -> new NotFoundException("Merchant not found"));
+        MerchantMembership inviter = activeMembership(merchantId, actorId);
         if (merchant.status() != MerchantStatus.VERIFIED) {
             throw new jakarta.ws.rs.WebApplicationException("Merchant must be verified before staff invitations", 409);
         }
-        MerchantMembership inviter = activeMembership(merchantId, actorId);
         if (inviter.role() != MerchantMembership.Role.OWNER && inviter.role() != MerchantMembership.Role.ADMIN) {
             throw new ForbiddenException("Only owners and administrators can invite staff");
         }
