@@ -105,6 +105,18 @@ class SpatialSafetyEnforcerTest {
     }
 
     @Test
+    void capturedSnapshotCarriesRepositoryPolicyRevision() {
+        FakeRepository repository = new FakeRepository(List.of(), false, 42L);
+        SpatialSafetyEnforcer enforcer = new SpatialSafetyEnforcer();
+        enforcer.repository = repository;
+
+        var snapshot = enforcer.captureSnapshot();
+
+        assertEquals(42L, snapshot.revision());
+        assertEquals(1, repository.readCount);
+    }
+
+    @Test
     void snapshotCopiesRestrictionsAndUsesOneEvaluationInstant() {
         List<SpatialRestriction> mutable = new ArrayList<>();
         mutable.add(restriction(SpatialRestriction.Outcome.CAUTION, SpatialRestriction.Activity.RENDER));
