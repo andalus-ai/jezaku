@@ -3,8 +3,8 @@ import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/frame_styles/widgets/frame_style_sheet.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/services/anchor_media_resolver.dart';
-import 'package:jejaku/features/home/states/anchor_providers.dart';
 import 'package:jejaku/features/home/widgets/memory_preview.dart';
+import 'package:jejaku/features/remote_frames/states/viewer_anchors_provider.dart';
 import 'package:jejaku/features/settings/states/settings_providers.dart';
 import 'package:jejaku/features/social/states/social_comment_provider.dart';
 import 'package:jejaku/features/social/widgets/comment_composer.dart';
@@ -22,7 +22,7 @@ class MemoryPhotoScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final memories = ref.watch(nearbyAnchorsProvider);
+    final memories = ref.watch(viewerAnchorsProvider);
     final memory = _findMemory(memories);
 
     if (memory == null) {

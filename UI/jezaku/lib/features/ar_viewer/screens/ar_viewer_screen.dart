@@ -63,6 +63,7 @@ import 'package:jejaku/features/home/services/anchor_spatial_journey_service.dar
 import 'package:jejaku/features/home/states/anchor_providers.dart';
 import 'package:jejaku/features/home/widgets/anchor_media_pill.dart';
 import 'package:jejaku/features/publish/services/capture_publisher.dart';
+import 'package:jejaku/features/remote_frames/states/viewer_anchors_provider.dart';
 import 'package:jejaku/features/trails/models/ar_trail_session.dart';
 import 'package:jejaku/features/trails/services/trail_launch_planner.dart';
 import 'package:jejaku/features/trails/states/ar_trail_session_providers.dart';
@@ -717,7 +718,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
 
   @override
   Widget build(BuildContext context) {
-    final anchors = ref.watch(nearbyAnchorsProvider);
+    final anchors = ref.watch(viewerAnchorsProvider);
     final captureSession = ref.watch(captureSessionProvider);
     final viewerOrigin = _viewerOriginFor(captureSession.previewSnapshot);
     final arCapabilities = ref.watch(arViewerCapabilitiesProvider);
@@ -2665,35 +2666,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         lastARFrameAt != null &&
         DateTime.now().toUtc().difference(lastARFrameAt) <
             const Duration(seconds: 2);
-  }
-
-  String _poseSourceShortLabel() {
-    if (_hasFreshARPose()) {
-      return 'AR tracking';
-    }
-    if (_isRelocalizing()) {
-      return 'Relocalizing · GPS';
-    }
-    return _lastARCameraFrameAt == null ? 'GPS fallback' : 'AR stale · GPS';
-  }
-
-  IconData _poseSourceIcon() {
-    if (_hasFreshARPose()) {
-      return Icons.view_in_ar;
-    }
-    if (_isRelocalizing()) {
-      return Icons.center_focus_weak;
-    }
-    return Icons.explore_outlined;
-  }
-
-  Color _poseSourceColor(ColorScheme colors) {
-    if (_hasFreshARPose()) {
-      return colors.primary;
-    }
-    return _lastARCameraFrameAt == null
-        ? colors.tertiary
-        : colors.error;
   }
 
   String _poseRecoveryGuidance() {

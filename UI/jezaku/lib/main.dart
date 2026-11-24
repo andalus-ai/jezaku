@@ -88,7 +88,10 @@ Future<void> _bootstrapAndRun() async {
         ),
         if (_identityUrl.isNotEmpty)
           httpAuthGatewayOverride(baseUrl: _identityUrl),
-        if (_memoryUrl.isNotEmpty) memoryApiOverride(baseUrl: _memoryUrl),
+        if (_memoryUrl.isNotEmpty) ...[
+          memoryApiOverride(baseUrl: _memoryUrl),
+          httpRemoteMediaLoaderOverride(),
+        ],
         persistentARHudStoreOverride(
           preferences: preferences,
         ),

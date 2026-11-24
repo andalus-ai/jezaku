@@ -5,6 +5,35 @@ part of '../ar_viewer_screen.dart';
 /// Everything except Back and the Hide/Show UI button is hidden while
 /// `_hud.masterVisible` is false.
 extension _ARViewerTopBar on _ARViewerScreenState {
+  String _poseSourceShortLabel() {
+    if (_hasFreshARPose()) {
+      return 'AR tracking';
+    }
+    if (_isRelocalizing()) {
+      return 'Relocalizing · GPS';
+    }
+    return _lastARCameraFrameAt == null ? 'GPS fallback' : 'AR stale · GPS';
+  }
+
+  IconData _poseSourceIcon() {
+    if (_hasFreshARPose()) {
+      return Icons.view_in_ar;
+    }
+    if (_isRelocalizing()) {
+      return Icons.center_focus_weak;
+    }
+    return Icons.explore_outlined;
+  }
+
+  Color _poseSourceColor(ColorScheme colors) {
+    if (_hasFreshARPose()) {
+      return colors.primary;
+    }
+    return _lastARCameraFrameAt == null
+        ? colors.tertiary
+        : colors.error;
+  }
+
   void _showHudSettingsSheet(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
