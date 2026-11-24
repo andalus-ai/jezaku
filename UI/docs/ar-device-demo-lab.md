@@ -124,6 +124,13 @@ A frame's stored AR pose (`localAnchorPose`) is expressed in the coordinate fram
 - [ ] Test cancellation and verify a cancelled recording is not presented as a successful export.
 - [ ] Repeat with low light and device thermal/load conditions.
 
+### 4a. Sign-in (needs a running identity service)
+
+- [ ] Demo build (default): the app opens straight to the home screen; Settings shows no account tile.
+- [ ] Strict build with `JEZAKU_IDENTITY_URL` set: the sign-in screen shows first. A wrong password shows one generic message; the right one opens the app.
+- [ ] Settings → Signed in → Sign out returns to the sign-in screen. Frames saved on the device are still there after signing back in.
+- [ ] Strict build with no identity URL: no sign-in screen (the gate is off).
+
 ### 4b. Frame styles
 
 - [ ] Settings → Default frame: pick Gold, publish a new frame; it hangs gold in AR.

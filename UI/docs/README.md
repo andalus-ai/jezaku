@@ -2,6 +2,7 @@
 
 - [AR Device Demo Lab](ar-device-demo-lab.md) — offline-first physical-device testing workflow for AR runtime, placement, photo frames, snapshots and recording.
 - [Frame visibility and AR frames roadmap](frame-visibility-and-roadmap.md) — who may see a frame, the 20 m physical radius, the central rule namespace, and the ordered roadmap.
+- [Sign-in](sign-in.md) — the client sign-in seam: required in production builds with an identity service, bypassed in demo builds.
 - [Frame styles](frame-styles.md) — the frame gallery: built-in looks, default frame in Settings, changing a published frame, and how it maps to the platform's appearance contract.
 - [AR frame persistence plan](ar-frame-persistence-plan.md) — why frames only hang within one AR session, what the ar-core backend can and cannot do, and the staged plan.
 

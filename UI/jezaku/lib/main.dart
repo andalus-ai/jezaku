@@ -7,6 +7,8 @@ import 'package:jejaku/app/theme/jejaku_theme.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_store.dart';
+import 'package:jejaku/features/auth/states/auth_providers.dart';
+import 'package:jejaku/features/auth/widgets/sign_in_gate.dart';
 import 'package:jejaku/features/camera/services/ar_capture_diagnostics_cache_store.dart';
 import 'package:jejaku/features/home/services/anchor_media_repository_bootstrap.dart';
 import 'package:jejaku/features/home/services/anchor_memory_store.dart';
@@ -14,8 +16,8 @@ import 'package:jejaku/features/home/services/viewer_location.dart';
 import 'package:jejaku/features/home/states/viewer_location_provider.dart';
 import 'package:jejaku/features/profile/services/user_profile_store.dart';
 import 'package:jejaku/features/settings/services/app_settings_store.dart';
-import 'package:jejaku/features/sync/services/anchor_sync_delivery_log_store.dart';
 import 'package:jejaku/features/sync/services/anchor_media_upload_queue_store.dart';
+import 'package:jejaku/features/sync/services/anchor_sync_delivery_log_store.dart';
 import 'package:jejaku/features/trails/services/ar_trail_progress_store.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -82,6 +84,8 @@ Future<void> _bootstrapAndRun() async {
         persistentUserProfileStoreOverride(
           preferences: preferences,
         ),
+        if (_identityUrl.isNotEmpty)
+          httpAuthGatewayOverride(baseUrl: _identityUrl),
         persistentARMemorySceneDiagnosticsStoreOverride(
           preferences: preferences,
         ),
@@ -97,6 +101,10 @@ Future<void> _bootstrapAndRun() async {
   );
 }
 
+/// Base URL of the identity service, e.g. `http://10.0.2.2:8101`. Empty means
+/// this build has no sign-in (the gate stays open).
+const _identityUrl = String.fromEnvironment('JEZAKU_IDENTITY_URL');
+
 class JejakuApp extends ConsumerWidget {
   const JejakuApp({super.key});
 
@@ -109,6 +117,8 @@ class JejakuApp extends ConsumerWidget {
       theme: JejakuTheme.light(),
       darkTheme: JejakuTheme.dark(),
       themeMode: ThemeMode.system,
+      builder: (context, child) =>
+          SignInGate(child: child ?? const SizedBox.shrink()),
       initialRoute:
           _arOfflineTestMode ? AppRoutes.arViewer : AppRoutes.root,
       onGenerateRoute: AppRoutes.onGenerateRoute,

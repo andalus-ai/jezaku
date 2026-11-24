@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:jejaku/features/auth/states/auth_providers.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_rules_mode.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_visibility_policy.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_visibility_rule.dart';
@@ -14,9 +15,11 @@ final frameVisibilityPolicyProvider = Provider<FrameVisibilityPolicy>(
   (ref) => FrameVisibilityPolicy.forMode(ref.watch(frameRulesModeProvider)),
 );
 
-/// The signed-in user's id, or null until the app has an identity. Feed this
-/// from the identity service when the client is connected to the backend.
-final currentUserIdProvider = Provider<String?>((ref) => null);
+/// The signed-in user's id, or null while nobody is signed in (always, in demo
+/// builds, which bypass sign-in).
+final currentUserIdProvider = Provider<String?>(
+  (ref) => ref.watch(signedInUserIdProvider),
+);
 
 /// The ids of the viewer's friends. Feed this from the social service when the
 /// client is connected to the backend.
