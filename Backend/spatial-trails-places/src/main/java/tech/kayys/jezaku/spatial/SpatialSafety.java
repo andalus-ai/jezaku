@@ -20,6 +20,25 @@ public interface SpatialSafety {
         throw new WebApplicationException("Route safety evaluation is unavailable", 503);
     }
 
+    /** Read ordered policy invalidation events after the last successfully processed revision. */
+    default PolicyChangePage readPolicyChanges(long afterRevision, int limit) {
+        throw new WebApplicationException("Spatial policy change feed is unavailable", 503);
+    }
+
+    record PolicyChangeEvent(long policyRevision, String eventId, String eventType, int eventVersion,
+            String restrictionId, int restrictionVersion, String action, String jurisdiction, String outcome,
+            List<String> activities, Instant occurredAt) {
+        public PolicyChangeEvent {
+            activities = activities == null ? List.of() : List.copyOf(activities);
+        }
+    }
+
+    record PolicyChangePage(long currentRevision, long afterRevision, List<PolicyChangeEvent> events) {
+        public PolicyChangePage {
+            events = events == null ? List.of() : List.copyOf(events);
+        }
+    }
+
     static SpatialSafety allowAll() {
         return new SpatialSafety() {
             @Override
