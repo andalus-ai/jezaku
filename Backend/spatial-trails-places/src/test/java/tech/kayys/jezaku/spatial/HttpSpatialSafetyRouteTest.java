@@ -23,6 +23,74 @@ class HttpSpatialSafetyRouteTest {
     }
 
     @Test
+    void buildsPolicyChangeFeedUriWithRevisionCursor() {
+        HttpSpatialSafety safety = new HttpSpatialSafety(true,
+                Optional.of("http://safety.internal/"), 3);
+
+        assertEquals(URI.create("http://safety.internal/safety/spatial/changes?afterRevision=12&limit=50"),
+                safety.policyChangesUri(12, 50));
+    }
+
+    @Test
+    void parsesOrderedPolicyChangePageAndPreservesCursorMetadata() {
+        HttpSpatialSafety safety = new HttpSpatialSafety(true,
+                Optional.of("http://safety.internal"), 3);
+        String payload = """
+                {
+                  "currentRevision": 14,
+                  "afterRevision": 12,
+                  "count": 2,
+                  "events": [
+                    {"policyRevision":13,"eventId":"spatial_policy_change_13","eventType":"spatial.policy.changed",
+                     "eventVersion":1,"restrictionId":"restriction-a","restrictionVersion":2,"action":"UPDATED",
+                     "jurisdiction":"ID.32","outcome":"PROHIBITED","activities":["NAVIGATE"],
+                     "occurredAt":"2026-11-24T01:00:00Z"},
+                    {"policyRevision":14,"eventId":"spatial_policy_change_14","eventType":"spatial.policy.changed",
+                     "eventVersion":1,"restrictionId":"restriction-b","restrictionVersion":1,"action":"CREATED",
+                     "jurisdiction":"ID.32","outcome":"CAUTION","activities":["NAVIGATE","DISCOVER"],
+                     "occurredAt":"2026-11-24T01:01:00Z"}
+                  ]
+                }
+                """;
+
+        var page = safety.parsePolicyChanges(payload, 12, 10);
+
+        assertEquals(14, page.currentRevision());
+        assertEquals(12, page.afterRevision());
+        assertEquals(List.of(13L, 14L),
+                page.events().stream().map(SpatialSafety.PolicyChangeEvent::policyRevision).toList());
+        assertEquals(List.of("NAVIGATE", "DISCOVER"), page.events().get(1).activities());
+    }
+
+    @Test
+    void rejectsPolicyChangePagesWithDuplicateOrOutOfOrderRevisions() {
+        HttpSpatialSafety safety = new HttpSpatialSafety(true,
+                Optional.of("http://safety.internal"), 3);
+        String payload = """
+                {
+                  "currentRevision": 14,
+                  "afterRevision": 12,
+                  "count": 2,
+                  "events": [
+                    {"policyRevision":14,"eventId":"event-14","eventType":"spatial.policy.changed",
+                     "eventVersion":1,"restrictionId":"restriction-a","restrictionVersion":1,"action":"CREATED",
+                     "jurisdiction":"ID.32","outcome":"PROHIBITED","activities":["NAVIGATE"],
+                     "occurredAt":"2026-11-24T01:00:00Z"},
+                    {"policyRevision":13,"eventId":"event-13","eventType":"spatial.policy.changed",
+                     "eventVersion":1,"restrictionId":"restriction-b","restrictionVersion":1,"action":"CREATED",
+                     "jurisdiction":"ID.32","outcome":"PROHIBITED","activities":["NAVIGATE"],
+                     "occurredAt":"2026-11-24T01:01:00Z"}
+                  ]
+                }
+                """;
+
+        WebApplicationException failure = assertThrows(WebApplicationException.class,
+                () -> safety.parsePolicyChanges(payload, 12, 10));
+
+        assertEquals(503, failure.getResponse().getStatus());
+    }
+
+    @Test
     void disabledLocalAdapterReturnsShortLivedExplicitAllowAssessment() {
         HttpSpatialSafety safety = new HttpSpatialSafety(false, Optional.empty(), 3);
         var route = new SpatialSafety.RouteCandidate("route-a", List.of(
