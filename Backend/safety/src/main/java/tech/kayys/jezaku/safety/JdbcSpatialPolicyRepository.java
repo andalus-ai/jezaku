@@ -48,6 +48,14 @@ public class JdbcSpatialPolicyRepository implements SpatialPolicyRepository {
                     updated_at = now()
                 """;
         try (Connection connection = dataSource.get().getConnection()) {
+            // Serialize the existence check and upsert for this authority only.
+            // The transaction-scoped advisory lock prevents concurrent first-time
+            // provisioning from both recording a CREATED audit event.
+            try (PreparedStatement lock = connection.prepareStatement(
+                    "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))")) {
+                lock.setString(1, principal.principalId());
+                lock.execute();
+            }
             boolean existed;
             try (PreparedStatement exists = connection.prepareStatement(
                     "SELECT 1 FROM spatial_authority WHERE principal_id = ?")) {
