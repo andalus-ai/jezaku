@@ -91,6 +91,34 @@ class HttpSpatialSafetyRouteTest {
     }
 
     @Test
+    void rejectsPolicyChangePagesWithMissingRevision() {
+        HttpSpatialSafety safety = new HttpSpatialSafety(true,
+                Optional.of("http://safety.internal"), 3);
+        String payload = """
+                {
+                  "currentRevision": 15,
+                  "afterRevision": 12,
+                  "count": 2,
+                  "events": [
+                    {"policyRevision":13,"eventId":"event-13","eventType":"spatial.policy.changed",
+                     "eventVersion":1,"restrictionId":"restriction-a","restrictionVersion":1,"action":"CREATED",
+                     "jurisdiction":"ID.32","outcome":"PROHIBITED","activities":["NAVIGATE"],
+                     "occurredAt":"2026-11-24T01:00:00Z"},
+                    {"policyRevision":15,"eventId":"event-15","eventType":"spatial.policy.changed",
+                     "eventVersion":1,"restrictionId":"restriction-b","restrictionVersion":1,"action":"CREATED",
+                     "jurisdiction":"ID.32","outcome":"PROHIBITED","activities":["NAVIGATE"],
+                     "occurredAt":"2026-11-24T01:01:00Z"}
+                  ]
+                }
+                """;
+
+        WebApplicationException failure = assertThrows(WebApplicationException.class,
+                () -> safety.parsePolicyChanges(payload, 12, 10));
+
+        assertEquals(503, failure.getResponse().getStatus());
+    }
+
+    @Test
     void disabledLocalAdapterReturnsShortLivedExplicitAllowAssessment() {
         HttpSpatialSafety safety = new HttpSpatialSafety(false, Optional.empty(), 3);
         var route = new SpatialSafety.RouteCandidate("route-a", List.of(
