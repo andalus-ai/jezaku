@@ -199,6 +199,103 @@ class HttpSpatialSafety implements SpatialSafety {
         }
     }
 
+    @Override
+    public PolicyChangePage readPolicyChanges(long afterRevision, int limit) {
+        if (afterRevision < 0 || limit < 1 || limit > 500) {
+            throw unavailable("Policy change cursor or page size is outside supported bounds", null);
+        }
+        if (!enforced) {
+            return new PolicyChangePage(afterRevision, afterRevision, List.of());
+        }
+        try {
+            HttpResponse<String> response = http.send(
+                    ServiceTokenSource.request(policyChangesUri(afterRevision, limit))
+                            .timeout(timeout)
+                            .GET()
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw unavailable("Spatial policy change feed failed with status " + response.statusCode(), null);
+            }
+            return parsePolicyChanges(response.body(), afterRevision, limit);
+        } catch (WebApplicationException exception) {
+            throw exception;
+        } catch (IOException exception) {
+            throw unavailable("Spatial policy change response could not be read", exception);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw unavailable("Spatial policy change read was interrupted", exception);
+        } catch (RuntimeException exception) {
+            throw unavailable("Spatial policy change feed is unavailable", exception);
+        }
+    }
+
+    URI policyChangesUri(long afterRevision, int limit) {
+        String base = safetyBaseUrl.map(String::trim).filter(value -> !value.isEmpty())
+                .orElseThrow(() -> unavailable("jezaku.spatial.safety.base-url is not configured", null));
+        String normalized = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
+        return URI.create(normalized + "/safety/spatial/changes?afterRevision="
+                + afterRevision + "&limit=" + limit);
+    }
+
+    PolicyChangePage parsePolicyChanges(String body, long afterRevision, int limit) {
+        try {
+            JsonNode payload = json.readTree(body);
+            JsonNode currentNode = payload.path("currentRevision");
+            JsonNode afterNode = payload.path("afterRevision");
+            JsonNode countNode = payload.path("count");
+            JsonNode eventsNode = payload.path("events");
+            if (!currentNode.canConvertToLong() || !afterNode.canConvertToLong()
+                    || !countNode.canConvertToInt() || !eventsNode.isArray()
+                    || currentNode.asLong() < afterRevision || afterNode.asLong() != afterRevision
+                    || countNode.asInt() != eventsNode.size() || eventsNode.size() > limit) {
+                throw unavailable("Spatial policy change page metadata is inconsistent", null);
+            }
+            long currentRevision = currentNode.asLong();
+            long previousRevision = afterRevision;
+            List<PolicyChangeEvent> events = new ArrayList<>(eventsNode.size());
+            for (JsonNode event : eventsNode) {
+                JsonNode revision = event.path("policyRevision");
+                JsonNode version = event.path("eventVersion");
+                JsonNode restrictionVersion = event.path("restrictionVersion");
+                JsonNode activitiesNode = event.path("activities");
+                Instant occurredAt = parseInstant(event.path("occurredAt").asText(""));
+                String eventId = event.path("eventId").asText("");
+                String eventType = event.path("eventType").asText("");
+                String restrictionId = event.path("restrictionId").asText("");
+                String action = event.path("action").asText("");
+                String jurisdiction = event.path("jurisdiction").asText("");
+                String outcome = event.path("outcome").asText("");
+                if (!revision.canConvertToLong() || revision.asLong() <= previousRevision
+                        || revision.asLong() > currentRevision || !version.canConvertToInt()
+                        || version.asInt() != 1 || !restrictionVersion.canConvertToInt()
+                        || restrictionVersion.asInt() < 1 || eventId.isBlank()
+                        || !"spatial.policy.changed".equals(eventType) || restrictionId.isBlank()
+                        || !List.of("CREATED", "UPDATED", "REVOKED").contains(action)
+                        || jurisdiction.isBlank() || outcome.isBlank()
+                        || occurredAt == null || !activitiesNode.isArray()) {
+                    throw unavailable("Spatial policy change event is malformed or out of order", null);
+                }
+                List<String> activities = new ArrayList<>(activitiesNode.size());
+                for (JsonNode activity : activitiesNode) {
+                    if (!activity.isTextual() || activity.asText().isBlank()) {
+                        throw unavailable("Spatial policy change event contains an invalid activity", null);
+                    }
+                    activities.add(activity.asText());
+                }
+                events.add(new PolicyChangeEvent(revision.asLong(), eventId, eventType, version.asInt(),
+                        restrictionId, restrictionVersion.asInt(), action, jurisdiction, outcome,
+                        activities, occurredAt));
+                previousRevision = revision.asLong();
+            }
+            return new PolicyChangePage(currentRevision, afterRevision, events);
+        } catch (WebApplicationException exception) {
+            throw exception;
+        } catch (IOException | RuntimeException exception) {
+            throw unavailable("Spatial policy change page is malformed", exception);
+        }
+    }
+
     URI routeEvaluationUri() {
         String base = safetyBaseUrl.map(String::trim).filter(value -> !value.isEmpty())
                 .orElseThrow(() -> unavailable("jezaku.spatial.safety.base-url is not configured", null));
