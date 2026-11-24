@@ -184,4 +184,4 @@ A point check does not establish route safety. Route checks must evaluate route 
 
 The next focused slice is **SAF-INT-02: memory spatial projection and render-eligibility enforcement**, beginning with a source audit of memory feed, nearby, minimap, detail and AR placement paths. Implement each endpoint family with batch evaluation and explicit tests. Do not add a per-item database lookup or rely on client-only suppression.
 
-After that, complete SAF-INT-03 anchor mutation hardening and SAF-INT-05 PostgreSQL/operational validation before enabling public extensibility.
+After those focused contract tests and product decisions, complete SAF-INT-05 PostgreSQL/operational validation before enabling public extensibility.
