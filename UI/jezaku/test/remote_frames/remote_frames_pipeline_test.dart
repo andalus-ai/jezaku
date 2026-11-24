@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:jejaku/features/api/api_failure.dart';
 import 'package:jejaku/features/auth/models/auth_session.dart';
 import 'package:jejaku/features/auth/services/auth_gateway.dart';
 import 'package:jejaku/features/auth/states/auth_providers.dart';
@@ -328,14 +329,14 @@ void main() {
       await controller.refreshIfNeeded(_live, now: t0);
 
       s.api.onNearby = () async =>
-          throw const MemoryApiFailure(MemoryApiFailureReason.network);
+          throw const ApiFailure(ApiFailureReason.network);
       await controller.refreshIfNeeded(
         _live,
         now: t0.add(const Duration(minutes: 5)),
       );
 
       final state = s.container.read(remoteFramesProvider);
-      expect(state.failure, MemoryApiFailureReason.network);
+      expect(state.failure, ApiFailureReason.network);
       expect(state.anchors.map((a) => a.id), ['a']);
       expect(state.loading, isFalse);
 

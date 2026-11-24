@@ -1,8 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:jejaku/features/auth/states/auth_providers.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_rules_mode.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_visibility_policy.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_visibility_rule.dart';
+import 'package:jejaku/features/auth/states/auth_providers.dart';
+import 'package:jejaku/features/friends/states/friends_controller.dart';
 
 /// Demo or strict rules for this build. Override in tests.
 final frameRulesModeProvider = Provider<FrameRulesMode>(
@@ -21,9 +22,11 @@ final currentUserIdProvider = Provider<String?>(
   (ref) => ref.watch(signedInUserIdProvider),
 );
 
-/// The ids of the viewer's friends. Feed this from the social service when the
-/// client is connected to the backend.
-final friendIdsProvider = Provider<Set<String>>((ref) => const <String>{});
+/// The ids of the viewer's friends, from the social service (empty until the
+/// first answer, and always in builds without a social service).
+final friendIdsProvider = Provider<Set<String>>(
+  (ref) => ref.watch(friendsProvider.select((state) => state.ids)),
+);
 
 /// Who is looking. In demo mode everyone who is not the owner counts as a
 /// friend.

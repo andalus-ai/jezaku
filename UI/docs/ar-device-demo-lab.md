@@ -134,7 +134,9 @@ A frame's stored AR pose (`localAnchorPose`) is expressed in the coordinate fram
 
 - [ ] Demo build (no `JEZAKU_MEMORY_URL`): no request is made; only your own frames appear.
 - [ ] Strict build with `JEZAKU_MEMORY_URL` + `JEZAKU_IDENTITY_URL`, signed in, a second account has a public frame placed here: within ~20 m it hangs in AR with its picture; at 30 m it is hidden; walking back brings it back without flicker at the edge.
-- [ ] A friends-only frame of the second account stays hidden (friends are not loaded yet). Your own frames never appear twice.
+- [ ] A friends-only frame of the second account stays hidden while the two accounts are not friends. Your own frames never appear twice.
+- [ ] Strict build with `JEZAKU_SOCIAL_URL` too (needs the social service): after the two accounts become friends, the friends-only frame appears within ~20 m (allow up to 5 minutes or a restart for the list to refresh); a stranger's friends-only frame stays hidden; removing the friendship hides it again within 5 minutes.
+- [ ] With the social service switched off or unreachable, friends-only frames of others stay hidden (fail closed) and public ones still show.
 - [ ] Sign out: the other account's frame disappears from the viewer.
 
 ### 4b. Frame styles

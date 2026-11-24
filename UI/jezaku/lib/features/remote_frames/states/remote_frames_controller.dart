@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:jejaku/features/api/api_failure.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_visibility_providers.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/services/anchor_geo_service.dart';
@@ -30,7 +31,7 @@ class RemoteFramesState {
 
   /// Why the last query failed, until the next one succeeds. The frames from
   /// the last good query are kept.
-  final MemoryApiFailureReason? failure;
+  final ApiFailureReason? failure;
 }
 
 final remoteFramesProvider =
@@ -128,7 +129,7 @@ class RemoteFramesController extends Notifier<RemoteFramesState> {
       _frames = frames;
       state = RemoteFramesState(anchors: _anchors(at));
       await _loadThumbnails(userId, at);
-    } on MemoryApiFailure catch (failure) {
+    } on ApiFailure catch (failure) {
       if (_stillCurrent(userId)) {
         state = RemoteFramesState(
           anchors: state.anchors,
@@ -139,7 +140,7 @@ class RemoteFramesController extends Notifier<RemoteFramesState> {
       if (_stillCurrent(userId)) {
         state = RemoteFramesState(
           anchors: state.anchors,
-          failure: MemoryApiFailureReason.server,
+          failure: ApiFailureReason.server,
         );
       }
     } finally {
