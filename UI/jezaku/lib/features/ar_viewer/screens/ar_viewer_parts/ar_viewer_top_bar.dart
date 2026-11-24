@@ -5,6 +5,18 @@ part of '../ar_viewer_screen.dart';
 /// Everything except Back and the Hide/Show UI button is hidden while
 /// `_hud.masterVisible` is false.
 extension _ARViewerTopBar on _ARViewerScreenState {
+  void _showHudSettingsSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => ARHudSettingsSheet(
+        initial: _hud,
+        onChanged: _applyHudState,
+      ),
+    );
+  }
+
   /// Back, Hide/Show UI and (when visible) HUD settings.
   Widget _buildTopLeftControls(BuildContext context) {
     return Positioned(

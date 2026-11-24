@@ -98,6 +98,28 @@ class ARHudState {
     this.enabled = _defaultPanels,
   });
 
+  /// Restores a saved layout. Anything unreadable falls back to the default
+  /// view, unknown panel names are ignored, and the HUD always comes back
+  /// visible: Hide UI is a moment-to-moment choice, not a setting.
+  factory ARHudState.fromJson(Object? json) {
+    if (json is! Map) {
+      return const ARHudState();
+    }
+    final preset = ARHudPreset.values.asNameMap()[json['preset']];
+    final panels = json['panels'];
+    if (preset == null || panels is! List) {
+      return const ARHudState();
+    }
+    final byName = ARHudPanel.values.asNameMap();
+    return ARHudState(
+      preset: preset,
+      enabled: {
+        for (final name in panels)
+          if (byName[name] case final panel?) panel,
+      },
+    );
+  }
+
   /// A named layout. [ARHudPreset.manual] keeps nothing, so it is only reached
   /// by changing a panel.
   factory ARHudState.fromPreset(
@@ -137,6 +159,16 @@ class ARHudState {
 
   /// Panels the viewer wants on, independent of [masterVisible].
   final Set<ARHudPanel> enabled;
+
+  /// What is worth keeping between launches: the preset and the panels the
+  /// viewer chose, not whether the HUD is hidden right now.
+  Map<String, Object?> toJson() => <String, Object?>{
+        'preset': preset.name,
+        'panels': [
+          for (final panel in ARHudPanel.values)
+            if (isEnabled(panel)) panel.name,
+        ],
+      };
 
   /// Whether the viewer chose to have [panel] on.
   bool isEnabled(ARHudPanel panel) => enabled.contains(panel);
