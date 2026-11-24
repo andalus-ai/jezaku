@@ -4,6 +4,7 @@ import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_scene_diagnostics_export_bundle_cache.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
+import 'package:jejaku/features/auth/widgets/account_settings_tile.dart';
 import 'package:jejaku/features/camera/services/ar_capture_diagnostics_cache_store.dart';
 import 'package:jejaku/features/camera/states/capture_session_provider.dart';
 import 'package:jejaku/features/frame_styles/widgets/frame_look_preview.dart';
@@ -175,6 +176,7 @@ class SettingsScreen extends ConsumerWidget {
                 ? null
                 : () => _clearARSceneDiagnosticsBundleCache(context, ref),
           ),
+          const AccountSettingsTile(),
           ListTile(
             key: const ValueKey('default_frame_tile'),
             leading: const Icon(Icons.filter_frames_outlined),

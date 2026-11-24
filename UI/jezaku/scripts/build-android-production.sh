@@ -243,6 +243,9 @@ BUILD_CMD+=(
     --dart-define=BUILD_TIME="$BUILD_TIME"
     # Production runs the real frame rules (audience, friends, physical radius).
     --dart-define=JEZAKU_FRAME_RULES=strict
+    # Identity service for sign-in (e.g. https://id.example.com). Empty leaves
+    # the app without a sign-in screen; set it for a real release.
+    --dart-define=JEZAKU_IDENTITY_URL="${JEZAKU_IDENTITY_URL:-}"
 )
 
 if [[ "$ENABLE_FCM_PUSH" == "true" ]]; then
