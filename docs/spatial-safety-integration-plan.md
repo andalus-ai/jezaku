@@ -1,197 +1,187 @@
 # Spatial Safety Integration Plan
 
-> **Status:** Engineering plan based on the repository state inspected on 2026-11-23. The safety policy API, persistence adapter, evaluator, and shared enforcer already exist. This plan focuses on production hardening and wiring feature call sites. It does not claim that all spatial product operations are protected.
+> **Status:** Updated 2026-11-24 against the repository capability inventory and current Safety API/enforcement contracts. The Safety policy API, PostgreSQL persistence, authority authorization, immutable request-scoped snapshots, bounded batch evaluation, route-alternative evaluation, and shared fail-closed enforcer exist. Discovery candidate paths are integrated. Memory publish uses the existing single-coordinate check. Memory presentation/render and remaining feature call sites are not yet fully integrated. This plan does not claim that all spatial operations are protected.
 
 ## 1. Goal
 
-Make spatial restrictions an enforceable backend invariant before Jezaku enables public third-party spatial publishing, merchant advertising, route guidance, or an extension marketplace.
+Make spatial restrictions an enforceable backend invariant before Jezaku enables broader public spatial publishing, merchant advertising, route guidance, or third-party extensions.
 
-The existing `Backend/safety` module remains the policy owner. Do not create another service, policy store, evaluator, or client-side authority boundary.
+The existing `Backend/safety` module remains the sole policy owner. Do not create another policy service, policy store, evaluator, or client-side authority boundary.
 
-## 2. Existing implementation to reuse
+## 2. Current implementation baseline
 
-The following code already exists on `main`:
+The following foundations are present on the inspected main-branch baseline:
 
-| Component | Current responsibility |
+| Component | Current status |
 |---|---|
-| `SpatialRestriction` | Circular, activity-scoped, time-bounded restriction model |
-| `AuthorityPrincipal` | Server-managed authority status, validity, jurisdiction scopes and permissions |
-| `AuthorityAuthorizationPolicy` | Deterministic permission, validity and jurisdiction checks |
-| `SpatialPolicyRepository` | Persistence contract for authority, restrictions and audit |
-| `JdbcSpatialPolicyRepository` | PostgreSQL persistence and transactional audit snapshots |
-| `SpatialSafetyPolicy` | Pure evaluator with precedence and time/activity checks |
-| `SpatialSafetyService` | Create/update/revoke/read/history/evaluate application operations |
-| `SpatialSafetyResource` | REST API at `/safety/spatial` |
-| `SpatialSafetyEnforcer` | Fail-closed enforcement primitive for feature services |
+| `SpatialRestriction` and `AuthorityPrincipal` | Implemented: circular, activity-scoped, time-bounded restrictions and server-managed authority grants |
+| `AuthorityAuthorizationPolicy` | Implemented: verification, validity, permission and jurisdiction checks |
+| `SpatialPolicyRepository` / JDBC adapter | Implemented: PostgreSQL persistence, optimistic versioning, audit and policy revision |
+| `SpatialSafetyPolicy` | Implemented: precedence, time/activity evaluation and bounded spherical route-segment checks against circular restrictions |
+| `SpatialSafetyService` / REST resource | Implemented: authority operations, evaluation, batch, route alternatives and policy change feed |
+| `SpatialSafetyEnforcer` | Implemented: shared fail-closed application-level enforcement entry point |
+| Discovery candidate paths | Integrated: nearby, search, trending and for-you use batch `DISCOVER` evaluation; blocking outcomes are omitted and CAUTION is retained with a caution outcome |
+| Memory publishing | Integrated: existing single-coordinate `PUBLISH` evaluation path |
+| Memory feed/minimap/nearby projections | Not yet fully integrated with spatial `DISCOVER` enforcement |
+| Memory detail / AR placement eligibility | Render-time `RENDER` enforcement remains a separate gap |
+| Navigation consumer | Safety route-alternative API exists; routing-provider orchestration and live navigation-session enforcement remain incomplete |
+| Interaction and commerce | No general-purpose server-side interaction or merchant redemption call sites are established as fully protected |
 
-Existing tests cover the authorization policy, service logic, pure evaluator and enforcer. `Backend/safety/API.md` documents the public API shape; `Backend/safety/ENFORCEMENT.md` documents the required call order and activity mapping.
+Source-of-truth implementation contracts:
+- [Spatial Safety API](../Backend/safety/API.md)
+- [Spatial Safety Enforcement Contract](../Backend/safety/ENFORCEMENT.md)
+- [Repository Capability Inventory](repository-capability-inventory.md)
 
-### Existing REST operations
+Before changing a feature, inspect its current source, tests, OpenAPI output, configuration and scoped `AGENTS.md`. The inventory is a targeted baseline, not a substitute for subsystem-level review.
 
-- `POST /safety/spatial/restrictions`
-- `PUT /safety/spatial/restrictions/{restrictionId}`
-- `POST /safety/spatial/restrictions/{restrictionId}/revoke`
-- `GET /safety/spatial/restrictions/{restrictionId}`
-- `GET /safety/spatial/restrictions/{restrictionId}/history`
-- `POST /safety/spatial/evaluate`
+## 3. Policy vs enforcement
 
-Authority identity is resolved from the authenticated request context and then looked up in the authority repository. Authority onboarding/grant provisioning remains out-of-band. The evaluator supports circular geofences and now includes an internal bounded route-segment intersection primitive for those circles. No route-evaluation HTTP endpoint or navigation consumer integration exists yet.
+A policy endpoint or evaluator does not automatically protect a product operation. Each feature must call the shared enforcer or the authenticated Safety API before returning protected content or performing a side effect.
 
-## 3. Important distinction: policy API vs enforcement
+Required decisions:
+- `ALLOWED`: proceed, subject to other product policies.
+- `CAUTION`: proceed only with the required caution UX and any applicable confirmation.
+- `RESTRICTED`, `PROHIBITED`, `EMERGENCY_LOCKDOWN`: suppress or reject the affected operation.
+- Policy unavailable, missing, malformed, stale beyond its contract, or incomplete: fail closed for policy-dependent operations.
 
-A working endpoint that evaluates a point does not automatically protect another service. Each product operation must call the shared enforcer before returning protected content or performing a side effect.
-
-The enforcer currently loads active restrictions for each point evaluation. Avoid naively invoking it once per item in a large discovery response: that would cause repeated repository reads and could evaluate items against different snapshots. Before bulk discovery integration, add a bounded snapshot/batch evaluation API that loads one policy snapshot per request and evaluates all relevant item positions consistently.
-
-The enforcer must remain fail-closed:
-- `ALLOWED`: proceed.
-- `CAUTION`: proceed only with the appropriate caution UX.
-- `RESTRICTED`, `PROHIBITED`, `EMERGENCY_LOCKDOWN`: reject.
-- Repository unavailable, missing result, or invalid critical policy state: deny; never silently treat it as allowed.
+For candidate lists, evaluate a bounded set against one immutable request-scoped snapshot. Do not reintroduce per-item repository reads or mix decisions from different policy snapshots. Do not retain a request snapshot as a distributed cache.
 
 ## 4. Feature enforcement matrix
 
-| Feature path | Operation | Activity | Coordinate source | Integration priority |
+| Feature path | Operation | Activity | Coordinate source | Current status / next action |
 |---|---|---|---|---|
-| Memory creation | Persist a new geotagged memory/frame | `PUBLISH` | Validated memory anchor in request; enforce only after domain validation and before persistence | P0 |
-| Memory anchor refinement | Move an existing published anchor | `PUBLISH` | Proposed updated anchor | P0 |
-| Discovery nearby/search/trending/for-you | Return spatially discoverable catalog entries | `DISCOVER` | Each candidate object's canonical position | P0 |
-| Memory feed/minimap/nearby dots | Return candidate memories for spatial presentation | `DISCOVER` | Each memory's stored anchor | P0 |
-| Memory detail / AR placement eligibility | Return object to render at a physical position | `RENDER` | Stored memory anchor; viewer location is separate and must not be confused with object location | P0 |
-| Trail/route guidance | Return or continue route instructions | `NAVIGATE` | Route geometry/segments, not only a start or destination point | P1, after route contract audit |
-| In-world action | Execute a spatial interaction | `INTERACT` | Target object's canonical location | P1, when such server actions exist |
-| Promotion discovery/redemption | Select or redeem a location-based offer | `DISCOVER` / `REDEEM` | Merchant/store location plus separately validated user eligibility context | Future commerce scope |
+| Memory creation | Persist a new geotagged memory/frame | `PUBLISH` | Validated canonical memory anchor | Existing single-coordinate integration; add/maintain denial-before-write tests |
+| Memory anchor refinement | Move a published anchor | `PUBLISH` | Proposed validated new anchor | Audit exact mutation paths and ensure check occurs before anchor/history writes |
+| Discovery nearby/search/trending/for-you | Return spatial candidates | `DISCOVER` | Candidate's canonical stored position | Integrated with batch evaluation; maintain failure and authorization tests |
+| Memory feed/minimap/nearby dots | Return candidate memories for spatial presentation | `DISCOVER` | Each memory's stored anchor | Next priority: audit every projection and integrate batch evaluation without bypasses |
+| Memory detail / AR placement eligibility | Authorize content for physical AR presentation | `RENDER` | Stored object anchor; viewer location remains a separate input | Not fully integrated; add explicit render-eligibility enforcement |
+| Trail/route guidance | Start or continue route instructions | `NAVIGATE` | Validated route geometry/segments | Safety route API exists; consumer integration and live-session re-evaluation remain |
+| Server-side spatial action | Execute a spatial interaction | `INTERACT` | Target object's canonical location | Integrate only at actual server-side action handlers |
+| Promotion discovery/redemption | Select or redeem a location-based offer | `DISCOVER` / `REDEEM` | Merchant location plus separately validated user eligibility context | Future commerce scope; do not create placeholder services |
 
-**Do not classify all reads as `DISCOVER`.** A spatial query that returns candidate content is discovery; a request that authorizes actual AR placement/rendering is render eligibility. Both may need separate checks because policy can change between requests.
+Do not classify all reads as `DISCOVER`. Returning a candidate and authorizing its actual AR rendering are distinct operations. Re-evaluate at stage boundaries because policy may change after publication or discovery.
 
-**Do not claim route safety from a point check.** A route must be checked along its geometry or bounded segments against all applicable restrictions. Current circle-only point evaluation is insufficient for a route crossing a restricted area.
+A point check does not establish route safety. Route checks must evaluate route geometry against applicable restrictions. Current route evaluation supports bounded WGS84 polylines against circular restrictions only; it is not a routing engine and does not account for road topology, terrain, closures or all physical hazards.
 
 ## 5. Delivery sequence
 
-### SAF-INT-00 — Correct the integration baseline
+### SAF-INT-00 — Policy foundation and API
+- [x] Authority principal is resolved from authenticated request context; clients cannot self-assert authority identity or grants.
+- [x] Persist restrictions, authority grants and audit history in the existing Safety repository.
+- [x] Implement optimistic version checks and transactional policy revision updates.
+- [x] Expose service-authenticated evaluation and policy-change endpoints.
+- [x] Keep policy evaluation in the existing Safety module.
 
-- [x] Confirm the existing REST resource and application service.
-- [x] Confirm repository-backed evaluation and audit persistence.
-- [x] Confirm the shared enforcer and fail-closed behavior.
-- [ ] Keep the repository capability inventory synchronized with the actual main-branch code.
-- [ ] Document which APIs are intentionally public and which require authenticated service/user context.
+**Exit:** policy ownership and evaluation APIs are established. This does not prove all feature paths are protected.
 
-**Exit:** current-state docs no longer describe the REST API as missing; remaining work is clearly labeled as feature enforcement and operational hardening.
+### SAF-INT-01 — Request-scoped snapshot and batch evaluation
+- [x] Immutable policy snapshot loaded once for a request.
+- [x] Bounded batch point evaluation with stable input ordering and one evaluation timestamp.
+- [x] Bounded route-alternative evaluation against one snapshot.
+- [x] Fail-closed behavior for missing or failed policy evaluation.
+- [x] Policy revision and short validity deadline exposed for consumers.
 
-### SAF-INT-01 — Enforcer snapshot and bulk evaluation
+**Exit:** consumers can evaluate bounded candidate sets consistently without N+1 policy reads. Do not add distributed caching until invalidation and maximum staleness are explicitly designed.
 
-- [ ] Introduce an immutable policy snapshot abstraction loaded once per request.
-- [ ] Add batch evaluation for a bounded list of points and one concrete activity.
-- [ ] Ensure each result is derived from the same snapshot timestamp/version.
-- [ ] Bound candidate count and reject oversized batches.
-- [ ] Preserve fail-closed behavior if snapshot loading fails.
-- [ ] Unit-test duplicate points, empty input, invalid coordinates, mixed outcomes, and deterministic ordering.
-- [ ] Do not add caching yet; one-request snapshot consistency is not a distributed cache.
+### SAF-INT-02 — Discovery and memory presentation
+- [x] Integrate batch `DISCOVER` evaluation into Discovery nearby, search, trending and for-you candidate paths.
+- [ ] Audit memory feed, minimap, nearby and every derived memory projection for alternate/bypass paths.
+- [ ] Integrate `DISCOVER` into all relevant memory spatial projections using bounded batches and one snapshot per request.
+- [ ] Integrate `RENDER` for memory detail and AR placement eligibility before returning content intended for physical presentation.
+- [ ] Preserve memory audience, blocks, moderation, owner access and on-site radius checks as independent requirements.
+- [ ] Do not expose restriction geometry or authority records to ordinary clients.
+- [ ] Add endpoint-level positive, negative, policy-outage and cross-surface regression tests.
 
-**Exit:** callers can evaluate a bounded candidate set without N+1 database reads or inconsistent policy snapshots.
+**Exit:** no prohibited spatial memory can be returned through a covered discovery projection or authorized for AR presentation. All relevant read paths are inventoried and tested.
 
-### SAF-INT-02 — Discovery and memory presentation enforcement
+### SAF-INT-03 — Publish and anchor mutation hardening
+- [x] Existing memory creation path uses the Safety `PUBLISH` evaluation.
+- [ ] Verify the check occurs after domain validation but before all durable/external side effects.
+- [ ] Audit anchor refinement and every operation that can move a published anchor.
+- [ ] Ensure denied operations create no memory update, media association, anchor history, event or notification side effect.
+- [ ] Preserve moderation, owner authorization, visibility and offline queue semantics.
+- [ ] Decide explicitly whether restricted-area private drafts are allowed; until then, do not publish a spatial placement that fails policy.
 
-- [ ] Integrate batch `DISCOVER` evaluation in `DiscoveryService` for nearby, search, trending and for-you results.
-- [ ] Integrate `DISCOVER` in memory feed/minimap/nearby projections.
-- [ ] Integrate `RENDER` for memory detail/placement eligibility before returning content intended for AR placement.
-- [ ] Keep memory audience, blocks, moderation and on-site radius checks authoritative and independent.
-- [ ] Do not leak restriction geometry or identifiers to ordinary discovery clients; filter blocked candidates or return safe reason codes only where product UX requires them.
-- [ ] Test every route and projection with a matching restriction and with policy storage unavailable.
-- [ ] Verify no fallback query or secondary feed bypasses the check.
-
-**Exit:** a prohibited spatial item cannot be returned through any covered discovery or render-eligibility endpoint.
-
-### SAF-INT-03 — Publish and anchor mutation enforcement
-
-- [ ] Inject the enforcer into `MemoryService`.
-- [ ] Enforce `PUBLISH` for new memory creation using the validated anchor before repository writes.
-- [ ] Enforce `PUBLISH` for anchor refinement using the proposed new anchor before updating persistence/history.
-- [ ] Preserve media moderation, owner authorization, visibility and offline queue semantics.
-- [ ] Define whether an owner may keep a private draft in a restricted area; default to no public/published spatial placement until an explicit policy decision exists.
-- [ ] Add tests proving denied operations produce no memory write and no anchor-history event.
-
-**Exit:** no new or moved published memory anchor can bypass an applicable publish restriction.
+**Exit:** every supported memory publish/move path has denial-before-side-effect integration tests.
 
 ### SAF-INT-04 — Navigation, interaction and commerce gates
+- [x] Implement bounded spherical segment-to-circle evaluation in Safety.
+- [x] Expose service-authenticated route-alternative evaluation.
+- [x] Provide a bounded Jezaku-side HTTP adapter with ordered-result validation and fail-closed behavior.
+- [ ] Audit route/target ownership in journeys and spatial-trails-places before selecting consumer call sites.
+- [ ] Integrate the configured routing provider's validated route geometry and route-preview orchestration.
+- [ ] Re-evaluate before guidance and on route change, meaningful deviation, expiry, app resume and policy invalidation.
+- [ ] Integrate `INTERACT` only at real server-side action handlers.
+- [ ] Add `DISCOVER` and `REDEEM` when merchant/campaign endpoints exist; do not create placeholder commerce services.
+- [ ] Test policy changes between discovery, route start, interaction and redemption.
 
-- [ ] Audit route/target endpoints in `spatial-trails-places`, journeys and any direction/Qibla feature before choosing call sites.
-- [x] Add an internal bounded spherical segment-to-circle evaluator in Safety; a point-only call is insufficient.
-- [x] Expose a service-authenticated route-alternative evaluation API in the existing Safety service.
-- [x] Add a bounded `SpatialSafety` HTTP adapter that validates ordered results and fails closed.
-- [ ] Integrate a real Idrisi routing-provider geometry contract and route-preview consumer before marking navigation safe.
-- [ ] Integrate `INTERACT` at actual server-side spatial action handlers, not generic client tap events.
-- [ ] Add `DISCOVER` and `REDEEM` only when merchant/campaign endpoints exist; do not create placeholder commerce services solely for the safety plan.
-- [ ] Test restriction changes between discovery, route start, interaction and redemption.
-
-**Exit:** every implemented route/action/offer operation has a documented enforcement point and integration test, or is explicitly marked not yet supported.
+**Exit:** every implemented route/action/offer operation has a concrete enforcement point and integration test, or is explicitly marked unsupported.
 
 ### SAF-INT-05 — Authority and operational hardening
-
-- [ ] Define trusted authority provisioning workflow, identity proofing and approval; do not expose self-service grant creation.
-- [ ] Review public restriction read and evaluation endpoints for information disclosure, abuse, rate limits and response minimization.
-- [ ] Confirm production authentication configuration and service-token scopes for authority operations.
-- [ ] Add PostgreSQL-backed tests for migrations, optimistic concurrency, revocation and audit atomicity.
-- [ ] Add operational health/readiness signal for policy persistence; policy-dependent features must not serve protected content when policy storage is unavailable.
-- [ ] Define emergency lockdown propagation objective and measure it.
-- [ ] Keep raw coordinates out of ordinary logs and audit snapshots unless a documented, access-controlled need exists.
+- [ ] Define trusted authority provisioning, identity proofing, approval, suspension and grant-revocation workflows.
+- [ ] Review restriction read/history and evaluation endpoints for information disclosure, abuse and rate limits.
+- [ ] Verify production authentication configuration and least-privilege service-token scopes.
+- [ ] Add PostgreSQL-backed tests for migrations, concurrency, revocation, revision and audit atomicity.
+- [ ] Add health/readiness signals for policy persistence; protected features must not serve when policy storage is unavailable.
+- [ ] Define and measure emergency lockdown propagation objectives.
+- [ ] Keep raw coordinates and sensitive legal-basis details out of ordinary logs.
 
 **Exit:** authority and policy operations are production-configurable, audited, observable and abuse-resistant.
 
-### SAF-INT-06 — Geometry and offline policy evolution
+### SAF-INT-06 — Geometry, invalidation and offline evolution
+- [x] Bounded route corridor/segment evaluation for circular restrictions.
+- [x] Monotonic restriction-policy revision and durable polling change feed.
+- [ ] Define ADR for WGS84, units, circle boundary behavior, route corridor semantics and future geometry representation.
+- [ ] Add polygon/multipolygon support only after a concrete use case and data ownership decision.
+- [ ] Integrate change-feed polling and live-session invalidation in navigation consumers.
+- [ ] Define maximum policy staleness before introducing any distributed cache.
+- [ ] Define offline behavior: stale or missing critical policy suppresses high-risk publishing/navigation; never treat missing policy as allowed.
+- [ ] Sign/authenticate policy bundles if bounded offline policy distribution is later required.
 
-- [ ] Record ADR for WGS84, units, circle boundary behavior and future geometry representation.
-- [ ] Add polygon/multipolygon support only when a concrete use case and PostGIS ownership are agreed.
-- [x] Add bounded route corridor/segment evaluation for circular restrictions.
-- [x] Expose the route evaluation API and Jezaku-side HTTP client boundary.
-- [ ] Add monotonic policy revision/invalidation and live navigation-session integration.
-- [ ] Design policy versioning, invalidation and maximum staleness before adding distributed cache.
-- [ ] Define offline behavior: cached restrictions may be used only within a bounded validity period; missing/stale policy suppresses high-risk publish/navigation and must not be interpreted as safe.
-- [ ] Sign/authenticate policy bundles if they are distributed to offline clients.
+**Exit:** geometry, invalidation and offline behavior are explicit and tested; no cache or offline path silently weakens policy.
 
-**Exit:** geometry and offline behavior are explicit, tested and cannot silently weaken policy.
+## 6. Cross-cutting rules
 
-## 6. Cross-cutting engineering rules
-
-1. **Server-side is authoritative.** Client overlays and local suppression are defense in depth only.
-2. **Coordinate provenance matters.** Use stored object coordinates for publish/render. A client-provided viewer coordinate is not proof of an object's location or user presence.
-3. **Check before side effects.** A denied publish must not write the object, media association, audit/history side effect or event.
-4. **Re-check at stage boundaries.** Publish-time approval does not guarantee later render, navigation or redemption remains allowed.
-5. **Avoid N+1 policy reads.** Batch candidate evaluation against one request snapshot.
-6. **No permissive fallback.** Database failure, stale critical policy or unknown activity must not yield an implicit allow.
-7. **Preserve existing controls.** Memory audience, blocked users, moderation, on-site radius and guardian safety zones remain separate checks.
-8. **Minimize disclosure.** Consumers need the decision, not the full authority record or sensitive policy geometry.
-9. **No speculative microservices.** The existing Safety module owns policy evaluation and persistence.
-10. **Evidence-based readiness.** Unit tests prove the component; integration tests prove the feature path; production metrics and operational exercises prove propagation.
+1. Server-side enforcement is authoritative; client suppression is defense in depth.
+2. Coordinate provenance matters. Use canonical object coordinates for publish/render and validated route geometry for navigation.
+3. Check before side effects. Denied operations must not partially publish or mutate state.
+4. Re-check at stage boundaries; publish-time approval does not authorize later rendering, navigation or redemption.
+5. Use one request-scoped snapshot for bounded candidate sets; avoid N+1 policy reads.
+6. No permissive fallback for database failure, stale critical policy or incomplete responses.
+7. Preserve memory audience, block, moderation, on-site radius, guardian and existing safety behavior.
+8. Return decisions and safe reason codes, not sensitive authority records or restriction geometry.
+9. Do not introduce a second safety service or speculative microservices.
+10. Distinguish unit-test evidence, feature integration evidence, PostgreSQL-backed evidence and operational/field validation.
 
 ## 7. Test strategy and release gates
 
 ### Unit tests
-- Snapshot loading and immutable evaluation.
-- Activity, time window, geometry boundary and outcome precedence.
-- Empty/oversized batch and malformed coordinate handling.
-- Repository failure and null/invalid result handling.
+- Snapshot immutability, evaluation timestamp and revision behavior.
+- Activity/time-window/outcome precedence and circle boundary behavior.
+- Empty/oversized batches and malformed coordinate handling.
+- Route geometry bounds, segment intersection and corridor behavior.
+- Repository failure and missing/invalid result handling.
 
 ### Integration tests
-- Discovery endpoint filters prohibited candidates.
-- Memory feed/minimap/detail do not leak restricted objects.
-- Memory create/anchor update fail before persistence/history writes.
-- Policy storage outage returns denial for all protected operations.
+- Discovery endpoints filter prohibited candidates and retain caution metadata.
+- Memory feed/minimap/nearby/detail do not leak restricted objects.
+- Memory create/anchor update fail before persistence/history/event side effects.
+- Policy-store outage denies protected operations.
+- Cross-tenant and private-memory access remain denied independently of spatial policy.
 - Authority endpoints reject unauthenticated, unverified, expired, out-of-scope and under-permissioned callers.
-- Concurrent update/revoke requests honor expected version and preserve audit consistency.
-- PostgreSQL migrations and repository semantics work against a real PostgreSQL test database.
+- PostgreSQL migrations, optimistic concurrency, revocation and audit/revision atomicity work against PostgreSQL.
 
 ### Release acceptance
-- Enforcement matrix maps every implemented spatial operation to a concrete call site.
-- Every call site has at least one positive and one negative integration test.
-- No protected endpoint returns content when the applicable decision is prohibited/restricted/emergency.
-- A policy-store outage cannot silently allow a protected operation.
-- Existing privacy, moderation, on-site and offline behavior has regression coverage.
-- Route safety is not declared complete until geometry is evaluated, not just endpoints.
-- No marketplace, public third-party publishing, spatial advertising or route-guidance launch before the relevant enforcement gates pass.
+- Every implemented spatial operation maps to a concrete enforcement call site.
+- Every call site has positive and negative integration coverage.
+- No protected endpoint returns or acts on a prohibited/restricted/emergency result.
+- Policy-store outage cannot silently allow a protected operation.
+- Existing privacy, moderation, on-site radius and offline behavior has regression coverage.
+- Navigation is not declared safe until route geometry and route-session lifecycle are integrated.
+- No public third-party publishing, marketplace, spatial advertising or general route-guidance launch before its relevant enforcement gates pass.
 
-## 8. First implementation slice
+## 8. Next implementation slice
 
-Start with **SAF-INT-01: request-scoped immutable policy snapshot and bounded batch evaluation**. This is a prerequisite for integrating discovery and memory projections without N+1 database access. Then implement SAF-INT-02 and SAF-INT-03 in separate focused changes with integration tests.
+The next focused slice is **SAF-INT-02: memory spatial projection and render-eligibility enforcement**, beginning with a source audit of memory feed, nearby, minimap, detail and AR placement paths. Implement each endpoint family with batch evaluation and explicit tests. Do not add a per-item database lookup or rely on client-only suppression.
 
-Do not start by wiring a per-item database lookup into every list endpoint. That would be functionally simple but operationally expensive and could produce inconsistent decisions within one response.
+After that, complete SAF-INT-03 anchor mutation hardening and SAF-INT-05 PostgreSQL/operational validation before enabling public extensibility.
