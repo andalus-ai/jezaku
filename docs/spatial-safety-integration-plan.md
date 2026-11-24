@@ -22,8 +22,8 @@ The following foundations are present on the inspected main-branch baseline:
 | `SpatialSafetyEnforcer` | Implemented: shared fail-closed application-level enforcement entry point |
 | Discovery candidate paths | Integrated: nearby, search, trending and for-you use batch `DISCOVER` evaluation; blocking outcomes are omitted and CAUTION is retained with a caution outcome |
 | Memory publishing | Integrated: existing single-coordinate `PUBLISH` evaluation path |
-| Memory feed/minimap/nearby projections | Not yet fully integrated with spatial `DISCOVER` enforcement |
-| Memory detail / AR placement eligibility | Render-time `RENDER` enforcement remains a separate gap |
+| Memory feed/minimap/nearby projections | Integrated: feed, nearby dots and minimap apply existing audience/on-site/moderation filters, then one ordered batch `DISCOVER` evaluation (maximum 500) |
+| Memory detail / AR placement eligibility | Integrated for backend memory read surfaces: non-owner detail uses single-point `RENDER`; another user's profile feed uses batch `RENDER`; owner gallery is intentionally exempt |
 | Navigation consumer | Safety route-alternative API exists; routing-provider orchestration and live navigation-session enforcement remain incomplete |
 | Interaction and commerce | No general-purpose server-side interaction or merchant redemption call sites are established as fully protected |
 
