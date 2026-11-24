@@ -21,10 +21,10 @@ class _FocusedAnchorPanel extends StatelessWidget {
     required this.anchor,
     required this.linkedWalls,
     required this.onOpenPhoto,
-    required this.onDetails,
-    required this.onCalibrate,
     required this.onOpenWall,
     required this.onRecenter,
+    this.onDetails,
+    this.onCalibrate,
     this.onRehang,
     this.onChangeFrame,
   });
@@ -34,13 +34,18 @@ class _FocusedAnchorPanel extends StatelessWidget {
   /// Opens the frame's photo page, where friends can comment. Back returns
   /// to the AR view.
   final VoidCallback onOpenPhoto;
-  final VoidCallback onDetails;
-  final VoidCallback onCalibrate;
+
+  /// Opens the owner's details for the frame. Non-null only for the viewer's
+  /// own frames (see `FrameOwnerActions`).
+  final VoidCallback? onDetails;
+
+  /// Opens calibration. Non-null only for the viewer's own frames.
+  final VoidCallback? onCalibrate;
   final ValueChanged<ARWall> onOpenWall;
   final VoidCallback onRecenter;
 
-  /// Non-null when the frame is only placed from GPS in this session and can
-  /// be re-hung on the wall the camera is aimed at.
+  /// Non-null when the frame is the viewer's own, only placed from GPS in
+  /// this session, and can be re-hung on the wall the camera is aimed at.
   final VoidCallback? onRehang;
 
   /// Opens the frame gallery. Non-null only for the author's own frames.
@@ -155,12 +160,13 @@ class _FocusedAnchorPanel extends StatelessWidget {
               const SizedBox(height: 8),
               _RehangPrompt(onRehang: onRehang!),
             ],
-            if (memory.needsCalibrationReview ||
-                memory.captureMetadata.hasManualCorrection) ...[
+            if (onCalibrate != null &&
+                (memory.needsCalibrationReview ||
+                    memory.captureMetadata.hasManualCorrection)) ...[
               const SizedBox(height: 8),
               _FocusedAnchorCalibrationLine(
                 memory: memory,
-                onCalibrate: onCalibrate,
+                onCalibrate: onCalibrate!,
               ),
             ],
             if (linkedWalls.isNotEmpty) ...[
@@ -227,20 +233,25 @@ class _FocusedAnchorPanel extends StatelessWidget {
             LayoutBuilder(
               builder: (context, constraints) {
                 final compact = constraints.maxWidth < 360;
-                final detailsButton = OutlinedButton.icon(
-                  onPressed: onDetails,
-                  icon: const Icon(Icons.open_in_new),
-                  label: const Text('Details'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white38),
-                  ),
-                );
+                final detailsButton = onDetails == null
+                    ? null
+                    : OutlinedButton.icon(
+                        onPressed: onDetails,
+                        icon: const Icon(Icons.open_in_new),
+                        label: const Text('Details'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Colors.white38),
+                        ),
+                      );
                 final recenterButton = FilledButton.icon(
                   onPressed: onRecenter,
                   icon: const Icon(Icons.center_focus_strong),
                   label: const Text('Recenter'),
                 );
+                if (detailsButton == null) {
+                  return SizedBox(width: double.infinity, child: recenterButton);
+                }
                 if (compact) {
                   return Wrap(
                     spacing: 8,

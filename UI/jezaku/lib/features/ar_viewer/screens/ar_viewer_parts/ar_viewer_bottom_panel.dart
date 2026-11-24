@@ -46,6 +46,10 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
         .where((memoryId) => trailStopNumbers.containsKey(memoryId))
         .length;
 
+    final viewer = ref.watch(frameViewerContextProvider);
+    final ownerActions = focusedAnchor == null
+        ? null
+        : FrameOwnerActions.of(focusedAnchor.memory, viewer);
     final showCaptureControls =
         showRecordingPanel || arCapture.recordingState != ARRecordingState.idle;
     final captureReadinessTrend = ARCaptureReadinessTrend.evaluate(
@@ -200,26 +204,31 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
               AppRoutes.memoryPhoto,
               arguments: focusedAnchor.memory.id,
             ),
-            onChangeFrame: focusedAnchor.memory.ownerId == null
+            onChangeFrame: ownerActions!.canChangeFrame
                 ? () => changeFrameStyle(context, ref, focusedAnchor.memory)
                 : null,
-            onDetails: () => Navigator.pushNamed(
-              context,
-              AppRoutes.memoryDetails,
-              arguments: focusedAnchor.memory.id,
-            ),
-            onCalibrate: () => Navigator.pushNamed(
-              context,
-              AppRoutes.memoryCalibration,
-              arguments: focusedAnchor.memory.id,
-            ),
+            onDetails: ownerActions!.canOpenDetails
+                ? () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.memoryDetails,
+                      arguments: focusedAnchor.memory.id,
+                    )
+                : null,
+            onCalibrate: ownerActions!.canCalibrate
+                ? () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.memoryCalibration,
+                      arguments: focusedAnchor.memory.id,
+                    )
+                : null,
             onOpenWall: (wall) => Navigator.pushNamed(
               context,
               AppRoutes.virtualWallDetails,
               arguments: wall.id,
             ),
             onRecenter: () => _recenterOnAnchor(focusedAnchor),
-            onRehang: _canOfferRehang(focusedAnchor.memory)
+            onRehang: ownerActions!.canRehang &&
+                    _canOfferRehang(focusedAnchor.memory)
                 ? () => _rehangMemory(focusedAnchor.memory)
                 : null,
           ),
