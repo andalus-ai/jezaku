@@ -87,14 +87,10 @@ For a polyline with vertices (p_0 ldots p_n), evaluate every segment ([p_i,p_{i+
 
 A route assessment is time-bound and does not grant permanent permission.
 
-- Return `evaluatedAt`, the monotonic `policyRevision`, and a bounded `validUntil`.
-- `policySnapshotId` identifies one evaluation request only. It is not a policy revision, reusable authorization token, or cache key.
-- Re-evaluate when the route changes, the user deviates beyond a configured threshold, the observed policy revision advances, the validity window expires, or the client resumes after a long interruption.
-- The Safety service now exposes a durable, authenticated polling feed at `GET /safety/spatial/changes?afterRevision={revision}&limit={n}`. It records restriction create/update/revoke events in the same transaction as the restriction mutation, audit record, and policy revision.
-- The feed returns an ordered page and a same-snapshot `currentRevision`. Consumers must persist their cursor only after successfully processing each event. When a page is full, continue from the last processed event revision; do not jump to `currentRevision` until all intervening events have been processed.
-- On a revision gap, lost cursor, or failed event processing, discard cached route authorization and obtain a fresh route assessment. The event is an invalidation signal, never authorization.
-- **Current gap:** the feed is polling-only. No route-preview consumer, live navigation-session re-evaluation, AR guidance suppression, or push/emergency delivery is wired yet. Polling is not a substitute for a measured emergency propagation objective.
-- When a route consumer is implemented, a newer revision must immediately make its previous assessment stale. If re-evaluation fails or blocks the route, stop route-specific arrows, turn instructions, voice prompts, and other route guidance; preserve a safe map/list fallback that does not imply the old route remains authorized.
+- Return `evaluatedAt`, `policyRevision` (or equivalent monotonic policy version), and a bounded `validUntil`.
+- Re-evaluate when the route changes, the user deviates beyond a configured threshold, the policy revision changes, the validity window expires, or the client resumes after a long interruption.
+- Emergency restrictions must trigger prompt invalidation through the existing safety event/notification path when available; polling remains a fallback, not the only emergency mechanism.
+- If a re-evaluation fails, stop route-specific guidance and clearly indicate that route safety could not be confirmed.
 - Avoid continuous high-frequency raw-location uploads. Send only the minimum route progress or relevant geometry needed for the check, with explicit retention and privacy limits.
 
 ## 7. Client presentation and accessibility
@@ -140,9 +136,7 @@ A future monotonic policy revision and push invalidation mechanism remain open w
 - [x] Reuse a captured policy snapshot through the enforcer; no per-segment repository reads.
 - [x] Test a restriction between clear endpoints, corridor expansion, antimeridian crossing, activity/time filtering, and malformed geometry.
 - [x] Add the service-authenticated route-evaluation HTTP endpoint, stable DTOs, bounded alternatives batch semantics, opaque per-request snapshot ID, and short response validity contract.
-- [x] Add a monotonic policy revision that advances with committed restriction changes; return it separately from the opaque per-request snapshot ID.
-- [x] Persist restriction create/update/revoke invalidation events transactionally and expose an authenticated, ordered polling feed with a consistent high-water revision.
-- [ ] Add push delivery for urgent/emergency invalidation; the polling feed is not an emergency-delivery guarantee.
+- [ ] Add a monotonic policy revision and emergency invalidation mechanism; the current snapshot ID is not a policy revision.
 
 **Exit:** the geometry primitive and bounded Safety route-assessment API are implemented. Route generation, orchestration, and live navigation authorization remain open.
 
@@ -157,14 +151,10 @@ A future monotonic policy revision and push invalidation mechanism remain open w
 **Exit:** the Safety client boundary exists and fails closed. No route-preview consumer or live navigation session is wired yet.
 
 ### N4 — Alternative selection and live invalidation
-- [ ] Connect a real routing-provider response to a route-preview/orchestration use case; Idrisi route generation is not yet implemented.
-- [ ] Filter blocked alternatives before ranking and retain only short-lived permitted assessments.
-- [x] Add a monotonic policy revision to route assessments.
-- [x] Add the durable, authenticated policy-change polling feed with ordered cursor semantics.
-- [ ] Implement a real consumer with a persisted processed-revision cursor and gap/replay recovery.
-- [ ] Re-evaluate on route deviation, expiry, resume, route change, and policy revision change.
-- [ ] Suppress stale route-specific AR/turn guidance immediately when invalidated; retain a safe map/list fallback.
-- [ ] Define and implement push delivery and a measurable emergency invalidation objective.
+- Filter blocked alternatives before ranking.
+- Add route validity and policy revision handling.
+- Re-evaluate on route deviation, expiry, resume, and policy change.
+- Define emergency invalidation delivery and fallback behavior.
 
 **Exit:** no stale route remains presented as authorized after a failed or blocking re-evaluation.
 
