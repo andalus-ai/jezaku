@@ -97,3 +97,15 @@ Evidence records reference an opaque `mediaAssetId` owned by the Media service. 
 Evidence categories include business registration, tax registration, identity, address proof and authorization. Evidence is immutable in identity and submission provenance; its review status transitions from RECEIVED to ACCEPTED/REJECTED, or to WITHDRAWN before review. Rejection requires a reason. Decision rows capture the case version and an evidence-version snapshot so later review can reconstruct which evidence was considered.
 
 The current slice adds domain invariants and database schema only. Evidence upload/submission endpoints, reviewer queue/assignment APIs, document retrieval authorization, and the orchestration that turns an APPROVED case into the merchant VERIFIED transition are intentionally deferred until the Media asset authorization contract is integrated. Existing review endpoints remain the current merchant status transition surface and must not be mistaken for a complete evidence-backed workflow.
+
+
+## Durable merchant review case operations (V6 repository slice)
+
+The V5 review-case and evidence schema is now backed by a JDBC repository:
+- Create and retrieve review cases; look up the active case for a merchant.
+- Read a bounded reviewer queue (maximum 100 rows), optionally filtered by status and assigned reviewer.
+- Apply optimistic-versioned case transitions.
+- Append a decision record in the same transaction as the case transition.
+- Read append-only decision history, including the exact case version and evidence-version snapshot captured at decision time.
+
+This repository is a persistence boundary, not an authorization boundary. Reviewer assignment, reviewer grant checks, merchant self-review prevention, and evidence ownership checks must be enforced by the service before repository calls. The evidence snapshot is server-generated data; it must never be accepted as a client-authored assertion. The current repository slice does not yet expose queue/assignment endpoints or submit evidence. Those are follow-up service/API work, and evidence submission remains blocked on a real Media ownership authorization API.
