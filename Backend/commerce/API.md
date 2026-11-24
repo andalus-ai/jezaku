@@ -62,3 +62,24 @@ No request body. OWNER can revoke any non-owner membership. ADMIN can revoke STO
 - Membership create/update and audit append share a transaction.
 - Optimistic version checks prevent stale acceptance/revocation.
 - This first slice uses an existing account ID as the invitation target. Email delivery, one-time invitation links, identity-directory existence checks, ownership transfer, and authority-backed merchant verification are not implemented here.
+
+
+## Trusted merchant review
+
+These operations are reserved for independently provisioned reviewers. They require an authenticated user token and a server-side reviewer grant matching the merchant's exact jurisdiction and the requested action.
+
+All four endpoints accept:
+```json
+{ "reasonCode": "DOCUMENTS_CONFIRMED" }
+```
+
+- `POST /commerce/merchants/{merchantId}/review/verify` — VERIFY permission; transitions PENDING_VERIFICATION to VERIFIED.
+- `POST /commerce/merchants/{merchantId}/review/reject` — REJECT permission; transitions PENDING_VERIFICATION to REJECTED.
+- `POST /commerce/merchants/{merchantId}/review/suspend` — SUSPEND permission; transitions VERIFIED to SUSPENDED.
+- `POST /commerce/merchants/{merchantId}/review/reinstate` — REINSTATE permission; transitions SUSPENDED to VERIFIED.
+
+The caller identity comes only from the verified access token. The request cannot specify reviewer identity, reviewer status, jurisdiction, permissions, or decision time. Reviewers cannot review a merchant where they hold any merchant membership, including OWNER. Jurisdiction matching is exact; wildcard and implicit descendant scopes are not supported.
+
+Reviewer grants are provisioned outside the merchant API in V4 tables. The application role should be read-only on reviewer grant tables. A missing, inactive, expired, out-of-scope or insufficient reviewer grant is denied. Every decision requires a reason code and writes an auditable merchant state transition with optimistic version checking. Invalid lifecycle transitions and concurrent updates return conflict responses.
+
+The initial reviewer-grant provisioning workflow is operational/out-of-band. Document evidence upload, reviewer queues, dual approval and reviewer administration endpoints are not part of this slice.
