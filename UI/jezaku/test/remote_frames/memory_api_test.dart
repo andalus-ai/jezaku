@@ -5,7 +5,9 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:jejaku/features/api/api_failure.dart';
 import 'package:jejaku/features/api/auth_interceptor.dart';
+import 'package:jejaku/features/api/authenticated_dio.dart';
 import 'package:jejaku/features/auth/models/auth_session.dart';
 import 'package:jejaku/features/auth/services/auth_gateway.dart';
 import 'package:jejaku/features/auth/states/auth_providers.dart';
@@ -54,13 +56,13 @@ Map<String, Object?> _frame(String id) => <String, Object?>{
       'position': <String, Object?>{'latitude': -6.2, 'longitude': 106.8},
     };
 
-Future<MemoryApiFailureReason> _failureOf(Future<Object?> call) async {
+Future<ApiFailureReason> _failureOf(Future<Object?> call) async {
   try {
     await call;
-  } on MemoryApiFailure catch (failure) {
+  } on ApiFailure catch (failure) {
     return failure.reason;
   }
-  fail('expected a MemoryApiFailure');
+  fail('expected a ApiFailure');
 }
 
 class _Gateway implements AuthGateway {
@@ -128,7 +130,7 @@ void main() {
 
       expect(
         await _failureOf(api.nearby(latitude: 0, longitude: 0)),
-        MemoryApiFailureReason.server,
+        ApiFailureReason.server,
       );
     });
   });
@@ -154,7 +156,7 @@ void main() {
 
       expect(
         await _failureOf(api.userMemories('u-1')),
-        MemoryApiFailureReason.server,
+        ApiFailureReason.server,
       );
     });
   });
@@ -165,7 +167,7 @@ void main() {
         final api = _api(_Adapter((_) => _json(status, {})));
         expect(
           await _failureOf(api.nearby(latitude: 0, longitude: 0)),
-          MemoryApiFailureReason.notAllowed,
+          ApiFailureReason.notAllowed,
           reason: '$status',
         );
       }
@@ -176,7 +178,7 @@ void main() {
         final api = _api(_Adapter((_) => _json(status, {})));
         expect(
           await _failureOf(api.userMemories('u-1')),
-          MemoryApiFailureReason.server,
+          ApiFailureReason.server,
           reason: '$status',
         );
       }
@@ -194,7 +196,7 @@ void main() {
 
       expect(
         await _failureOf(api.nearby(latitude: 0, longitude: 0)),
-        MemoryApiFailureReason.network,
+        ApiFailureReason.network,
       );
     });
   });

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:jejaku/features/friends/states/friends_controller.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
 import 'package:jejaku/features/remote_frames/states/remote_frames_controller.dart';
@@ -11,6 +12,7 @@ import 'package:jejaku/features/remote_frames/states/remote_frames_controller.da
 /// frame visibility policy; nothing here decides who may see what.
 final viewerAnchorsProvider = Provider<List<AnchorMemory>>((ref) {
   ref.watch(remoteFramesAutoRefreshProvider);
+  ref.watch(friendsAutoRefreshProvider);
   final local = ref.watch(nearbyAnchorsProvider);
   final remote = ref.watch(remoteFramesProvider).anchors;
   if (remote.isEmpty) {

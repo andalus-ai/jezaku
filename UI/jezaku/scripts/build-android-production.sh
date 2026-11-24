@@ -246,6 +246,10 @@ BUILD_CMD+=(
     # Identity service for sign-in (e.g. https://id.example.com). Empty leaves
     # the app without a sign-in screen; set it for a real release.
     --dart-define=JEZAKU_IDENTITY_URL="${JEZAKU_IDENTITY_URL:-}"
+    # Memory and social services: other people's frames and friends. Empty
+    # leaves the app offline for those.
+    --dart-define=JEZAKU_MEMORY_URL="${JEZAKU_MEMORY_URL:-}"
+    --dart-define=JEZAKU_SOCIAL_URL="${JEZAKU_SOCIAL_URL:-}"
 )
 
 if [[ "$ENABLE_FCM_PUSH" == "true" ]]; then

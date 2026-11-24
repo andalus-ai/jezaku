@@ -11,6 +11,7 @@ import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_store.da
 import 'package:jejaku/features/auth/states/auth_providers.dart';
 import 'package:jejaku/features/auth/widgets/sign_in_gate.dart';
 import 'package:jejaku/features/camera/services/ar_capture_diagnostics_cache_store.dart';
+import 'package:jejaku/features/friends/states/social_api_provider.dart';
 import 'package:jejaku/features/home/services/anchor_media_repository_bootstrap.dart';
 import 'package:jejaku/features/home/services/anchor_memory_store.dart';
 import 'package:jejaku/features/home/services/viewer_location.dart';
@@ -88,6 +89,7 @@ Future<void> _bootstrapAndRun() async {
         ),
         if (_identityUrl.isNotEmpty)
           httpAuthGatewayOverride(baseUrl: _identityUrl),
+        if (_socialUrl.isNotEmpty) socialApiOverride(baseUrl: _socialUrl),
         if (_memoryUrl.isNotEmpty) ...[
           memoryApiOverride(baseUrl: _memoryUrl),
           httpRemoteMediaLoaderOverride(),
@@ -117,6 +119,11 @@ const _identityUrl = String.fromEnvironment('JEZAKU_IDENTITY_URL');
 /// Base URL of the memory service, e.g. `http://10.0.2.2:8104`. Empty means
 /// this build does not load frames from a server.
 const _memoryUrl = String.fromEnvironment('JEZAKU_MEMORY_URL');
+
+/// Base URL of the social service, e.g. `http://10.0.2.2:8103`. Empty means
+/// this build does not load friends (friends-only frames of others stay
+/// hidden).
+const _socialUrl = String.fromEnvironment('JEZAKU_SOCIAL_URL');
 
 class JejakuApp extends ConsumerWidget {
   const JejakuApp({super.key});
