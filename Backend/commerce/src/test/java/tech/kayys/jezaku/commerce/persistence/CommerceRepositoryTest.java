@@ -67,7 +67,7 @@ class CommerceRepositoryTest {
     }
 
     @Test
-    void membershipInvitationAcceptanceAndRevocationAreAuditedAndVersioned() {
+    void membershipInvitationAcceptanceAndRevocationAreVersioned() {
         String suffix = UUID.randomUUID().toString();
         String merchantId = "membership-merchant-" + suffix;
         String ownerId = "owner-" + suffix;
