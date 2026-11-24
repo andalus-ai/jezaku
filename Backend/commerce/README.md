@@ -60,3 +60,27 @@ The repository adapters are persistence primitives, not authorization boundaries
 4. Add campaign/promotion lifecycle and store associations.
 5. Add Discovery projection and Safety integration.
 6. Add atomic, idempotent redemption.
+
+
+## Trusted merchant review
+
+Merchant verification is a separate trust boundary from merchant ownership and staff administration. The merchant-facing API cannot create reviewer grants, change reviewer status, widen reviewer jurisdiction, or grant reviewer permissions.
+
+Migration V4 adds:
+- `commerce_merchant_reviewer`: server-provisioned reviewer identity, status and validity window.
+- `commerce_merchant_reviewer_scope`: explicit jurisdiction grants; there is no wildcard or prefix inheritance.
+- `commerce_merchant_reviewer_permission`: independent VERIFY, REJECT, SUSPEND and REINSTATE permissions.
+
+The runtime repository is read-only. Reviewer provisioning and revocation must be performed by a trusted operator workflow using a separately controlled database role, with operational audit retained by that workflow. The application database role should receive SELECT but not INSERT/UPDATE/DELETE on reviewer grant tables.
+
+Review operations derive the reviewer identity from the verified access token, require an active grant valid at the current server time, exact jurisdiction scope and action-specific permission. A reviewer who has any membership in the merchant being reviewed is denied, preventing owner/staff self-verification. Review reasons are mandatory and recorded in the merchant aggregate audit event. Updates use the merchant aggregate version; concurrent review decisions return a conflict.
+
+Endpoints:
+- `POST /commerce/merchants/{merchantId}/review/verify`
+- `POST /commerce/merchants/{merchantId}/review/reject`
+- `POST /commerce/merchants/{merchantId}/review/suspend`
+- `POST /commerce/merchants/{merchantId}/review/reinstate`
+
+Each accepts only a `reasonCode`; reviewer identity, permission, jurisdiction and timestamps are never client-controlled. Verification is the only transition that makes a pending merchant eligible for staff invitations and store activation. Rejection is terminal in this initial lifecycle; reinstatement applies only to suspended verified merchants.
+
+The review API does not yet ingest or retain identity documents. Evidence storage, reviewer assignment queues, dual-control for high-risk decisions and operator-facing grant management remain follow-up work.
