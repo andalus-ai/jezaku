@@ -345,7 +345,7 @@ class _ThrowingGateway implements AuthGateway {
   Future<AuthSession> signIn({
     required String identifier,
     required String password,
-  }) {
+  }) async {
     throw StateError('boom');
   }
 

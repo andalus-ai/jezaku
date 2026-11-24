@@ -52,7 +52,7 @@ class UnavailableAuthGateway implements AuthGateway {
   Future<AuthSession> signIn({
     required String identifier,
     required String password,
-  }) {
+  }) async {
     throw const AuthFailure(AuthFailureReason.unavailable);
   }
 
