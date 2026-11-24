@@ -112,6 +112,9 @@ class SpatialSafetyServiceTest {
                     .filter(item -> !at.isBefore(item.effectiveFrom()))
                     .filter(item -> item.expiresAt() == null || at.isBefore(item.expiresAt())).toList();
         }
+        @Override public PolicyChangePage findPolicyChangesAfter(long revision, int limit) {
+            return new PolicyChangePage(0L, List.of());
+        }
         @Override public SpatialRestriction revokeRestriction(String id, int expectedVersion, String actorId, String reason) {
             SpatialRestriction current = findRestriction(id).orElseThrow();
             if (current.version() != expectedVersion) throw new IllegalStateException("version conflict");
