@@ -1,6 +1,6 @@
 # Spatial Safety Integration Plan
 
-> **Status:** Updated 2026-11-24 against the repository capability inventory and current Safety API/enforcement contracts. The Safety policy API, PostgreSQL persistence, authority authorization, immutable request-scoped snapshots, bounded batch evaluation, route-alternative evaluation, and shared fail-closed enforcer exist. Discovery candidate paths are integrated. Memory publish uses the existing single-coordinate check. Memory presentation/render and remaining feature call sites are not yet fully integrated. This plan does not claim that all spatial operations are protected.
+> **Status:** Updated 2026-11-24 against the repository source and tests. Safety policy APIs, PostgreSQL schema/adapter, authority authorization, request-scoped snapshots, batch and route evaluation, and the shared fail-closed enforcer exist. Discovery and core Memory read/publish paths are integrated. PostgreSQL-backed repository verification and remaining navigation/interaction/commerce call sites are still open. This plan does not claim that all spatial operations are protected.
 
 ## 1. Goal
 
@@ -16,12 +16,12 @@ The following foundations are present on the inspected main-branch baseline:
 |---|---|
 | `SpatialRestriction` and `AuthorityPrincipal` | Implemented: circular, activity-scoped, time-bounded restrictions and server-managed authority grants |
 | `AuthorityAuthorizationPolicy` | Implemented: verification, validity, permission and jurisdiction checks |
-| `SpatialPolicyRepository` / JDBC adapter | Implemented: PostgreSQL persistence, optimistic versioning, audit and policy revision |
+| `SpatialPolicyRepository` / JDBC adapter | Implemented: PostgreSQL persistence, version-guarded writes, audit, monotonic revision and durable change outbox; real-PostgreSQL integration coverage not yet found |
 | `SpatialSafetyPolicy` | Implemented: precedence, time/activity evaluation and bounded spherical route-segment checks against circular restrictions |
 | `SpatialSafetyService` / REST resource | Implemented: authority operations, evaluation, batch, route alternatives and policy change feed |
 | `SpatialSafetyEnforcer` | Implemented: shared fail-closed application-level enforcement entry point |
 | Discovery candidate paths | Integrated: nearby, search, trending and for-you use batch `DISCOVER` evaluation; blocking outcomes are omitted and CAUTION is retained with a caution outcome |
-| Memory publishing | Integrated: existing single-coordinate `PUBLISH` evaluation path |
+| Memory publishing | Integrated: existing single-coordinate `PUBLISH` evaluation path before media resolution and persistence |
 | Memory feed/minimap/nearby projections | Integrated: feed, nearby dots and minimap apply existing audience/on-site/moderation filters, then one ordered batch `DISCOVER` evaluation (maximum 500) |
 | Memory detail / AR placement eligibility | Integrated for backend memory read surfaces: non-owner detail uses single-point `RENDER`; another user's profile feed uses batch `RENDER`; owner gallery is intentionally exempt |
 | Navigation consumer | Safety route-alternative API exists; routing-provider orchestration and live navigation-session enforcement remain incomplete |
@@ -85,24 +85,27 @@ A point check does not establish route safety. Route checks must evaluate route 
 
 ### SAF-INT-02 — Discovery and memory presentation
 - [x] Integrate batch `DISCOVER` evaluation into Discovery nearby, search, trending and for-you candidate paths.
-- [ ] Audit memory feed, minimap, nearby and every derived memory projection for alternate/bypass paths.
-- [ ] Integrate `DISCOVER` into all relevant memory spatial projections using bounded batches and one snapshot per request.
-- [ ] Integrate `RENDER` for memory detail and AR placement eligibility before returning content intended for physical presentation.
-- [ ] Preserve memory audience, blocks, moderation, owner access and on-site radius checks as independent requirements.
-- [ ] Do not expose restriction geometry or authority records to ordinary clients.
-- [ ] Add endpoint-level positive, negative, policy-outage and cross-surface regression tests.
+- [x] Audit Memory feed, nearby, minimap, user-profile feed and detail read paths.
+- [x] Integrate ordered, bounded batch `DISCOVER` evaluation into feed, nearby dots and minimap (maximum 500 candidates).
+- [x] Integrate single-point `RENDER` for non-owner detail and batch `RENDER` for another user's profile feed; owner gallery remains intentionally exempt.
+- [x] Preserve audience, blocks, moderation, owner access and on-site radius checks as independent requirements.
+- [x] Keep restriction geometry and authority records out of ordinary memory responses.
+- [x] Add service-level tests for filtering, caution retention, render suppression, owner behavior and listing projections.
+- [ ] Add production-like HTTP contract tests for batch endpoint outages and oversized candidate behavior.
+- [ ] Define bounded pagination/query limits for candidate sets above 500; current behavior fails closed rather than truncating or partially evaluating.
 
-**Exit:** no prohibited spatial memory can be returned through a covered discovery projection or authorized for AR presentation. All relevant read paths are inventoried and tested.
+**Exit:** core Discovery and Memory read surfaces are integrated. HTTP contract coverage and candidate pagination remain release follow-ups.
 
 ### SAF-INT-03 — Publish and anchor mutation hardening
 - [x] Existing memory creation path uses the Safety `PUBLISH` evaluation.
-- [ ] Verify the check occurs after domain validation but before all durable/external side effects.
-- [ ] Audit anchor refinement and every operation that can move a published anchor.
-- [ ] Ensure denied operations create no memory update, media association, anchor history, event or notification side effect.
-- [ ] Preserve moderation, owner authorization, visibility and offline queue semantics.
+- [x] Verify create checks the requested anchor after validation and before media resolution, persistence or anchor-history writes.
+- [x] Verify anchor refinement checks the destination before saving the updated record and history event.
+- [x] Add regression tests proving denied creation leaves no frame and denied relocation preserves the original anchor and history.
+- [x] Preserve owner authorization and existing media/visibility behavior.
+- [ ] Add production-like HTTP contract tests proving Safety 403 and 503 prevent create/relocation.
 - [ ] Decide explicitly whether restricted-area private drafts are allowed; until then, do not publish a spatial placement that fails policy.
 
-**Exit:** every supported memory publish/move path has denial-before-side-effect integration tests.
+**Exit:** domain-level denial-before-side-effect behavior is implemented and tested; remote HTTP contract coverage and the private-draft product decision remain open.
 
 ### SAF-INT-04 — Navigation, interaction and commerce gates
 - [x] Implement bounded spherical segment-to-circle evaluation in Safety.
@@ -118,15 +121,22 @@ A point check does not establish route safety. Route checks must evaluate route 
 **Exit:** every implemented route/action/offer operation has a concrete enforcement point and integration test, or is explicitly marked unsupported.
 
 ### SAF-INT-05 — Authority and operational hardening
-- [ ] Define trusted authority provisioning, identity proofing, approval, suspension and grant-revocation workflows.
-- [ ] Review restriction read/history and evaluation endpoints for information disclosure, abuse and rate limits.
-- [ ] Verify production authentication configuration and least-privilege service-token scopes.
-- [ ] Add PostgreSQL-backed tests for migrations, concurrency, revocation, revision and audit atomicity.
-- [ ] Add health/readiness signals for policy persistence; protected features must not serve when policy storage is unavailable.
-- [ ] Define and measure emergency lockdown propagation objectives.
+- [x] Define and implement relational storage for authority principals, jurisdiction scopes, permissions, restrictions, restriction activities and audit snapshots.
+- [x] Add Flyway migrations for authority/restriction storage, authority audit, global policy revision and durable policy-change outbox.
+- [x] Implement optimistic restriction version checks and atomic restriction/activity/audit/revision/outbox writes in the JDBC adapter.
+- [x] Implement one-statement policy snapshot reads that return the global revision and active restrictions from a consistent PostgreSQL statement snapshot.
+- [x] Implement server-side authority checks for verified status, validity window, jurisdiction scope and permission.
+- [ ] Add PostgreSQL-backed tests for migration startup, concurrent authority/restriction writes, rollback on audit/outbox failure, revocation, revision monotonicity and change-feed ordering.
+- [ ] Review authority provisioning as a controlled administrative workflow, including identity proofing, dual approval where appropriate, suspension and revocation.
+- [ ] Review public restriction reads/history and evaluation endpoints for information disclosure, abuse controls and rate limits.
+- [ ] Verify production authentication configuration, least-privilege service-token scopes, database credentials/rotation and deployment migration procedure.
+- [ ] Add readiness signals proving migrations and policy storage are available; protected features must not serve when policy storage is unavailable.
+- [ ] Define and measure emergency-lockdown propagation objectives, including consumer lag and alerting.
 - [ ] Keep raw coordinates and sensitive legal-basis details out of ordinary logs.
 
-**Exit:** authority and policy operations are production-configurable, audited, observable and abuse-resistant.
+**Audit findings:** the inspected test inventory contains domain/service/resource tests and an in-memory repository, but no PostgreSQL-backed JDBC repository test. The adapter uses transactional methods and direct `DataSource` connections; atomicity is intended by the implementation but must be demonstrated against the actual Quarkus/PostgreSQL transaction manager. `saveAuthority` determines `CREATED` versus `UPDATED` with a read-before-upsert, so concurrent first-time provisioning can produce a misleading audit action even though the authority row remains upserted. Add a concurrency-safe audit action derivation (for example, PostgreSQL `INSERT ... ON CONFLICT ... RETURNING`/CTE semantics) and test it.
+
+**Exit:** authority and policy operations are production-configurable, audited, observable and abuse-resistant, with real PostgreSQL evidence for atomicity and concurrency.
 
 ### SAF-INT-06 — Geometry, invalidation and offline evolution
 - [x] Bounded route corridor/segment evaluation for circular restrictions.
@@ -182,6 +192,6 @@ A point check does not establish route safety. Route checks must evaluate route 
 
 ## 8. Next implementation slice
 
-The next focused slice is **SAF-INT-02: memory spatial projection and render-eligibility enforcement**, beginning with a source audit of memory feed, nearby, minimap, detail and AR placement paths. Implement each endpoint family with batch evaluation and explicit tests. Do not add a per-item database lookup or rely on client-only suppression.
+The next focused slice is **SAF-INT-05: PostgreSQL repository verification and authority lifecycle hardening**. Add Testcontainers or the repository's established PostgreSQL test infrastructure (first inspect existing backend test conventions), run Flyway migrations against PostgreSQL, and prove restriction/audit/revision/outbox atomicity under success, conflict and injected failure. Add concurrent tests for version updates and authority provisioning audit classification. Then add readiness/health behavior and operational deployment guidance.
 
-After those focused contract tests and product decisions, complete SAF-INT-05 PostgreSQL/operational validation before enabling public extensibility.
+Do not treat in-memory repository tests as evidence of JDBC transaction correctness. Keep the current Safety module as the sole policy owner.
