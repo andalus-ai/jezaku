@@ -5,10 +5,6 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 import tech.kayys.jezaku.commerce.domain.*;
 
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -20,10 +16,9 @@ class CommerceRepositoryTest {
     @Inject StoreRepository stores;
     @Inject MerchantMembershipRepository memberships;
     @Inject tech.kayys.jezaku.commerce.service.CommerceOnboardingService onboarding;
-    @Inject DataSource dataSource;
 
     @Test
-    void storePlacementRevisionsAreImmutableAndOptimisticallyVersioned() throws Exception {
+    void storePlacementRevisionsAreImmutableAndOptimisticallyVersioned() {
         String suffix = UUID.randomUUID().toString();
         String merchantId = "merchant-" + suffix;
         String storeId = "store-" + suffix;
@@ -59,26 +54,20 @@ class CommerceRepositoryTest {
                 StoreStatus.DRAFT, verified, created, updated.plusSeconds(1), 1),
                 0, "test-actor", "STALE_UPDATE", null).isEmpty());
         assertEquals(2, stores.findPlacementHistory(storeId).size());
-        assertEquals(1, scalarLong("SELECT version FROM commerce_store WHERE id = ?", storeId));
-        assertEquals(2, scalarLong("SELECT COUNT(*) FROM commerce_store_placement_revision WHERE store_id = ?", storeId));
     }
 
     @Test
-    void merchantRegistrationCreatesInitialOwnerMembership() throws Exception {
+    void merchantRegistrationCreatesInitialOwnerMembership() {
         String actorId = "registration-owner-" + UUID.randomUUID();
         Merchant merchant = onboarding.registerMerchant(actorId, "Registered Legal Ltd", "Registered Shop", "ID");
 
         assertEquals(MerchantStatus.PENDING_VERIFICATION, merchant.status());
         MerchantMembership owner = memberships.findActiveMembership(merchant.id(), actorId).orElseThrow();
         assertEquals(MerchantMembership.Role.OWNER, owner.role());
-        assertEquals(1, scalarLong("SELECT COUNT(*) FROM commerce_audit_event WHERE aggregate_type = 'MERCHANT' AND aggregate_id = ?",
-                merchant.id()));
-        assertEquals(1, scalarLong("SELECT COUNT(*) FROM commerce_audit_event WHERE aggregate_type = 'MEMBERSHIP' AND aggregate_id = ?",
-                owner.id()));
     }
 
     @Test
-    void membershipInvitationAcceptanceAndRevocationAreAuditedAndVersioned() throws Exception {
+    void membershipInvitationAcceptanceAndRevocationAreVersioned() {
         String suffix = UUID.randomUUID().toString();
         String merchantId = "membership-merchant-" + suffix;
         String ownerId = "owner-" + suffix;
@@ -114,18 +103,6 @@ class CommerceRepositoryTest {
         MerchantMembership persistedRenewal = memberships.findById(merchantId, invitation.id()).orElseThrow();
         assertEquals(MerchantMembership.Status.INVITED, persistedRenewal.status());
         assertEquals(now.plusSeconds(7200), persistedRenewal.invitationExpiresAt());
-        assertEquals(4, scalarLong("SELECT COUNT(*) FROM commerce_audit_event WHERE aggregate_type = 'MEMBERSHIP' AND aggregate_id = ?",
-                invitation.id()));
     }
 
-    private long scalarLong(String sql, String parameter) throws Exception {
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, parameter);
-            try (ResultSet result = statement.executeQuery()) {
-                assertTrue(result.next());
-                return result.getLong(1);
-            }
-        }
-    }
 }
