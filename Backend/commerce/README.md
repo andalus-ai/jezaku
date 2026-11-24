@@ -9,12 +9,16 @@ Implemented:
 - WGS84 placement validation and provenance.
 - PostgreSQL/Flyway schema for merchants, merchant-scoped memberships, stores, placements, immutable placement revisions and audit events.
 - JDBC merchant and store repositories, including placement persistence.
-- JDBC active-membership lookup scoped by both merchant ID and user ID.
+- JDBC membership lifecycle persistence and active-membership lookup scoped by merchant ID and authenticated user ID.
+- Authenticated merchant registration that creates the initial owner membership atomically.
+- Seven-day staff invitations, renewal of expired/revoked invitations, acceptance by the invited account, role-bounded revocation and membership audit events.
+- Merchant onboarding REST endpoints whose actor identity is resolved from the verified authentication context.
 - Optimistic aggregate version checks and atomic audit writes for merchant/store create and update operations.
 - Environment-variable based datasource configuration.
 
 Not yet implemented:
-- Merchant onboarding and staff membership mutation/invitation APIs.
+- Email delivery, one-time invitation links and identity-directory existence checks.
+- Trusted merchant verification/rejection administration and ownership transfer.
 - Authorized placement review endpoints and verification-role resolution.
 - Campaign, promotion, quota, eligibility and redemption persistence.
 - Full PostgreSQL integration test suite.
@@ -28,12 +32,17 @@ Not yet implemented:
 - Every changed placement must advance its revision by exactly one; the current snapshot update and immutable revision insert share the store transaction.
 - Placement history preserves coordinates, accuracy, source, status, verifier, verification time, actor, action, record time and reason code. Historical rows are append-only through the repository contract.
 - Membership lookup is always constrained by merchant ID, user ID and ACTIVE status.
+- Merchant registration creates the merchant and initial OWNER membership in one service transaction.
+- The REST resource derives actor identity from the verified access token; actor, inviter, owner and role are never accepted as trusted caller identity from request fields.
+- Only OWNER/ADMIN can invite staff after merchant verification. ADMIN cannot grant ADMIN/OWNER privileges.
+- Only the invitation target can accept. Invitations expire after seven days and all membership transitions are optimistic-versioned and audited.
+- OWNER membership cannot be revoked through staff-management operations.
 - Database uniqueness prevents duplicate membership for the same merchant/user pair.
 - Client-submitted coordinates remain proposals; the repository does not authorize verification. The application layer must resolve a trusted server-side reviewer before invoking the domain transition.
 
 ## Database
 
-Flyway migration V1__commerce_registry.sql creates the merchant/store registry and audit tables. V2__commerce_store_placement_history.sql creates the immutable placement-revision table and backfills the current snapshot for existing stores.
+Flyway migration V1__commerce_registry.sql creates the merchant/store registry and audit tables. V2__commerce_store_placement_history.sql creates the immutable placement-revision table and backfills the current snapshot for existing stores. V3__commerce_membership_lifecycle.sql adds invitation expiry, inviter and activation metadata with lifecycle constraints.
 
 The local database defaults to jezaku_commerce on localhost:5432. Override using JZ_COMMERCE_DB_URL, JZ_COMMERCE_DB_USERNAME and JZ_COMMERCE_DB_PASSWORD. Configure deployment credentials through a secret manager.
 
@@ -46,8 +55,8 @@ The repository adapters are persistence primitives, not authorization boundaries
 ## Next slices
 
 1. Expand PostgreSQL-backed repository integration tests to cover merchant updates, rollback on audit failure and concurrent writers; verify Flyway against the supported PostgreSQL version.
-2. Add merchant onboarding and server-resolved staff authorization.
-3. Add audited placement review/revocation workflows and immutable placement history.
+2. Add trusted merchant verification/rejection administration, invitation delivery and ownership transfer.
+3. Add audited placement review/revocation workflows.
 4. Add campaign/promotion lifecycle and store associations.
 5. Add Discovery projection and Safety integration.
 6. Add atomic, idempotent redemption.
