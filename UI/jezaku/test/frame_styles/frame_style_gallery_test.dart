@@ -270,7 +270,7 @@ void main() {
       expect(_current(container, memory.id).frameLookId, 'oak');
     });
 
-    testWidgets("someone else's frame has no change-frame button",
+    testWidgets("someone else's frame has no change-frame or details button",
         (tester) async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
@@ -281,9 +281,10 @@ void main() {
         find.byKey(const ValueKey('memory_photo_change_frame_button')),
         findsNothing,
       );
+      // Details open the owner's local record, so they are owner-only too.
       expect(
         find.byKey(const ValueKey('memory_photo_details_button')),
-        findsOneWidget,
+        findsNothing,
       );
     });
   });

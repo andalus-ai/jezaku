@@ -207,14 +207,14 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
             onChangeFrame: ownerActions!.canChangeFrame
                 ? () => changeFrameStyle(context, ref, focusedAnchor.memory)
                 : null,
-            onDetails: ownerActions!.canOpenDetails
+            onDetails: ownerActions.canOpenDetails
                 ? () => Navigator.pushNamed(
                       context,
                       AppRoutes.memoryDetails,
                       arguments: focusedAnchor.memory.id,
                     )
                 : null,
-            onCalibrate: ownerActions!.canCalibrate
+            onCalibrate: ownerActions.canCalibrate
                 ? () => Navigator.pushNamed(
                       context,
                       AppRoutes.memoryCalibration,
@@ -227,7 +227,7 @@ extension _ARViewerBottomPanel on _ARViewerScreenState {
               arguments: wall.id,
             ),
             onRecenter: () => _recenterOnAnchor(focusedAnchor),
-            onRehang: ownerActions!.canRehang &&
+            onRehang: ownerActions.canRehang &&
                     _canOfferRehang(focusedAnchor.memory)
                 ? () => _rehangMemory(focusedAnchor.memory)
                 : null,
