@@ -42,6 +42,7 @@ void main() {
       expect(frame.audience, FrameAudience.friends);
       expect(frame.distanceMeters, 14.5);
       expect(frame.caption, 'Cabinet in the hallway');
+      expect(frame.mediaId, 'media-1');
       expect(frame.thumbnailUrl, 'https://cdn.test/t.jpg');
       expect(frame.mediaUrl, 'https://cdn.test/m.jpg');
       expect(frame.mediaStatus, 'ready');

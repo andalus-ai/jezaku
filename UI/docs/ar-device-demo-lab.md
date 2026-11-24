@@ -132,7 +132,10 @@ A frame's stored AR pose (`localAnchorPose`) is expressed in the coordinate fram
 - [ ] Settings → Signed in → Sign out returns to the sign-in screen. Frames saved on the device are still there after signing back in.
 - [ ] Strict build with no identity URL: no sign-in screen (the gate is off).
 
-- [ ] With `JEZAKU_MEMORY_URL` set and signed in against real services: nothing in the UI changes yet (the client is not used by screens), and no request is made in a demo build.
+- [ ] Demo build (no `JEZAKU_MEMORY_URL`): no request is made; only your own frames appear.
+- [ ] Strict build with `JEZAKU_MEMORY_URL` + `JEZAKU_IDENTITY_URL`, signed in, a second account has a public frame placed here: within ~20 m it hangs in AR with its picture; at 30 m it is hidden; walking back brings it back without flicker at the edge.
+- [ ] A friends-only frame of the second account stays hidden (friends are not loaded yet). Your own frames never appear twice.
+- [ ] Sign out: the other account's frame disappears from the viewer.
 
 ### 4b. Frame styles
 

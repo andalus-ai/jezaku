@@ -12,6 +12,7 @@ class RemoteFrame {
     required this.audience,
     required this.distanceMeters,
     this.caption = '',
+    this.mediaId,
     this.thumbnailUrl,
     this.mediaUrl,
     this.altitudeMeters,
@@ -35,6 +36,7 @@ class RemoteFrame {
   /// null when the response did not say (for example a user's own list).
   final double? distanceMeters;
   final String caption;
+  final String? mediaId;
   final String? thumbnailUrl;
   final String? mediaUrl;
   final double? altitudeMeters;
@@ -84,6 +86,7 @@ class RemoteFrame {
       ),
       distanceMeters: _number(json['distanceMeters']),
       caption: _text(json['caption']) ?? '',
+      mediaId: _text(json['mediaId']),
       thumbnailUrl: _text(json['thumbnailUrl']),
       mediaUrl: _text(json['mediaUrl']),
       mediaStatus: _text(json['mediaStatus']),

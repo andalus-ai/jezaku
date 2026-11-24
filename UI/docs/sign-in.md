@@ -32,11 +32,21 @@ Status: built and unit/widget-tested. Not yet run against a live identity servic
 - `MemoryApi` reads `GET /memories/nearby` and `GET /memories/users/{userId}`. The service decides what the caller may see (friends, on-site radius); the client only asks and parses. Failures are `notAllowed` (401/403), `network` or `server`.
 - `RemoteFrame` is the wire model. It drops unusable entries (no id, owner or position, coordinates off the globe) without hiding the rest, and reads an unknown or missing `visibility` as **private** so a value this build does not know can never widen who sees a frame.
 - `memoryApiProvider` is null (stay offline) unless the build passes `--dart-define=JEZAKU_MEMORY_URL=...`.
-- Nothing in the UI uses `MemoryApi` yet: turning remote frames into what the AR viewer draws, and sending the viewer's position, is the next slice.
+- The AR viewer uses it through `viewerAnchorsProvider` (see "Other people's frames in the viewer" below).
+
+## Other people's frames in the viewer (`remote_frames/`)
+
+- `viewerAnchorsProvider` = the user's own frames (local store) + other people's frames from `MemoryApi.nearby`. The AR viewer and the photo page read it instead of the local list. Remote frames are **never** written to the local store, so they are not part of My frames, sync or upload.
+- Loading is `RemoteFramesController`, kept fresh by `remoteFramesAutoRefreshProvider` while something watches `viewerAnchorsProvider`: only with a memory service (`JEZAKU_MEMORY_URL`), a signed-in user and a **live** location fix (the development fallback origin is never sent). It asks within 100 m, again after the viewer moves 25 m or 60 s pass, excludes the user's own frames, keeps the last good frames when a query fails, and forgets everything on sign-out or when another user signs in (a late answer for a previous user is discarded).
+- `RemoteFrameMapper` turns a service frame into an `AnchorMemory` carrying the owner id and the service's audience, so the normal visibility policy applies unchanged: friends-only frames of others stay hidden until friends are loaded (`friendIdsProvider` is still empty), and the 20 m on-site radius still applies. Only an explicit `approved` moderation status shows a frame; anything else is hidden.
+- Pictures: up to 8 thumbnails per query (nearest first) are fetched over plain HTTP(S) with `HttpRemoteMediaLoader` (absolute http/https only, 4 MB cap, **no sign-in token sent** because picture URLs may point at another host) and kept in memory. A frame whose picture is missing hangs as a plain frame.
 
 ## Known limits
 
 - **The session is memory-only.** Tokens are not written to ordinary app storage, so the user signs in again after a restart. Secure persistence (platform keystore) comes with the API client.
 - **No token refresh.** An expired token ends in a 401 and a sign-out. Nothing in the UI calls the memory client yet, and `friendIdsProvider` is still empty until the social client exists.
 - No account creation or password reset screens.
+- **Remote frames are view-only but not yet fully guarded in the UI.** The focused-frame panel still offers calibrate / re-hang for any frame; for a remote frame those do nothing (they edit the local store). Gate them by owner in a follow-up.
+- Remote pictures are held in memory only (no disk cache), the 4 MB cap is applied after download, and the photo page shows the thumbnail only (no full image or comments for remote frames yet).
+- `friendIdsProvider` is still empty: the social client that fills it is next.
 - The offline AR test mode (`--dart-define` arOfflineTestMode) is not exempted; run it as a demo build.
