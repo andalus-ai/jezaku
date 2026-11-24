@@ -22,6 +22,7 @@ import 'package:jejaku/features/ar_viewer/models/ar_scene_diagnostics_export_bun
 import 'package:jejaku/features/ar_viewer/services/ar_debug_log.dart';
 import 'package:jejaku/features/ar_viewer/hud/ar_hud_settings_sheet.dart';
 import 'package:jejaku/features/ar_viewer/hud/ar_hud_state.dart';
+import 'package:jejaku/features/ar_viewer/hud/ar_hud_store.dart';
 import 'package:jejaku/features/ar_viewer/visibility/frame_visibility.dart';
 import 'package:jejaku/features/ar_viewer/widgets/frame_radius_empty_hint.dart';
 import 'package:jejaku/features/frame_styles/widgets/frame_style_sheet.dart';
@@ -105,7 +106,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   static const _nativeSessionHealthPolicy = ARViewerHealthPolicy.viewing;
   static const _screenRecordingMaxPixelRatio = 1.5;
   static int _diagnosticsSessionSerial = 0;
-  ARHudState _hud = const ARHudState();
+  late ARHudState _hud = ref.read(arHudStoreProvider).load();
   bool _isRadarExpanded = true;
   double _headingDegrees = 56;
   bool _didApplyInitialFocus = false;
@@ -295,18 +296,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     unawaited(_arPermissionService.openSettings());
   }
 
-  void _showHudSettingsSheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => ARHudSettingsSheet(
-        initial: _hud,
-        onChanged: _applyHudState,
-      ),
-    );
-  }
-
   void _applyHudState(ARHudState next) {
     setState(() {
       if (!_hud.isEnabled(ARHudPanel.radar) &&
@@ -315,6 +304,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       }
       _hud = next;
     });
+    ref.read(arHudStoreProvider).save(next);
   }
 
   bool _backgrounded = false;

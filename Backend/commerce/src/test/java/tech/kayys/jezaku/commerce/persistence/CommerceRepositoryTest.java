@@ -18,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class CommerceRepositoryTest {
     @Inject MerchantRepository merchants;
     @Inject StoreRepository stores;
+    @Inject MerchantMembershipRepository memberships;
+    @Inject tech.kayys.jezaku.commerce.service.CommerceOnboardingService onboarding;
     @Inject DataSource dataSource;
 
     @Test
@@ -29,7 +31,7 @@ class CommerceRepositoryTest {
         Instant updated = created.plusSeconds(60);
 
         merchants.create(new Merchant(merchantId, "Integration Legal Ltd", "Integration",
-                "ID", MerchantStatus.PENDING_VERIFICATION, created, created, 0), "test-actor");
+                "ID", MerchantStatus.PENDING_VERIFICATION, created, created, 0), "test-actor", "INTEGRATION_TEST");
 
         StorePlacement proposed = new StorePlacement(-6.2, 106.8, 8.0,
                 "integration-test", PlacementStatus.PROPOSED, null, null, 0);
@@ -59,6 +61,63 @@ class CommerceRepositoryTest {
         assertEquals(2, stores.findPlacementHistory(storeId).size());
         assertEquals(1, scalarLong("SELECT version FROM commerce_store WHERE id = ?", storeId));
         assertEquals(2, scalarLong("SELECT COUNT(*) FROM commerce_store_placement_revision WHERE store_id = ?", storeId));
+    }
+
+
+
+    @Test
+    void merchantRegistrationCreatesInitialOwnerMembership() throws Exception {
+        String actorId = "registration-owner-" + UUID.randomUUID();
+        Merchant merchant = onboarding.registerMerchant(actorId, "Registered Legal Ltd", "Registered Shop", "ID");
+
+        assertEquals(MerchantStatus.PENDING_VERIFICATION, merchant.status());
+        MerchantMembership owner = memberships.findActiveMembership(merchant.id(), actorId).orElseThrow();
+        assertEquals(MerchantMembership.Role.OWNER, owner.role());
+        assertEquals(1, scalarLong("SELECT COUNT(*) FROM commerce_audit_event WHERE aggregate_type = 'MERCHANT' AND aggregate_id = ?",
+                merchant.id()));
+        assertEquals(1, scalarLong("SELECT COUNT(*) FROM commerce_audit_event WHERE aggregate_type = 'MEMBERSHIP' AND aggregate_id = ?",
+                owner.id()));
+    }
+
+    @Test
+    void membershipInvitationAcceptanceAndRevocationAreAuditedAndVersioned() throws Exception {
+        String suffix = UUID.randomUUID().toString();
+        String merchantId = "membership-merchant-" + suffix;
+        String ownerId = "owner-" + suffix;
+        String staffId = "staff-" + suffix;
+        Instant now = Instant.now();
+
+        merchants.create(new Merchant(merchantId, "Membership Legal Ltd", "Membership",
+                "ID", MerchantStatus.PENDING_VERIFICATION, now, now, 0), ownerId, "INTEGRATION_TEST");
+        MerchantMembership owner = MerchantMembership.owner("owner-membership-" + suffix,
+                merchantId, ownerId, now);
+        memberships.create(owner, ownerId, "INITIAL_OWNER");
+
+        MerchantMembership invitation = MerchantMembership.invite("staff-membership-" + suffix,
+                merchantId, staffId, MerchantMembership.Role.ANALYST, now, now.plusSeconds(3600));
+        memberships.create(invitation, ownerId, "STAFF_INVITATION");
+
+        assertTrue(memberships.findActiveMembership(merchantId, staffId).isEmpty());
+        assertEquals(MerchantMembership.Status.INVITED,
+                memberships.findById(merchantId, invitation.id()).orElseThrow().status());
+
+        MerchantMembership accepted = invitation.accept(now.plusSeconds(30));
+        assertTrue(memberships.update(accepted, 0, staffId, "INVITATION_ACCEPTED", null).isPresent());
+        assertEquals(MerchantMembership.Status.ACTIVE,
+                memberships.findActiveMembership(merchantId, staffId).orElseThrow().status());
+
+        MerchantMembership revoked = accepted.revoke(now.plusSeconds(60));
+        assertTrue(memberships.update(revoked, 1, ownerId, "MEMBERSHIP_REVOKED", "TEST").isPresent());
+        assertTrue(memberships.findActiveMembership(merchantId, staffId).isEmpty());
+
+        MerchantMembership renewed = revoked.reinvite(MerchantMembership.Role.ANALYST,
+                now.plusSeconds(120), now.plusSeconds(7200));
+        assertTrue(memberships.update(renewed, 2, ownerId, "INVITATION_RENEWED", "TEST").isPresent());
+        MerchantMembership persistedRenewal = memberships.findById(merchantId, invitation.id()).orElseThrow();
+        assertEquals(MerchantMembership.Status.INVITED, persistedRenewal.status());
+        assertEquals(now.plusSeconds(7200), persistedRenewal.invitationExpiresAt());
+        assertEquals(4, scalarLong("SELECT COUNT(*) FROM commerce_audit_event WHERE aggregate_type = 'MEMBERSHIP' AND aggregate_id = ?",
+                invitation.id()));
     }
 
     private long scalarLong(String sql, String parameter) throws Exception {

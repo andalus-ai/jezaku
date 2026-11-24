@@ -195,6 +195,9 @@ class SpatialSafetyEnforcerTest {
             if (unavailable) throw new IllegalStateException("database unavailable");
             return restrictions;
         }
+        @Override public PolicyChangePage findPolicyChangesAfter(long revision, int limit) {
+            return new PolicyChangePage(this.revision, List.of());
+        }
         @Override public SpatialRestriction revokeRestriction(String restrictionId, int expectedVersion,
                 String actorId, String reason) { throw new UnsupportedOperationException(); }
         @Override public List<RestrictionAuditEvent> findAuditHistory(String restrictionId) { return List.of(); }

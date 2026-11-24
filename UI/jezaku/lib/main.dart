@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/app/app_error_handling.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/app/theme/jejaku_theme.dart';
+import 'package:jejaku/features/ar_viewer/hud/ar_hud_store.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_store.dart';
@@ -86,6 +87,9 @@ Future<void> _bootstrapAndRun() async {
         ),
         if (_identityUrl.isNotEmpty)
           httpAuthGatewayOverride(baseUrl: _identityUrl),
+        persistentARHudStoreOverride(
+          preferences: preferences,
+        ),
         persistentARMemorySceneDiagnosticsStoreOverride(
           preferences: preferences,
         ),
