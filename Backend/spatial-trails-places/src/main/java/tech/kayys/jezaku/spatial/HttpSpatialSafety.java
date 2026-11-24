@@ -266,7 +266,7 @@ class HttpSpatialSafety implements SpatialSafety {
                 String action = event.path("action").asText("");
                 String jurisdiction = event.path("jurisdiction").asText("");
                 String outcome = event.path("outcome").asText("");
-                if (!revision.canConvertToLong() || revision.asLong() <= previousRevision
+                if (!revision.canConvertToLong() || revision.asLong() != previousRevision + 1
                         || revision.asLong() > currentRevision || !version.canConvertToInt()
                         || version.asInt() != 1 || !restrictionVersion.canConvertToInt()
                         || restrictionVersion.asInt() < 1 || eventId.isBlank()
@@ -287,6 +287,9 @@ class HttpSpatialSafety implements SpatialSafety {
                         restrictionId, restrictionVersion.asInt(), action, jurisdiction, outcome,
                         activities, occurredAt));
                 previousRevision = revision.asLong();
+            }
+            if (events.size() < limit && previousRevision != currentRevision) {
+                throw unavailable("Spatial policy change page is incomplete before the current revision", null);
             }
             return new PolicyChangePage(currentRevision, afterRevision, events);
         } catch (WebApplicationException exception) {
