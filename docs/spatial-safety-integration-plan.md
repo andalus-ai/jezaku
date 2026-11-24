@@ -50,11 +50,11 @@ For candidate lists, evaluate a bounded set against one immutable request-scoped
 
 | Feature path | Operation | Activity | Coordinate source | Current status / next action |
 |---|---|---|---|---|
-| Memory creation | Persist a new geotagged memory/frame | `PUBLISH` | Validated canonical memory anchor | Existing single-coordinate integration; add/maintain denial-before-write tests |
-| Memory anchor refinement | Move a published anchor | `PUBLISH` | Proposed validated new anchor | Audit exact mutation paths and ensure check occurs before anchor/history writes |
+| Memory creation | Persist a new geotagged memory/frame | `PUBLISH` | Validated canonical memory anchor | Integrated before media resolution/persistence; maintain denial-before-write tests |
+| Memory anchor refinement | Move a published anchor | `PUBLISH` | Proposed validated new anchor | Integrated before record/history writes; add remote Safety HTTP contract coverage |
 | Discovery nearby/search/trending/for-you | Return spatial candidates | `DISCOVER` | Candidate's canonical stored position | Integrated with batch evaluation; maintain failure and authorization tests |
-| Memory feed/minimap/nearby dots | Return candidate memories for spatial presentation | `DISCOVER` | Each memory's stored anchor | Next priority: audit every projection and integrate batch evaluation without bypasses |
-| Memory detail / AR placement eligibility | Authorize content for physical AR presentation | `RENDER` | Stored object anchor; viewer location remains a separate input | Not fully integrated; add explicit render-eligibility enforcement |
+| Memory feed/minimap/nearby dots | Return candidate memories for spatial presentation | `DISCOVER` | Each memory's stored anchor | Integrated with bounded ordered batch evaluation; add outage contract tests and pagination above 500 |
+| Memory detail / AR placement eligibility | Authorize content for physical AR presentation | `RENDER` | Stored object anchor; viewer location remains a separate input | Backend detail and profile-feed render gates integrated; verify UI placement call site and remote contract tests |
 | Trail/route guidance | Start or continue route instructions | `NAVIGATE` | Validated route geometry/segments | Safety route API exists; consumer integration and live-session re-evaluation remain |
 | Server-side spatial action | Execute a spatial interaction | `INTERACT` | Target object's canonical location | Integrate only at actual server-side action handlers |
 | Promotion discovery/redemption | Select or redeem a location-based offer | `DISCOVER` / `REDEEM` | Merchant location plus separately validated user eligibility context | Future commerce scope; do not create placeholder services |
