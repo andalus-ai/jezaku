@@ -1,6 +1,7 @@
 package tech.kayys.jezaku.commerce.service;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
@@ -14,7 +15,6 @@ import tech.kayys.jezaku.commerce.persistence.MerchantReviewerRepository;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Objects;
 
 @ApplicationScoped
 public class CommerceMerchantReviewService {
@@ -23,6 +23,7 @@ public class CommerceMerchantReviewService {
     private final MerchantReviewerRepository reviewers;
     private final Clock clock;
 
+    @Inject
     public CommerceMerchantReviewService(MerchantRepository merchants,
                                          MerchantMembershipRepository memberships,
                                          MerchantReviewerRepository reviewers) {
