@@ -132,6 +132,8 @@ A frame's stored AR pose (`localAnchorPose`) is expressed in the coordinate fram
 - [ ] Settings → Signed in → Sign out returns to the sign-in screen. Frames saved on the device are still there after signing back in.
 - [ ] Strict build with no identity URL: no sign-in screen (the gate is off).
 
+- [ ] With `JEZAKU_MEMORY_URL` set and signed in against real services: nothing in the UI changes yet (the client is not used by screens), and no request is made in a demo build.
+
 ### 4b. Frame styles
 
 - [ ] Settings → Default frame: pick Gold, publish a new frame; it hangs gold in AR.
