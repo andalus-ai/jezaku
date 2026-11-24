@@ -31,6 +31,13 @@ public final class SpatialSafetyDtos {
             List<SpatialPolicyRepository.RestrictionAuditEvent> events) {
     }
 
+    public record PolicyChangesResponse(long currentRevision, long afterRevision,
+            int count, List<SpatialPolicyChangeEvent> events) {
+        public PolicyChangesResponse {
+            events = List.copyOf(events);
+        }
+    }
+
     public record EvaluationRequest(double latitude, double longitude, SpatialRestriction.Activity activity) {
     }
 

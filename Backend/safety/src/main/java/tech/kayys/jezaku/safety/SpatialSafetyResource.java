@@ -6,6 +6,8 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Consumes;
@@ -70,6 +72,30 @@ public class SpatialSafetyResource extends tech.kayys.jezaku.auth.CallerAwareRes
     public SpatialSafetyDtos.RestrictionHistoryResponse history(@PathParam("restrictionId") String restrictionId) {
         Caller caller = requireCaller();
         return service.history(caller.principal(), restrictionId);
+    }
+
+    /**
+     * Ordered durable invalidation feed. Consumers resume from the last
+     * processed revision and re-evaluate affected operations; events do not
+     * authorize an operation or replace route assessment expiry.
+     */
+    @GET @Path("/changes")
+    public SpatialSafetyDtos.PolicyChangesResponse policyChanges(
+            @QueryParam("afterRevision") @DefaultValue("0") long afterRevision,
+            @QueryParam("limit") @DefaultValue("100") int limit) {
+        AuthContext.requireService(requestContext, ServiceScopes.SPATIAL_POLICY_CHANGES_READ);
+        if (afterRevision < 0) {
+            throw new BadRequestException("afterRevision must be non-negative");
+        }
+        if (limit < 1 || limit > 500) {
+            throw new BadRequestException("limit must be between 1 and 500");
+        }
+        SpatialPolicyRepository.PolicyChangePage page = repository.findPolicyChangesAfter(afterRevision, limit);
+        if (afterRevision > page.currentRevision()) {
+            throw new BadRequestException("afterRevision cannot exceed the current policy revision");
+        }
+        return new SpatialSafetyDtos.PolicyChangesResponse(
+                page.currentRevision(), afterRevision, page.events().size(), page.events());
     }
 
     @POST @Path("/evaluate")
