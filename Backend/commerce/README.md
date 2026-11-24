@@ -84,3 +84,16 @@ Endpoints:
 Each accepts only a `reasonCode`; reviewer identity, permission, jurisdiction and timestamps are never client-controlled. Verification is the only transition that makes a pending merchant eligible for staff invitations and store activation. Rejection is terminal in this initial lifecycle; reinstatement applies only to suspended verified merchants.
 
 The review API does not yet ingest or retain identity documents. Evidence storage, reviewer assignment queues, dual-control for high-risk decisions and operator-facing grant management remain follow-up work.
+
+
+## Merchant review cases and evidence foundation (V5)
+
+V5 introduces a versioned review case, evidence metadata references and append-only decision history. This is distinct from store-placement verification: merchant identity/legal eligibility and the physical location of a store are separate trust decisions with separate reviewers and evidence.
+
+Review cases move through `OPEN`, `IN_REVIEW`, `NEEDS_INFORMATION`, and terminal `APPROVED`, `REJECTED` or `CLOSED` states. Only an assigned reviewer may request information or decide a case. The database permits at most one active case per merchant. Optimistic versions protect case transitions.
+
+Evidence records reference an opaque `mediaAssetId` owned by the Media service. Commerce does not accept or persist public URLs, storage keys, document bytes, OCR claims, or client assertions that an asset is verified. The future submission API must call a Media ownership/authorization boundary to establish that the authenticated merchant actor may attach that asset before writing evidence metadata. Media remains responsible for upload validation, malware scanning, encryption, retention and access-controlled retrieval.
+
+Evidence categories include business registration, tax registration, identity, address proof and authorization. Evidence is immutable in identity and submission provenance; its review status transitions from RECEIVED to ACCEPTED/REJECTED, or to WITHDRAWN before review. Rejection requires a reason. Decision rows capture the case version and an evidence-version snapshot so later review can reconstruct which evidence was considered.
+
+The current slice adds domain invariants and database schema only. Evidence upload/submission endpoints, reviewer queue/assignment APIs, document retrieval authorization, and the orchestration that turns an APPROVED case into the merchant VERIFIED transition are intentionally deferred until the Media asset authorization contract is integrated. Existing review endpoints remain the current merchant status transition surface and must not be mistaken for a complete evidence-backed workflow.
