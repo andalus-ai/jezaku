@@ -63,8 +63,6 @@ class CommerceRepositoryTest {
         assertEquals(2, scalarLong("SELECT COUNT(*) FROM commerce_store_placement_revision WHERE store_id = ?", storeId));
     }
 
-
-
     @Test
     void merchantRegistrationCreatesInitialOwnerMembership() throws Exception {
         String actorId = "registration-owner-" + UUID.randomUUID();
