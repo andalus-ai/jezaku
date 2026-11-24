@@ -151,6 +151,7 @@ AnchorMemory _frameOf(String ownerId) => RemoteFrameMapper.toAnchorMemory(
         longitude: 0,
         audience: FrameAudience.friends,
         distanceMeters: 5,
+        moderationStatus: 'approved',
       ),
     );
 
@@ -383,8 +384,8 @@ void main() {
       gate.complete({'amy'});
       await pending;
 
-      expect(s.container.read(friendsProvider).ids, isEmpty);
       expect(s.container.read(friendIdsProvider), isEmpty);
+      expect(s.container.read(friendsProvider).loaded, isFalse);
     });
 
     test('another user does not inherit the previous user\'s friends',
@@ -392,12 +393,29 @@ void main() {
       final s = _setup();
       await _signIn(s.container, 'me');
       await s.container.read(friendsProvider.notifier).refreshIfNeeded();
-      expect(s.container.read(friendsProvider).ids, isNotEmpty);
+      expect(s.container.read(friendIdsProvider), isNotEmpty);
 
       await s.container.read(authControllerProvider.notifier).signOut();
+      expect(s.container.read(friendIdsProvider), isEmpty);
       await _signIn(s.container, 'someone-else');
 
+      expect(s.container.read(friendIdsProvider), isEmpty);
+    });
+
+    test('auto refresh also forgets the friends on sign-out', () async {
+      final s = _setup();
+      final subscription =
+          s.container.listen(friendsAutoRefreshProvider, (_, __) {});
+      addTearDown(subscription.close);
+      await _signIn(s.container, 'me');
+      await pumpEventQueue();
+      expect(s.container.read(friendsProvider).ids, {'amy', 'ben'});
+
+      await s.container.read(authControllerProvider.notifier).signOut();
+      await pumpEventQueue();
+
       expect(s.container.read(friendsProvider).ids, isEmpty);
+      expect(s.container.read(friendsProvider).userId, isNull);
     });
 
     test('auto refresh loads on sign-in and re-checks on a location update',
@@ -408,8 +426,7 @@ void main() {
       addTearDown(subscription.close);
 
       await _signIn(s.container, 'me');
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       expect(s.api.asked, ['me']);
       expect(s.container.read(friendsProvider).loaded, isTrue);
 
@@ -417,7 +434,7 @@ void main() {
       s.location.controller.add(
         const ViewerLocation(latitude: 1, longitude: 1, isLive: true),
       );
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       expect(s.api.asked, hasLength(1));
     });
   });

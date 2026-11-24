@@ -1,4 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/api/authenticated_dio.dart';
 import 'package:jejaku/features/friends/services/social_api.dart';
 import 'package:jejaku/features/friends/states/friends_controller.dart';

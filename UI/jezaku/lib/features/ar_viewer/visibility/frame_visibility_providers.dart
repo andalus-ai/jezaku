@@ -24,9 +24,14 @@ final currentUserIdProvider = Provider<String?>(
 
 /// The ids of the viewer's friends, from the social service (empty until the
 /// first answer, and always in builds without a social service).
-final friendIdsProvider = Provider<Set<String>>(
-  (ref) => ref.watch(friendsProvider.select((state) => state.ids)),
-);
+final friendIdsProvider = Provider<Set<String>>((ref) {
+  final userId = ref.watch(currentUserIdProvider);
+  final friends = ref.watch(friendsProvider);
+  // Only ever the signed-in user's own friends, never a previous user's.
+  return userId != null && friends.userId == userId
+      ? friends.ids
+      : const <String>{};
+});
 
 /// Who is looking. In demo mode everyone who is not the owner counts as a
 /// friend.

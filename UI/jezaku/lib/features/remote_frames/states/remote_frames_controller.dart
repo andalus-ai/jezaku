@@ -8,7 +8,6 @@ import 'package:jejaku/features/home/services/anchor_geo_service.dart';
 import 'package:jejaku/features/home/services/viewer_location.dart';
 import 'package:jejaku/features/home/states/viewer_location_provider.dart';
 import 'package:jejaku/features/remote_frames/models/remote_frame.dart';
-import 'package:jejaku/features/remote_frames/services/memory_api.dart';
 import 'package:jejaku/features/remote_frames/services/remote_frame_mapper.dart';
 import 'package:jejaku/features/remote_frames/services/remote_media_loader.dart';
 import 'package:jejaku/features/remote_frames/states/memory_api_provider.dart';
