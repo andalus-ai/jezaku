@@ -22,6 +22,8 @@ The app currently has a central route definition in `lib/app/navigation/app_rout
 | `camera/` | Camera preview, capture interaction, and camera-specific state/services | Own camera UX and orchestration; do not duplicate low-level AR engine camera/session internals |
 | `docs/` | In-app documentation/help content | Keep user-facing help distinct from engineering docs under `UI/docs/` |
 | `auth/` | Sign-in: gateway to the identity service, session state, sign-in screen and gate, account tile | Required only in strict builds that have an identity URL; demo bypasses it. Feeds `currentUserIdProvider`; see [sign-in](sign-in.md) |
+| `api/` | Shared HTTP plumbing for authenticated service clients (`AuthInterceptor`) | Adds the bearer token and reports a rejected one; see [sign-in](sign-in.md) |
+| `remote_frames/` | Frames from the memory service: `RemoteFrame` wire model, `MemoryApi` (nearby, a user's frames), provider | Read-only and not yet used by the UI; the service decides visibility, unknown visibility parses as private |
 | `frame_styles/` | The frame gallery: built-in frame looks (stable ids), look/colour resolver to AR scene metadata, picker and sheets | Cosmetic only; never decides who may see a frame. Looks are referenced by id so marketplace looks can join later; see [frame styles](frame-styles.md) |
 | `gallery/` | Browsing and managing captured media | Respect media ownership, privacy, and local/offline state |
 | `home/` | Main landing/discovery experience | Coordinate entry points without absorbing other feature implementations |

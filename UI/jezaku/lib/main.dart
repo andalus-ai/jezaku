@@ -16,6 +16,7 @@ import 'package:jejaku/features/home/services/anchor_memory_store.dart';
 import 'package:jejaku/features/home/services/viewer_location.dart';
 import 'package:jejaku/features/home/states/viewer_location_provider.dart';
 import 'package:jejaku/features/profile/services/user_profile_store.dart';
+import 'package:jejaku/features/remote_frames/states/memory_api_provider.dart';
 import 'package:jejaku/features/settings/services/app_settings_store.dart';
 import 'package:jejaku/features/sync/services/anchor_media_upload_queue_store.dart';
 import 'package:jejaku/features/sync/services/anchor_sync_delivery_log_store.dart';
@@ -87,6 +88,7 @@ Future<void> _bootstrapAndRun() async {
         ),
         if (_identityUrl.isNotEmpty)
           httpAuthGatewayOverride(baseUrl: _identityUrl),
+        if (_memoryUrl.isNotEmpty) memoryApiOverride(baseUrl: _memoryUrl),
         persistentARHudStoreOverride(
           preferences: preferences,
         ),
@@ -108,6 +110,10 @@ Future<void> _bootstrapAndRun() async {
 /// Base URL of the identity service, e.g. `http://10.0.2.2:8101`. Empty means
 /// this build has no sign-in (the gate stays open).
 const _identityUrl = String.fromEnvironment('JEZAKU_IDENTITY_URL');
+
+/// Base URL of the memory service, e.g. `http://10.0.2.2:8104`. Empty means
+/// this build does not load frames from a server.
+const _memoryUrl = String.fromEnvironment('JEZAKU_MEMORY_URL');
 
 class JejakuApp extends ConsumerWidget {
   const JejakuApp({super.key});

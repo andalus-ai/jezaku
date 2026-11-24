@@ -26,9 +26,17 @@ Status: built and unit/widget-tested. Not yet run against a live identity servic
 - The identity service answers a wrong password, an unknown user and an inactive account all with 403; the client shows one message for all of them and never says which field was wrong.
 - Sign out drops the local session first, so the user is signed out even if the service cannot be reached; ending the session on the service is best effort.
 
+## Calling services with the token (`lib/features/api/`, `lib/features/remote_frames/`)
+
+- `AuthInterceptor` adds `Authorization: Bearer <token>` to each request (token read at request time) and, on a 401 to a request that carried our token, reports the rejected token. `authInterceptorFor(ref)` signs the user out only if that token is still the current one, so a late 401 never ends a newer sign-in.
+- `MemoryApi` reads `GET /memories/nearby` and `GET /memories/users/{userId}`. The service decides what the caller may see (friends, on-site radius); the client only asks and parses. Failures are `notAllowed` (401/403), `network` or `server`.
+- `RemoteFrame` is the wire model. It drops unusable entries (no id, owner or position, coordinates off the globe) without hiding the rest, and reads an unknown or missing `visibility` as **private** so a value this build does not know can never widen who sees a frame.
+- `memoryApiProvider` is null (stay offline) unless the build passes `--dart-define=JEZAKU_MEMORY_URL=...`.
+- Nothing in the UI uses `MemoryApi` yet: turning remote frames into what the AR viewer draws, and sending the viewer's position, is the next slice.
+
 ## Known limits
 
 - **The session is memory-only.** Tokens are not written to ordinary app storage, so the user signs in again after a restart. Secure persistence (platform keystore) comes with the API client.
-- **No token refresh and no authenticated API calls yet.** Nothing else in the app sends the access token; `friendIdsProvider` is still empty until the social client exists.
+- **No token refresh.** An expired token ends in a 401 and a sign-out. Nothing in the UI calls the memory client yet, and `friendIdsProvider` is still empty until the social client exists.
 - No account creation or password reset screens.
 - The offline AR test mode (`--dart-define` arOfflineTestMode) is not exempted; run it as a demo build.
