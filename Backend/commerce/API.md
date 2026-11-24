@@ -83,3 +83,18 @@ The caller identity comes only from the verified access token. The request canno
 Reviewer grants are provisioned outside the merchant API in V4 tables. The application role should be read-only on reviewer grant tables. A missing, inactive, expired, out-of-scope or insufficient reviewer grant is denied. Every decision requires a reason code and writes an auditable merchant state transition with optimistic version checking. Invalid lifecycle transitions and concurrent updates return conflict responses.
 
 The initial reviewer-grant provisioning workflow is operational/out-of-band. Document evidence upload, reviewer queues, dual approval and reviewer administration endpoints are not part of this slice.
+
+
+## Review case persistence contract (internal, not yet exposed as REST endpoints)
+
+The Commerce persistence layer supports:
+- Creating a review case for a merchant.
+- Fetching a case by ID and the current active case for a merchant.
+- Listing active review work with optional status and assigned-reviewer filters; page size is bounded to 100.
+- Optimistic case transitions using the expected case version.
+- Atomic append of a decision-history row with the case transition.
+- Reading decision history in chronological order, including the evidence snapshot and case version.
+
+These repository methods are not directly callable by clients. A future review-case resource must derive the reviewer from the verified access token, validate an active reviewer grant for the merchant jurisdiction and action, prevent merchant participants from reviewing their own merchant, and require a reason for every decision. The decision's evidence snapshot must be assembled server-side from persisted evidence versions.
+
+No evidence submission endpoint is enabled yet. The Media module currently has no asset ownership/authorization API, so Commerce must not accept an arbitrary media asset ID as proof that the caller may attach it.
