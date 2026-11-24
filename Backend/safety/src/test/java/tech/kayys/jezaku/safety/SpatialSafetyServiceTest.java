@@ -107,6 +107,9 @@ class SpatialSafetyServiceTest {
         @Override public Optional<SpatialRestriction> findRestriction(String id) {
             return restrictions.stream().filter(item -> item.id().equals(id)).findFirst();
         }
+        @Override public PolicyChangePage findPolicyChangesAfter(long revision, int limit) {
+            return new PolicyChangePage(0L, List.of());
+        }
         @Override public List<SpatialRestriction> findActiveRestrictions(Instant at) {
             return restrictions.stream().filter(SpatialRestriction::active)
                     .filter(item -> !at.isBefore(item.effectiveFrom()))
