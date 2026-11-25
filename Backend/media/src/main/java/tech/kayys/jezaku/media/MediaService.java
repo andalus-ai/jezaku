@@ -152,12 +152,14 @@ public class MediaService {
             "image/png",
             "image/webp",
             "image/heic",
-            "video/mp4");
+            "video/mp4",
+            "application/pdf");
     private static final Set<String> PURPOSES = Set.of(
             "memory_photo",
             "avatar",
             "event_cover",
-            "anchor_media");
+            "anchor_media",
+            "merchant_evidence");
     private static final Set<String> MEMORY_REFERENCE_PURPOSES = Set.of("memory_photo", "anchor_media");
 
     private final MediaRepository repository;
@@ -279,6 +281,23 @@ public class MediaService {
             repository.saveMedia(record);
             emitLifecycleEvent("completed", record, now);
             return toMediaResponse(record);
+        });
+    }
+
+    public Uni<MediaDtos.MediaAssetOwnershipResponse> checkMerchantEvidenceOwnership(
+            String mediaId, String expectedOwnerId) {
+        return Uni.createFrom().item(() -> {
+            String normalizedMediaId = requireText(mediaId, "mediaId");
+            String normalizedOwnerId = requireText(expectedOwnerId, "expectedOwnerId");
+            MediaRecord record = repository.findMediaById(normalizedMediaId);
+            boolean authorized = MediaAssetOwnershipPolicy.mayAttachToMerchantEvidence(record, normalizedOwnerId);
+            if (!authorized) {
+                return new MediaDtos.MediaAssetOwnershipResponse(
+                        normalizedMediaId, false, null, null, 0L, null, null);
+            }
+            return new MediaDtos.MediaAssetOwnershipResponse(
+                    record.mediaId(), true, record.purpose(), record.contentType(), record.byteSize(),
+                    record.status(), record.moderationStatus());
         });
     }
 
