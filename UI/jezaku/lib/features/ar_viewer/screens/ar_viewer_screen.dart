@@ -46,6 +46,8 @@ import 'package:jejaku/features/ar_viewer/services/post_frame_coalescer.dart';
 import 'package:jejaku/features/ar_viewer/services/viewer_geo.dart';
 import 'package:jejaku/features/ar_viewer/services/viewer_pose_tracker.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_scene_sync_service.dart';
+import 'package:jejaku/features/ar_viewer/services/ar_pose_status.dart';
+import 'package:jejaku/features/ar_viewer/services/ar_route_planner.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_runtime_permission_service.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capture_provider.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capability_providers.dart';
@@ -2630,19 +2632,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     ARTrailProgress? progress,
     List<ARMemoryProjection> anchors,
   ) {
-    if (progress == null) {
-      return null;
-    }
-
-    final anchorsById = <String, ARMemoryProjection>{
-      for (final anchor in anchors) anchor.memory.id: anchor,
-    };
-    for (final memoryId in progress.session.memoryIds) {
-      if (!progress.completedMemoryIds.contains(memoryId)) {
-        return anchorsById[memoryId];
-      }
-    }
-    return null;
+    return const ARRoutePlanner().firstMissingTrailAnchor(progress, anchors);
   }
 
   String? _missingStopSpatialLabel(ARMemoryProjection? anchor) {
@@ -2652,113 +2642,39 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     return '${anchor.projection.distanceLabel} ${anchor.projection.directionLabel}';
   }
 
-  bool _hasFreshARPose() {
-    final lastARFrameAt = _lastARCameraFrameAt;
-    return _latestARCamera?.isTracking == true &&
-        lastARFrameAt != null &&
-        DateTime.now().toUtc().difference(lastARFrameAt) <
-            const Duration(seconds: 2);
-  }
+  /// What the AR camera pose looks like right now (see [ARPoseStatus]).
+  ARPoseStatus _poseStatus() => ARPoseStatus(
+        isTracking: _latestARCamera?.isTracking,
+        lastFrameAt: _lastARCameraFrameAt,
+        now: DateTime.now().toUtc(),
+      );
 
-  bool _isRelocalizing() {
-    final lastARFrameAt = _lastARCameraFrameAt;
-    return _latestARCamera?.isTracking == false &&
-        lastARFrameAt != null &&
-        DateTime.now().toUtc().difference(lastARFrameAt) <
-            const Duration(seconds: 2);
-  }
+  bool _hasFreshARPose() => _poseStatus().hasFreshPose;
 
-  String _poseRecoveryGuidance() {
-    if (_isRelocalizing()) {
-      return 'Move the phone slowly. Aim at a well-lit area with distinct '
-          'edges or textured surfaces, and avoid blank walls.';
-    }
-    if (_lastARCameraFrameAt == null) {
-      return 'Point the camera at a well-lit area with visible detail. '
-          'Compass/GPS is being used until AR tracking starts.';
-    }
-    return 'AR pose updates are stale. Keep the app in the foreground, '
-        'move slowly, and scan nearby surfaces to resume tracking. '
-        'Compass/GPS is only an approximate fallback.';
-  }
+  bool _isRelocalizing() => _poseStatus().isRelocalizing;
 
-  String _poseSourceDetailLabel() {
-    final lastARFrameAt = _lastARCameraFrameAt;
-    if (lastARFrameAt == null) {
-      return 'Waiting for ARCore camera pose. Heading currently uses compass/GPS fallback.';
-    }
-    final ageMs = DateTime.now()
-        .toUtc()
-        .difference(lastARFrameAt)
-        .inMilliseconds
-        .clamp(0, 9999);
-    if (_hasFreshARPose()) {
-      return 'ARCore tracking is active. Heading uses the live camera pose.';
-    }
-    if (_isRelocalizing()) {
-      return 'ARCore is trying to relocalize. Heading temporarily uses compass/GPS fallback; keep the camera pointed at a well-lit area with recognizable features.';
-    }
-    return 'ARCore camera pose is stale ($ageMs ms). Heading currently uses compass/GPS fallback.';
-  }
+  String _poseRecoveryGuidance() => _poseStatus().recoveryGuidance;
+
+  String _poseSourceDetailLabel() => _poseStatus().sourceDetail;
 
   ARMemoryProjection? _focusedAnchor(List<ARMemoryProjection> anchors) {
-    final focusedMemoryId = _focusedMemoryId;
-    if (focusedMemoryId == null) {
-      return null;
-    }
-    for (final anchor in anchors) {
-      if (anchor.memory.id == focusedMemoryId) {
-        return anchor;
-      }
-    }
-    return null;
+    return const ARRoutePlanner().focusedAnchor(anchors, _focusedMemoryId);
   }
 
   ARWall? _sourceWall(
     List<ARWall> walls, {
     required List<ARWall> routeWalls,
   }) {
-    final sourceWallId = _sourceWallId;
-    if (sourceWallId != null) {
-      for (final wall in walls) {
-        if (wall.id == sourceWallId) {
-          return wall;
-        }
-      }
-      return null;
-    }
-
-    final trailSession = _trailSession;
-    if (trailSession == null || trailSession.source != ARTrailSource.camera) {
-      return null;
-    }
-
-    return routeWalls.isEmpty ? null : routeWalls.first;
+    return const ARRoutePlanner().sourceWall(
+      walls,
+      sourceWallId: _sourceWallId,
+      trailSession: _trailSession,
+      routeWalls: routeWalls,
+    );
   }
 
   List<ARWall> _routeWalls(List<ARWall> walls) {
-    final routeMemoryIds = _journeyMemoryIds.toSet();
-    if (routeMemoryIds.isEmpty) {
-      return const [];
-    }
-
-    final wallsByRouteCoverage = [
-      for (final wall in walls)
-        (
-          wall: wall,
-          stopCount: wall.linkedMemoryIds
-              .where((memoryId) => routeMemoryIds.contains(memoryId))
-              .length,
-        ),
-    ].where((entry) => entry.stopCount > 0).toList()
-      ..sort((a, b) {
-        final stopComparison = b.stopCount.compareTo(a.stopCount);
-        if (stopComparison != 0) {
-          return stopComparison;
-        }
-        return a.wall.title.compareTo(b.wall.title);
-      });
-    return [for (final entry in wallsByRouteCoverage) entry.wall];
+    return const ARRoutePlanner().routeWalls(walls, _journeyMemoryIds);
   }
 
   List<AnchorJourneyStep> _customJourneySteps(
