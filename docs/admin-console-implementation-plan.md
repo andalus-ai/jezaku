@@ -4,7 +4,7 @@
 
 ## 1. Delivery strategy
 
-Build on the existing `UI/jezaku_admin/` Flutter starter. Deliver a usable shell first, then connect one backend-owned capability at a time. Avoid a large all-at-once admin rewrite and avoid introducing an admin microservice before a concrete aggregation need exists.
+Build on the existing `UI/jezaku_admin/` Flutter app. The first responsive shell has been committed; continue by validating it locally, auditing backend contracts, and connecting one backend-owned capability at a time. Avoid a large all-at-once admin rewrite and avoid introducing an admin microservice before a concrete aggregation need exists.
 
 Each slice must include:
 - UI route/navigation and responsive behavior;
@@ -36,18 +36,18 @@ Exit criteria:
 **Goal:** replace the Flutter counter starter with a secure, navigable, non-destructive admin shell.
 
 Tasks:
-1. Configure app identity, title, theme, responsive layout and navigation shell.
-2. Add sign-in/session-expired/unauthorized states only after confirming the backend auth contract; use a clearly marked development placeholder only in local non-production mode if the auth contract is absent.
-3. Add capability-aware navigation with a safe unavailable/coming-soon state for unimplemented modules.
-4. Add a dashboard layout with service status placeholders that clearly say "not connected" until backed by real health data.
-5. Add common table/list, filter, pagination, detail panel, empty/error/loading and confirmation patterns.
-6. Add typed environment configuration; never hardcode production URLs or secrets.
-7. Add tests for shell, responsive navigation, unavailable modules, and auth boundary states.
+1. [x] Replace the counter starter with app identity, title, theme, responsive navigation shell.
+2. [ ] Add sign-in/session-expired/unauthorized states only after confirming the backend auth contract; use a clearly marked development placeholder only in local non-production mode if the auth contract is absent.
+3. [x] Add capability-area navigation with explicit not-implemented states.
+4. [x] Add overview placeholders that clearly say not connected/not available instead of displaying fake health data.
+5. [ ] Add common table/list, filter, pagination, detail panel, empty/error/loading and confirmation patterns.
+6. [ ] Add typed environment configuration; never hardcode production URLs or secrets.
+7. [ ] Execute and extend tests for shell, responsive navigation, unavailable modules, and auth boundary states.
 
 Exit criteria:
-- Admin app builds on its declared target platforms.
+- Admin app builds on its declared target platforms (not yet verified).
 - No fake health/usage numbers or live-looking controls.
-- All routes are discoverable and permission-aware.
+- All initial areas are discoverable; backend permission-aware routing remains pending authentication integration.
 - No privileged backend operation is possible from this phase.
 
 ## 4. Phase 2 — Operator identity and access
