@@ -30,6 +30,7 @@ Future<void> _openPhotoPage(
       audience: FrameAudience.public,
       distanceMeters: 12,
       caption: 'Mural by the station',
+      moderationStatus: 'approved',
     ),
   );
   final container = ProviderContainer(

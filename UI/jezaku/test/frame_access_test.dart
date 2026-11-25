@@ -63,9 +63,9 @@ void main() {
         _resolveStrict(own, location: _viewerMetersNorth(5000)),
         isA<FrameAccessOpen>(),
       );
-      // A frame captured on this device has no owner id and is the viewer's.
+      // Even a private, moderator-hidden frame of the viewer's own opens for them.
       final local = RemoteFrameMapper.toAnchorMemory(
-        RemoteFrame(
+        const RemoteFrame(
           id: 'frame',
           ownerId: 'me',
           latitude: _lat,
@@ -135,7 +135,7 @@ void main() {
       );
       expect(
         _resolveStrict(
-          _theirs(moderation: 'flagged'),
+          _theirs(moderation: 'hidden'),
           location: _viewerMetersNorth(10),
         ),
         isA<FrameAccessUnavailable>(),
@@ -240,7 +240,7 @@ void main() {
     test('moderation still applies', () {
       expect(
         _resolver(FrameRulesMode.demo).resolve(
-          memory: _theirs(moderation: 'flagged'),
+          memory: _theirs(moderation: 'hidden'),
           viewer: demoViewer,
           location: _viewerMetersNorth(5),
         ),
