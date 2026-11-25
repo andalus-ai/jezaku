@@ -48,6 +48,7 @@ import 'package:jejaku/features/ar_viewer/services/viewer_pose_tracker.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_scene_sync_service.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_diagnostics_presentation.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_pose_status.dart';
+import 'package:jejaku/features/ar_viewer/services/native_scene_sync_planner.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_route_planner.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_runtime_permission_service.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capture_provider.dart';
@@ -1380,89 +1381,73 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       _placementPlanner.clear();
       _sceneSync.invalidate();
     }
-    final bool? canStartSession = arCapabilities.when(
-      data: (capabilities) {
-        final canPersistCloudAnchors = capabilities.canPersistCloudAnchors &&
-            _resolvedSessionCloudAnchorsEnabled;
-        if (_nativeCloudAnchorsEnabled != canPersistCloudAnchors) {
-          _sceneSync.invalidate();
-        }
-        if (!canPersistCloudAnchors) {
-          _cloudAnchorScheduler.cancelMaintenance();
-          _cloudAnchorScheduler.cancelRetry();
-        }
-        _nativeCloudAnchorsEnabled = canPersistCloudAnchors;
-        return capabilities.canStartSession;
-      },
-      error: (_, __) {
-        _nativeCloudAnchorsEnabled = false;
-        _cloudAnchorScheduler.cancelMaintenance();
-        _cloudAnchorScheduler.cancelRetry();
-        return false;
-      },
-      loading: () => null,
+    final capabilities = arCapabilities.when<NativeSceneCapabilities>(
+      data: (caps) => NativeSceneCapabilitiesKnown(
+        canStartSession: caps.canStartSession,
+        canPersistCloudAnchors: caps.canPersistCloudAnchors,
+      ),
+      error: (_, __) => const NativeSceneCapabilitiesFailed(),
+      loading: () => const NativeSceneCapabilitiesLoading(),
     );
-    if (canStartSession != true || _nativeMemoryScene == null) {
-      _nativeMemoryPlacementAllowed = false;
-      if (canStartSession == false) {
-        final hadNativeSession =
-            _nativeMemoryScene != null || _nativeCloudAnchorManager != null;
-        _arController = null;
-        _nativeMemoryScene = null;
-        _nativeCloudAnchorManager = null;
-        _placementPlanner.clear();
-        if (hadNativeSession) {
-          _scheduleCaptureDetach();
-        }
-        _cloudAnchorScheduler.cancelMaintenance();
-        _cloudAnchorScheduler.cancelRetry();
-        _cloudAnchorHostInFlightMemoryIds.clear();
-        _sceneSync.invalidate();
-        _scheduleNativeSceneDiagnosticsReset();
-      }
-      return;
-    }
-    if (_latestSessionReadiness == null) {
-      _nativeMemoryPlacementAllowed = false;
-      _cloudAnchorScheduler.cancelMaintenance();
-      _cloudAnchorScheduler.cancelRetry();
-      return;
-    }
-    final mediaPreviewBytesByMemoryId = _mediaPreviewBytesByMemoryId(
-      _latestNativeSceneMemories,
+    final hadNativeSession =
+        _nativeMemoryScene != null || _nativeCloudAnchorManager != null;
+    final plan = NativeSceneSyncPlanner.plan(
+      capabilities: capabilities,
+      sessionCloudAnchorsAllowed: _resolvedSessionCloudAnchorsEnabled,
+      cloudAnchorsCurrentlyEnabled: _nativeCloudAnchorsEnabled,
+      hasNativeScene: _nativeMemoryScene != null,
+      canPlaceAnchors: _latestSessionReadiness?.canPlaceAnchors,
+      isSceneCurrent: _isNativeSceneCurrent,
     );
-    final mediaIdsByMemoryId = _mediaIdsByMemoryId(_latestNativeSceneMemories);
-    final sessionPlacementsByMemoryId = _nativeSessionPlacementsByMemoryId(
-      _latestNativeSceneProjections,
-    );
-    final fingerprint = _nativeSceneSyncService.fingerprint(
-      origin: _latestNativeSceneOrigin,
-      memories: _latestNativeSceneMemories,
-      mediaPreviewBytesByMemoryId: mediaPreviewBytesByMemoryId,
-      mediaIdsByMemoryId: mediaIdsByMemoryId,
-      sessionPlacementsByMemoryId: sessionPlacementsByMemoryId,
-      nativeSessionStartedAt: _nativeSessionStartedAt,
-    );
-    if (_isNativePlacementPaused) {
-      _nativeMemoryPlacementAllowed = true;
-      _cloudAnchorScheduler.cancelMaintenance();
-      _cloudAnchorScheduler.cancelRetry();
-      if (!_sceneSync.isCurrent(fingerprint)) {
-        _sceneSync.schedule();
-      }
-      return;
-    }
-    _nativeMemoryPlacementAllowed = true;
-    _scheduleCloudAnchorMaintenance();
-    if (_sceneSync.isCurrent(fingerprint)) {
-      return;
-    }
-    _sceneSync.schedule();
+    _applyNativeSceneSyncPlan(plan, hadNativeSession: hadNativeSession);
   }
 
-  bool get _isNativePlacementPaused {
-    final readiness = _latestSessionReadiness;
-    return readiness != null && !readiness.canPlaceAnchors;
+  bool _isNativeSceneCurrent() {
+    final memories = _latestNativeSceneMemories;
+    return _sceneSync.isCurrent(
+      _nativeSceneSyncService.fingerprint(
+        origin: _latestNativeSceneOrigin,
+        memories: memories,
+        mediaPreviewBytesByMemoryId: _mediaPreviewBytesByMemoryId(memories),
+        mediaIdsByMemoryId: _mediaIdsByMemoryId(memories),
+        sessionPlacementsByMemoryId: _nativeSessionPlacementsByMemoryId(
+          _latestNativeSceneProjections,
+        ),
+        nativeSessionStartedAt: _nativeSessionStartedAt,
+      ),
+    );
+  }
+
+  void _applyNativeSceneSyncPlan(
+    NativeSceneSyncPlan plan, {
+    required bool hadNativeSession,
+  }) {
+    _nativeCloudAnchorsEnabled = plan.cloudAnchorsEnabled;
+    _nativeMemoryPlacementAllowed = plan.placementAllowed;
+    if (plan.invalidateScene) {
+      _sceneSync.invalidate();
+    }
+    if (plan.cancelCloudAnchorTimers) {
+      _cloudAnchorScheduler.cancelMaintenance();
+      _cloudAnchorScheduler.cancelRetry();
+    }
+    if (plan.tearDownSession) {
+      _arController = null;
+      _nativeMemoryScene = null;
+      _nativeCloudAnchorManager = null;
+      _placementPlanner.clear();
+      if (hadNativeSession) {
+        _scheduleCaptureDetach();
+      }
+      _cloudAnchorHostInFlightMemoryIds.clear();
+      _scheduleNativeSceneDiagnosticsReset();
+    }
+    if (plan.scheduleCloudAnchorMaintenance) {
+      _scheduleCloudAnchorMaintenance();
+    }
+    if (plan.scheduleSync) {
+      _sceneSync.schedule();
+    }
   }
 
   List<ARMemoryProjection> _nativeSceneVisualProjections(
