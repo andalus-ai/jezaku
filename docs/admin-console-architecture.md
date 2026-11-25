@@ -6,7 +6,7 @@
 
 Jezaku Admin is the trusted operational interface for configuring, governing, and operating a Jezaku deployment. It is not a second implementation of product business logic and it is not a general-purpose database editor.
 
-The existing Flutter application at `UI/jezaku_admin/` is the designated admin client. It is currently a Flutter starter application; this architecture defines its intended evolution.
+The existing Flutter application at `UI/jezaku_admin/` is the designated admin client. Its initial responsive navigation shell and honest, non-live overview placeholders are now present; authentication, service integrations, and management workflows remain unimplemented.
 
 Primary goals:
 - Give platform operators one coherent view of deployment health and operational state.
@@ -26,8 +26,9 @@ Non-goals:
 
 Source-backed baseline at the time this document was written:
 - `UI/jezaku_admin/` exists as a separate Flutter application.
-- Its `lib/main.dart` and widget test are the unmodified Flutter counter starter.
-- Its README still contains Flutter template instructions.
+- Its `lib/main.dart` now provides a responsive console shell, ten management-area destinations, and explicit not-connected/not-implemented states.
+- Widget tests cover the overview, navigation, and compact drawer behavior; these tests have been authored but not executed in this environment.
+- The README and app-scoped `AGENTS.md` now describe the admin purpose and engineering/security rules.
 - Its dependency manifest includes Flutter and `material_ui`; do not introduce a second UI/state-management stack without review.
 - The backend is a Maven multi-module Quarkus project.
 - Existing service ownership is documented in `Backend/docs/service-catalog.md`: identity owns accounts/sessions; profile owns user profile/privacy; safety owns moderation and spatial restriction policy; commerce owns merchant/store/campaign/promotion/redemption truth; other services own their respective domains.
