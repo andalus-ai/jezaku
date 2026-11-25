@@ -14,6 +14,8 @@ String authFailureMessage(AuthFailureReason reason) {
     AuthFailureReason.server =>
       'Something went wrong on our side. Try again in a moment.',
     AuthFailureReason.unavailable => "Sign-in isn't available in this build.",
+    AuthFailureReason.sessionRejected =>
+      'Your session ended. Sign in again to continue.',
   };
 }
 

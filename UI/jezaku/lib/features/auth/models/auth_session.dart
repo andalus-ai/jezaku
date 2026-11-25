@@ -1,8 +1,8 @@
 /// A signed-in session issued by the identity service.
 ///
-/// Held in memory only for now: tokens are not written to ordinary app
-/// storage, so the user signs in again after the app restarts. Secure
-/// persistence (platform keystore) comes with the API client.
+/// Kept in memory, and in the platform keystore through a `SessionStore` when
+/// the build has one, so the user stays signed in across restarts. Tokens are
+/// never written to ordinary app storage.
 class AuthSession {
   const AuthSession({
     required this.sessionId,
@@ -19,6 +19,12 @@ class AuthSession {
   final DateTime expiresAt;
 
   bool isExpiredAt(DateTime now) => !now.isBefore(expiresAt);
+
+  /// True when the access token is expired or will be within [leeway], so a
+  /// request about to be sent should refresh first.
+  bool needsRefreshAt(DateTime now, Duration leeway) {
+    return !now.add(leeway).isBefore(expiresAt);
+  }
 
   /// Never prints the tokens, so a session in a log or an error report does
   /// not leak credentials.

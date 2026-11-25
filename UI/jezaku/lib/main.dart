@@ -8,6 +8,7 @@ import 'package:jejaku/features/ar_viewer/hud/ar_hud_store.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_store.dart';
+import 'package:jejaku/features/auth/services/secure_session_store.dart';
 import 'package:jejaku/features/auth/states/auth_providers.dart';
 import 'package:jejaku/features/auth/widgets/sign_in_gate.dart';
 import 'package:jejaku/features/camera/services/ar_capture_diagnostics_cache_store.dart';
@@ -87,8 +88,11 @@ Future<void> _bootstrapAndRun() async {
         persistentUserProfileStoreOverride(
           preferences: preferences,
         ),
-        if (_identityUrl.isNotEmpty)
+        if (_identityUrl.isNotEmpty) ...[
           httpAuthGatewayOverride(baseUrl: _identityUrl),
+          // Keep the session across restarts, in the platform keystore.
+          sessionStoreOverride(SecureSessionStore()),
+        ],
         if (_socialUrl.isNotEmpty) socialApiOverride(baseUrl: _socialUrl),
         if (_memoryUrl.isNotEmpty) ...[
           memoryApiOverride(baseUrl: _memoryUrl),

@@ -108,6 +108,10 @@ class _Gateway implements AuthGateway {
       );
 
   @override
+  Future<AuthSession> refresh(AuthSession session) async =>
+      throw const AuthFailure(AuthFailureReason.sessionRejected);
+
+  @override
   Future<void> signOut(AuthSession session) async {}
 }
 

@@ -14,6 +14,10 @@ enum AuthFailureReason {
 
   /// This build is not connected to an identity service.
   unavailable,
+
+  /// The service no longer accepts the session's refresh token (expired,
+  /// revoked, account disabled). The user has to sign in again.
+  sessionRejected,
 }
 
 class AuthFailure implements Exception {
@@ -39,6 +43,12 @@ abstract interface class AuthGateway {
 
   /// Ends [session] on the service. Callers treat this as best effort.
   Future<void> signOut(AuthSession session);
+
+  /// Trades [session]'s refresh token for a new session. The service rotates
+  /// the refresh token, so [session] must not be used again afterwards.
+  /// Throws [AuthFailure] with [AuthFailureReason.sessionRejected] when the
+  /// service refuses, and `network` / `server` for failures that may pass.
+  Future<AuthSession> refresh(AuthSession session);
 }
 
 /// Used until a build is given an identity service.
@@ -58,6 +68,11 @@ class UnavailableAuthGateway implements AuthGateway {
 
   @override
   Future<void> signOut(AuthSession session) async {}
+
+  @override
+  Future<AuthSession> refresh(AuthSession session) async {
+    throw const AuthFailure(AuthFailureReason.unavailable);
+  }
 }
 
 /// Talks to the identity service (`POST /identity/sessions`, and
@@ -119,6 +134,29 @@ class HttpAuthGateway implements AuthGateway {
     } on DioException {
       // Best effort: the caller has already dropped the local session.
     }
+  }
+
+  @override
+  Future<AuthSession> refresh(AuthSession session) async {
+    final Response<Object?> response;
+    try {
+      response = await _dio.post<Object?>(
+        '/identity/sessions/refresh',
+        data: <String, Object?>{'refreshToken': session.refreshToken},
+        options: Options(validateStatus: (_) => true),
+      );
+    } on DioException {
+      throw const AuthFailure(AuthFailureReason.network);
+    }
+
+    final status = response.statusCode ?? 0;
+    if (status == 400 || status == 401 || status == 403) {
+      throw const AuthFailure(AuthFailureReason.sessionRejected);
+    }
+    if (status < 200 || status >= 300) {
+      throw const AuthFailure(AuthFailureReason.server);
+    }
+    return _readSession(response.data);
   }
 
   AuthSession _readSession(Object? body) {

@@ -84,6 +84,10 @@ class _Gateway implements AuthGateway {
   }
 
   @override
+  Future<AuthSession> refresh(AuthSession session) async =>
+      throw const AuthFailure(AuthFailureReason.sessionRejected);
+
+  @override
   Future<void> signOut(AuthSession session) async {}
 }
 
@@ -218,6 +222,9 @@ void main() {
       final api = _apiWithAuth(container, _Adapter((_) => _json(401, {})));
 
       await _failureOf(api.userMemories('u-1'));
+      // The controller first tries to renew the session; the test gateway
+      // refuses, so the user ends up signed out.
+      await pumpEventQueue();
 
       expect(container.read(authControllerProvider).isSignedIn, isFalse);
     });

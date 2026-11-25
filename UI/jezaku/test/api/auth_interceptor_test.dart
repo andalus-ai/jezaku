@@ -34,7 +34,7 @@ class _Adapter implements HttpClientAdapter {
 
 ({Dio dio, _Adapter adapter}) _client({
   required int status,
-  required String? Function() token,
+  required FutureOr<String?> Function() token,
   required List<String> rejected,
 }) {
   final adapter = _Adapter(status);
@@ -70,6 +70,24 @@ void main() {
     expect(
       client.adapter.requests.map((r) => r.headers['Authorization']),
       ['Bearer old', 'Bearer new'],
+    );
+  });
+
+  test('waits for a token that is renewed before the request goes out',
+      () async {
+    final renewal = Completer<String?>();
+    final client =
+        _client(status: 200, token: () => renewal.future, rejected: []);
+
+    final call = client.dio.get<Object?>('/x');
+    await Future<void>.delayed(Duration.zero);
+    expect(client.adapter.requests, isEmpty, reason: 'held for the token');
+    renewal.complete('renewed');
+    await call;
+
+    expect(
+      client.adapter.requests.single.headers['Authorization'],
+      'Bearer renewed',
     );
   });
 

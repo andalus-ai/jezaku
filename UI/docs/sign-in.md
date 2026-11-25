@@ -12,9 +12,10 @@ Status: built and unit/widget-tested. Not yet run against a live identity servic
 
 | File | Role |
 |---|---|
-| `models/auth_session.dart` | `AuthSession` (user id, session id, tokens, expiry). `toString` never prints tokens |
-| `services/auth_gateway.dart` | `AuthGateway` interface; `HttpAuthGateway` (`POST /identity/sessions`, `DELETE /identity/sessions/{userId}/{sessionId}`); `UnavailableAuthGateway`; `AuthFailure` (invalid credentials / network / server / unavailable) |
-| `states/auth_providers.dart` | `authGatewayProvider`, `authControllerProvider` (sign in, sign out, busy and failure state), `signedInUserIdProvider`, `httpAuthGatewayOverride` |
+| `models/auth_session.dart` | `AuthSession` (user id, session id, tokens, expiry, `needsRefreshAt`). `toString` never prints tokens |
+| `services/session_store.dart`, `services/secure_session_store.dart`, `services/auth_session_codec.dart` | `SessionStore` (read / write / clear; `NoSessionStore` by default), `SecureSessionStore` (Keychain / Android Keystore via `flutter_secure_storage`) and the strict JSON codec |
+| `services/auth_gateway.dart` | `AuthGateway` interface; `HttpAuthGateway` (`POST /identity/sessions`, `POST /identity/sessions/refresh`, `DELETE /identity/sessions/{userId}/{sessionId}`); `UnavailableAuthGateway`; `AuthFailure` (invalid credentials / network / server / unavailable) |
+| `states/auth_providers.dart` | `authGatewayProvider`, `authControllerProvider` (sign in, sign out, restore, refresh, busy / restoring / failure state), `sessionStoreProvider`, `signedInUserIdProvider`, `httpAuthGatewayOverride` |
 | `states/sign_in_requirement.dart` | `signInRequiredProvider` (strict + gateway available) |
 | `screens/sign_in_screen.dart`, `widgets/sign_in_gate.dart` | The screen (loading, error, show/hide password, autofill, live-region errors) and the gate wrapped around the app in `main.dart` |
 | `widgets/account_settings_tile.dart` | "Signed in" + Sign out (with confirmation) in Settings; hidden when nobody is signed in |
@@ -49,10 +50,18 @@ Status: built and unit/widget-tested. Not yet run against a live identity servic
 - `friendIdsProvider` now reads `friendsProvider`, so in strict builds `FrameViewerContext.forUser` classes a loaded friend's frame as a friend's. **Fail closed:** until the first answer (or when the service is unreachable) the list is empty and friends-only frames of others stay hidden. Demo builds treat everyone as a friend and never call the service.
 - Build with `--dart-define=JEZAKU_SOCIAL_URL=http://host:8103` (the release scripts pass it from the environment; empty means off).
 
+## Staying signed in (session persistence and refresh)
+
+- With an identity service (`JEZAKU_IDENTITY_URL`), `main.dart` gives the app a `SecureSessionStore`. Sign-in saves the session, sign-out deletes it, and a refresh replaces it. Tokens live only in the platform keystore, never in shared preferences. Builds without an identity service keep nothing.
+- **Startup:** `AuthController.restore()` reads the saved session while the gate shows a spinner (not the sign-in screen). A still-valid session signs in with no network; an expired one is refreshed (`POST /identity/sessions/refresh`); if the service refuses, the saved session is deleted and sign-in shows; if the service cannot be reached the saved session is kept for the next start. An unreadable or corrupt store means signing in again.
+- **Before a request:** `authenticatedDio` asks the controller for a fresh token; one that expires within 60 s is refreshed first. The service **rotates** the refresh token (the old session is revoked), so refreshes are single-flight and the new session is saved before it is used again.
+- **On a 401:** the controller tries one refresh and signs out only if the service refuses the refresh token. A token refused again within 10 s of a refresh is treated as refused (sign out), so a service that rejects our tokens cannot cause a refresh loop. A late 401 for an older token changes nothing.
+- A sign-out (or another user signing in) while a refresh or save is in flight drops the answer and removes anything saved.
+
 ## Known limits
 
-- **The session is memory-only.** Tokens are not written to ordinary app storage, so the user signs in again after a restart. Secure persistence (platform keystore) comes with the API client.
-- **No token refresh.** An expired token ends in a 401 and a sign-out. 
+- **Session persistence and refresh are built but not validated on a device or against a live identity service.** The keystore plugin (`flutter_secure_storage`) has only been compiled by CI; `pubspec.lock` was not regenerated here (no Flutter SDK), run `flutter pub get` and commit it. Android backup of keystore-encrypted data and iOS keychain-after-reinstall behaviour need a device check.
+- Offline at startup with an expired access token: the user sees the sign-in screen (the saved session is kept and retried at the next start). A refresh the service refuses deletes the saved session.
 - No account creation or password reset screens.
 - **Remote frames are view-only.** The focused-frame panel and the photo page offer Change frame, Calibrate, Re-hang and Details only for the viewer's own frames (`FrameOwnerActions`); someone else's frame, a friend's included, keeps Photo & comments and Recenter. Not yet checked on a device.
 - Remote pictures are held in memory only (no disk cache), the 4 MB cap is applied after download, and the photo page shows the thumbnail only (no full image or comments for remote frames yet).

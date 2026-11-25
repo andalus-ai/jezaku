@@ -7,6 +7,7 @@ import 'package:jejaku/features/ar_viewer/visibility/frame_visibility_providers.
 import 'package:jejaku/features/auth/models/auth_session.dart';
 import 'package:jejaku/features/auth/screens/sign_in_screen.dart';
 import 'package:jejaku/features/auth/services/auth_gateway.dart';
+import 'package:jejaku/features/auth/services/session_store.dart';
 import 'package:jejaku/features/auth/states/auth_providers.dart';
 import 'package:jejaku/features/auth/states/sign_in_requirement.dart';
 import 'package:jejaku/features/auth/widgets/account_settings_tile.dart';
@@ -42,6 +43,10 @@ class _FakeGateway implements AuthGateway {
   }
 
   @override
+  Future<AuthSession> refresh(AuthSession session) async =>
+      throw const AuthFailure(AuthFailureReason.sessionRejected);
+
+  @override
   Future<void> signOut(AuthSession session) async {
     signedOut.add(session);
     if (signOutError != null) {
@@ -58,13 +63,31 @@ final _session = AuthSession(
   expiresAt: DateTime.utc(2999),
 );
 
+class _HeldStore implements SessionStore {
+  final reading = Completer<AuthSession?>();
+
+  @override
+  bool get isPersistent => true;
+
+  @override
+  Future<AuthSession?> read() => reading.future;
+
+  @override
+  Future<void> write(AuthSession session) async {}
+
+  @override
+  Future<void> clear() async {}
+}
+
 ProviderContainer _container(
   _FakeGateway gateway, {
   FrameRulesMode mode = FrameRulesMode.strict,
+  SessionStore? store,
 }) {
   final container = ProviderContainer(
     overrides: [
       authGatewayProvider.overrideWithValue(gateway),
+      if (store != null) sessionStoreProvider.overrideWithValue(store),
       frameRulesModeProvider.overrideWithValue(mode),
     ],
   );
@@ -211,6 +234,39 @@ void main() {
       expect(find.text('the app'), findsOneWidget);
     });
 
+    testWidgets('a saved session: a spinner while it is read, then the app',
+        (tester) async {
+      final store = _HeldStore();
+      final container = _container(_FakeGateway(), store: store);
+
+      await _pumpGate(tester, container);
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('sign_in_restoring')), findsOneWidget);
+      expect(find.text('the app'), findsNothing);
+      expect(find.byKey(const ValueKey('sign_in_identifier')), findsNothing);
+
+      store.reading.complete(_session);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('sign_in_restoring')), findsNothing);
+      expect(find.text('the app'), findsOneWidget);
+    });
+
+    testWidgets('nothing saved: the spinner gives way to sign-in',
+        (tester) async {
+      final store = _HeldStore();
+      final container = _container(_FakeGateway(), store: store);
+
+      await _pumpGate(tester, container);
+      await tester.pump();
+      store.reading.complete(null);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('sign_in_identifier')), findsOneWidget);
+      expect(find.text('the app'), findsNothing);
+    });
+
     testWidgets('a strict build shows sign-in first, then the app',
         (tester) async {
       final gateway = _FakeGateway();
@@ -348,6 +404,10 @@ class _ThrowingGateway implements AuthGateway {
   }) async {
     throw StateError('boom');
   }
+
+  @override
+  Future<AuthSession> refresh(AuthSession session) async =>
+      throw const AuthFailure(AuthFailureReason.sessionRejected);
 
   @override
   Future<void> signOut(AuthSession session) async {}
