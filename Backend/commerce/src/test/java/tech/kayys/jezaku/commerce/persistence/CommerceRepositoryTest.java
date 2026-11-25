@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import tech.kayys.jezaku.commerce.domain.*;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -72,7 +73,8 @@ class CommerceRepositoryTest {
         String merchantId = "membership-merchant-" + suffix;
         String ownerId = "owner-" + suffix;
         String staffId = "staff-" + suffix;
-        Instant now = Instant.now();
+        // PostgreSQL timestamps keep microseconds; Instant.now() carries nanoseconds on Linux.
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
         merchants.create(new Merchant(merchantId, "Membership Legal Ltd", "Membership",
                 "ID", MerchantStatus.PENDING_VERIFICATION, now, now, 0), ownerId, "INTEGRATION_TEST");

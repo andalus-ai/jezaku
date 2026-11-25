@@ -20,6 +20,8 @@ import org.junit.jupiter.api.Test;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 
+import tech.kayys.jezaku.safety.SpatialPolicyRepository.AuthorityAuditEvent;
+
 /**
  * Exercises JDBC persistence, Flyway startup and transaction-scoped locking
  * against a real PostgreSQL instance rather than the in-memory test adapter.
