@@ -49,7 +49,8 @@ public final class MemoryDtos {
             String visibility,
             List<String> tags,
             String placeId,
-            Instant capturedAt) {
+            Instant capturedAt,
+            String frameStyle) {
     }
 
     public record MemoryAnchorUpdateRequest(
@@ -110,6 +111,7 @@ public final class MemoryDtos {
             String visibility,
             List<String> tags,
             String placeId,
+            String frameStyle,
             Instant capturedAt,
             Instant createdAt,
             double distanceMeters,
@@ -131,7 +133,8 @@ public final class MemoryDtos {
             double bearingDegrees,
             double relativeX,
             double relativeY,
-            Instant capturedAt) {
+            Instant capturedAt,
+            String frameStyle) {
     }
 
     public record MemoryMinimapDot(
@@ -159,7 +162,8 @@ public final class MemoryDtos {
             double relativeX,
             double relativeY,
             Double altitudeDeltaMeters,
-            Instant capturedAt) {
+            Instant capturedAt,
+            String frameStyle) {
     }
 
     public record MemoryMinimapSummary(

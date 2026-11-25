@@ -27,7 +27,7 @@ class MemoryOnSiteRuleTest {
         return new MemoryRecord(
                 "m", owner, null, "external", "unverified", "u", "t", "c",
                 new GeoPoint(LAT, LNG, null),
-                null, null, null, null, null, "geo", "public", List.of(), null, null, null);
+                null, null, null, null, null, "geo", "public", List.of(), null, null, null, null);
     }
 
     @Test
@@ -79,7 +79,7 @@ class MemoryOnSiteRuleTest {
         MemoryResponse created = service.create(new MemoryCreateRequest(
                         owner, null, "https://cdn.jezaku.local/p.jpg", "https://cdn.jezaku.local/t.jpg", "frame",
                         new GeoPoint(LAT + metersNorth * METER, LNG, 742.5),
-                        5.0, 345.0, -12.5, 1.25, 3.2, "HYBRID", visibility, null, null, null))
+                        5.0, 345.0, -12.5, 1.25, 3.2, "HYBRID", visibility, null, null, null, null))
                 .await().indefinitely();
         return created.id();
     }

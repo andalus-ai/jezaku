@@ -73,6 +73,6 @@ class MemorySpatialPublishPolicyTest {
         return new MemoryCreateRequest(
                 owner, null, "https://cdn.jezaku.local/frame.jpg", "https://cdn.jezaku.local/frame-thumb.jpg",
                 "Spatial policy test", position, 5.0, 345.0, -12.5, 1.25, 3.2, "HYBRID",
-                "public", null, null, null);
+                "public", null, null, null, null);
     }
 }

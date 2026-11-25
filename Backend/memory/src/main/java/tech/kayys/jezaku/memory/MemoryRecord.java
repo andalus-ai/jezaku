@@ -25,7 +25,8 @@ record MemoryRecord(
         List<String> tags,
         String placeId,
         Instant capturedAt,
-        Instant createdAt) {
+        Instant createdAt,
+        String frameStyle) {
     MemoryRecord withMediaSnapshot(String mediaStatus, String moderationStatus) {
         return new MemoryRecord(
                 id,
@@ -47,6 +48,7 @@ record MemoryRecord(
                 tags,
                 placeId,
                 capturedAt,
-                createdAt);
+                createdAt,
+                frameStyle);
     }
 }

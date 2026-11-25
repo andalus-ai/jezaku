@@ -86,7 +86,7 @@ class MemorySpatialRenderPolicyTest {
                 "Spatial render policy test",
                 POSITION,
                 5.0, 345.0, -12.5, 1.25, 3.2,
-                "HYBRID", "public", List.of(), null, null))
+                "HYBRID", "public", List.of(), null, null, null))
                 .await().indefinitely();
     }
 }
