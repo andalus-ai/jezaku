@@ -24,7 +24,8 @@ Tasks:
 3. Inspect authentication/session flows and determine the supported admin authentication mechanism; do not assume an admin role claim exists.
 4. Define permission identifiers, scope model, operator bootstrap, step-up authentication, approval requirements and audit event contract.
 5. Decide deployment topology and allowed origins/base URLs without committing environment secrets.
-6. Record ADRs for operator authorization/audit and any cross-service admin facade only if needed.
+6. Validate the Alhambra package boundary, SDK constraints and immutable dependency strategy; do not add a dependency until a clean-checkout consumer build can be tested.
+7. Record ADRs for operator authorization/audit, Alhambra adoption and any cross-service admin facade only if needed.
 
 Exit criteria:
 - Capability matrix references actual source files, OpenAPI operations and tests.
@@ -42,7 +43,8 @@ Tasks:
 4. [x] Add overview placeholders that clearly say not connected/not available instead of displaying fake health data.
 5. [ ] Add common table/list, filter, pagination, detail panel, empty/error/loading and confirmation patterns.
 6. [ ] Add typed environment configuration; never hardcode production URLs or secrets.
-7. [ ] Execute and extend tests for shell, responsive navigation, unavailable modules, and auth boundary states.
+7. [ ] Evaluate and integrate only the required Alhambra UI package(s), pinned to an immutable revision, after SDK/dependency compatibility validation.
+8. [ ] Execute and extend tests for shell, responsive navigation, unavailable modules, and auth boundary states.
 
 Exit criteria:
 - Admin app builds on its declared target platforms (not yet verified).
@@ -136,6 +138,13 @@ Exit criteria:
 - Secrets remain in secret-management infrastructure.
 
 ## 9. Cross-cutting work
+
+### Alhambra platform integration
+- Keep Alhambra and Jezaku repositories separate and maintain the consumer contract in both.
+- Pin exact Alhambra revisions/releases; avoid moving branch dependencies.
+- Use Alhambra for reusable presentation/composition where validated; do not treat its UI or plugin runtime as backend authorization or a sandbox for untrusted code.
+- Keep Jezaku Quarkus services authoritative for operator grants, scopes, domain invariants and audit.
+- Require a separate isolation architecture and release gate before marketplace-delivered executable extensions are enabled.
 
 ### Security
 - Deny by default, server-side permission checks, scoped grants, step-up authentication and dual control for high-impact operations.
