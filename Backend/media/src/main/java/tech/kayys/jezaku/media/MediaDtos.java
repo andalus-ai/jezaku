@@ -417,4 +417,18 @@ public final class MediaDtos {
 
     public record ModerationHistoryResponse(String mediaId, int count, List<ModerationEventResponse> events) {
     }
+
+    public record MediaAssetOwnershipRequest(String expectedOwnerId) {
+    }
+
+    /** Contains no storage URL, object key, checksum, or document bytes. */
+    public record MediaAssetOwnershipResponse(
+            String mediaId,
+            boolean authorized,
+            String purpose,
+            String contentType,
+            long byteSize,
+            String status,
+            String moderationStatus) {
+    }
 }
