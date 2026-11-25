@@ -18,6 +18,7 @@ One namespace: `UI/jezaku/lib/features/ar_viewer/visibility/`. Import `frame_vis
 | File | Role |
 |---|---|
 | `frame_visibility_rule.dart` | `FrameVisibilityRule` interface, `FrameVisibilityCandidate`, `FrameViewerContext`, `FrameViewerRelation`, `FrameVisibilityDecision` (`FrameVisible` / `FrameHidden(reason)`), `FrameHiddenReason`, `FrameRuleStage` |
+| `frame_access.dart`, `frame_access_providers.dart` | `FrameAccess` (open / locked / unavailable) and `FrameAccessResolver`: whether a surface outside the AR viewer (social posts, notifications, comments, the photo page) may open a frame from where the viewer stands; `frameAccessProvider((memoryId:, alreadyOnSite:))` |
 | `frame_owner_actions.dart` | `FrameOwnerActions.of(memory, viewer)`: which owner-only tools (change frame, calibrate, re-hang, details) a frame offers; owner only |
 | `frame_audience_rule.dart` | `FrameAudience` (`private`, `friends`, `public`), `frameAudienceOf(memory)`, `FrameAudienceRule` |
 | `frame_moderation_rule.dart` | `FrameModerationRule` (moderator-hidden frames are never drawn) |
@@ -67,6 +68,17 @@ The backend has no demo mode: it is not used offline, and its friends rule is sw
 - Remote surfaces (feed, notifications, search) may show a locked placeholder: place name and distance only, no photo, no comments.
 - The remote/on-site split lives in the visibility namespace, not in screens. The client cannot enforce it until slice 5 supplies the owner id; the backend must enforce it for media and comments too.
 
+## On-site gate (slice 12)
+
+`FrameAccessResolver` answers one question for every surface outside the AR viewer, through the same policy as the viewer:
+
+- **open**: the owner (anywhere), or anyone else inside the radius with an allowed audience and approved moderation. A screen the viewer opened on site (the photo page) also gets the 5 m exit margin, so GPS jitter does not lock it mid-visit; walking away locks it.
+- **locked**: allowed to see the frame but not on site, or the frame is not known to this device under strict rules. Shows `LockedFrameCard` / a lock chip with the distance and, when the frame has a name, the place. No photo, no comments, no AR launch; the tap explains with a snackbar.
+- **unavailable**: audience or moderation hides it. Looks like a frame that no longer exists, so nothing leaks.
+- Only a **live location fix** counts. Without one the distance would come from the frame's text label ("1.2 km" reads as 1.2), so a non-owner's frame stays locked.
+- Demo rules do not enforce the radius, so everything stays open as before (an unknown linked frame is left to the AR viewer). Remote frames carry no place name yet (`unnamedPlaceLabel`), so the card says "Go to this frame".
+- Wired into: `MemoryPhotoScreen`, `CommentsScreen` (posts that link a frame), `SocialPostCard` (via the Social hub) and the Notifications tiles. The backend must still enforce it for media and comments.
+
 ## Roadmap
 
 Order of work, one pull request per slice, each with tests and doc updates.
@@ -81,7 +93,7 @@ Order of work, one pull request per slice, each with tests and doc updates.
 | 6 | Persist and sync comments to the memory service's friends-only comment endpoints | not built; the client is not wired |
 | 7 | Edge behaviour: exit-margin hysteresis and a "your nearest frame is N m away, walk closer" cue (own frames only, never other people's) | built, not validated on a device; accuracy-aware radius and a setting still open |
 | 11 | Own-frames gallery: Instagram-style grid of the owner's frames, viewable anywhere (Profile), with detail, comments and edit | built: My frames screen (Profile → My frames), 3-column grid, All/AR/Videos/Private/Needs calibration filters, opens the memory detail; today every on-device frame counts as own, `ownFramesProvider` narrows it once slice 5 supplies the owner id; comments and edit come from the existing detail screen. Not yet validated on a device |
-| 12 | On-site gate for other people's frames: Gallery, Search, Social hub, Notifications and the photo/comments page open someone else's frame only inside the physical radius; remote surfaces show a locked "Go to <place>" card with distance | planned |
+| 12 | On-site gate for other people's frames: the photo page, comments on a post that links a frame, Social post cards and Notifications open someone else's frame only inside the physical radius; away from it they show a lock with the distance ("Go to this frame") | built, see "On-site gate" below; not validated on a device. Gallery, Search, Home and the minimap only list the device's own frames today, so they need no gate until they list remote data |
 | 13 | Frame gallery: several default looks, default in Settings, author changes a published frame's look or colour from the photo page / AR panel | built, see [frame-styles.md](frame-styles.md); not synced to the backend and not validated on a device |
 | 8 | Frame persistence across AR sessions | see [ar-frame-persistence-plan.md](ar-frame-persistence-plan.md) |
 | 9 | Diagnose the app lag (needs a device debug log) | open |

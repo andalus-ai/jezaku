@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
+import 'package:jejaku/features/ar_viewer/visibility/frame_visibility.dart';
+import 'package:jejaku/features/remote_frames/widgets/locked_frame_card.dart';
 import 'package:jejaku/features/social/models/social_post.dart';
 import 'package:jejaku/features/social/screens/comments_screen.dart';
 import 'package:jejaku/features/social/screens/discover_screen.dart';
@@ -139,8 +141,18 @@ class _SocialFeedViewState extends ConsumerState<_SocialFeedView> {
   }
 
   Widget _buildPostCard(BuildContext context, SocialPost post) {
+    final linkedMemoryId = post.hasArAnchor ? post.linkedMemoryId : null;
+    // Someone else's frame opens only on site; see FrameAccess.
+    final access = linkedMemoryId == null
+        ? null
+        : ref.watch(
+            frameAccessProvider(
+              (memoryId: linkedMemoryId, alreadyOnSite: false),
+            ),
+          );
     return SocialPostCard(
       post: post,
+      frameAccess: access,
       onComments: () {
         Navigator.push(
           context,
@@ -153,6 +165,15 @@ class _SocialFeedViewState extends ConsumerState<_SocialFeedView> {
         ref.read(socialPostsProvider.notifier).toggleLike(post.id);
       },
       onOpenAr: () {
+        final blocked = access == null
+            ? null
+            : blockedFrameMessage(access, fallbackPlace: post.location);
+        if (blocked != null) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(SnackBar(content: Text(blocked)));
+          return;
+        }
         Navigator.pushNamed(
           context,
           AppRoutes.arViewer,

@@ -3,6 +3,8 @@
 library;
 
 export 'package:jejaku/features/home/models/frame_audience.dart';
+export 'frame_access.dart';
+export 'frame_access_providers.dart';
 export 'frame_audience_rule.dart';
 export 'frame_moderation_rule.dart';
 export 'frame_owner_actions.dart';

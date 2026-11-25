@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:jejaku/features/ar_viewer/visibility/frame_visibility.dart';
+import 'package:jejaku/features/remote_frames/widgets/locked_frame_card.dart';
 import 'package:jejaku/features/settings/states/settings_providers.dart';
 import 'package:jejaku/features/social/states/social_post_providers.dart';
 
@@ -15,6 +17,32 @@ class CommentsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final post = ref.watch(socialPostProvider(postId));
+    // Comments on a post that links someone else's frame are on site only.
+    final linkedMemoryId = post?.linkedMemoryId;
+    final access = linkedMemoryId == null
+        ? null
+        : ref.watch(
+            frameAccessProvider(
+              (memoryId: linkedMemoryId, alreadyOnSite: false),
+            ),
+          );
+    if (access != null && !access.isOpen) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Comments')),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: switch (access) {
+            final FrameAccessLocked locked => LockedFrameCard(
+                access: locked,
+                fallbackPlace: post?.location,
+              ),
+            _ => const Center(
+                child: Text('This frame is no longer available.'),
+              ),
+          },
+        ),
+      );
+    }
     final comments = ref.watch(postCommentsProvider(postId));
     final settings = ref.watch(appSettingsProvider);
     final visibleComments = comments

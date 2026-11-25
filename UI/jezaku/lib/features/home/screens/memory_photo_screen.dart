@@ -6,6 +6,7 @@ import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/services/anchor_media_resolver.dart';
 import 'package:jejaku/features/home/widgets/memory_preview.dart';
 import 'package:jejaku/features/remote_frames/states/viewer_anchors_provider.dart';
+import 'package:jejaku/features/remote_frames/widgets/locked_frame_card.dart';
 import 'package:jejaku/features/settings/states/settings_providers.dart';
 import 'package:jejaku/features/social/states/social_comment_provider.dart';
 import 'package:jejaku/features/social/widgets/comment_composer.dart';
@@ -27,10 +28,29 @@ class MemoryPhotoScreen extends ConsumerWidget {
     final memory = _findMemory(memories);
 
     if (memory == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Photo')),
-        body: const Center(child: Text('This frame is no longer available.')),
-      );
+      return const _PhotoUnavailable();
+    }
+
+    // Someone else's frame opens only on site. The viewer got here on site,
+    // so the edge margin applies; walking away locks the page again.
+    final access = ref.watch(
+      frameAccessProvider((memoryId: memoryId, alreadyOnSite: true)),
+    );
+    switch (access) {
+      case FrameAccessUnavailable():
+        return const _PhotoUnavailable();
+      case FrameAccessLocked():
+        return Scaffold(
+          appBar: AppBar(title: const Text('Photo')),
+          body: Padding(
+            padding: const EdgeInsets.all(16),
+            child: LockedFrameCard(
+              access: access,
+            ),
+          ),
+        );
+      case FrameAccessOpen():
+        break;
     }
 
     final ownerActions = FrameOwnerActions.of(
@@ -129,6 +149,18 @@ class MemoryPhotoScreen extends ConsumerWidget {
       }
     }
     return null;
+  }
+}
+
+class _PhotoUnavailable extends StatelessWidget {
+  const _PhotoUnavailable();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Photo')),
+      body: const Center(child: Text('This frame is no longer available.')),
+    );
   }
 }
 
