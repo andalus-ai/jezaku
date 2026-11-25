@@ -5,6 +5,11 @@ import 'package:jejaku/features/home/models/frame_audience.dart';
 
 const _unchanged = Object();
 
+/// The place label for a frame whose place name is not known, such as
+/// another person's frame from the memory service. Surfaces that name the
+/// place ("Go to ...") must not show it as a name.
+const unnamedPlaceLabel = 'Nearby';
+
 class AnchorMemory {
   const AnchorMemory({
     required this.id,

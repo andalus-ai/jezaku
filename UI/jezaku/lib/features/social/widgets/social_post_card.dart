@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
+import 'package:jejaku/features/ar_viewer/visibility/frame_access.dart';
+import 'package:jejaku/features/remote_frames/widgets/locked_frame_card.dart';
 import 'package:jejaku/features/social/models/social_post.dart';
 
 class SocialPostCard extends StatelessWidget {
@@ -9,6 +11,7 @@ class SocialPostCard extends StatelessWidget {
     this.onComments,
     this.onLike,
     this.onOpenAr,
+    this.frameAccess,
     this.onHide,
     this.onReport,
     this.onSave,
@@ -19,10 +22,29 @@ class SocialPostCard extends StatelessWidget {
   final VoidCallback? onComments;
   final VoidCallback? onLike;
   final VoidCallback? onOpenAr;
+
+  /// Whether the viewer may open the frame this post links to. Null for a post
+  /// without a frame. When it is not open the card shows a lock instead of the
+  /// AR affordance; [onOpenAr] is still called so the screen can explain.
+  final FrameAccess? frameAccess;
   final VoidCallback? onHide;
   final VoidCallback? onReport;
   final VoidCallback? onSave;
   final VoidCallback? onBlock;
+
+  bool get _frameIsOpen => frameAccess == null || frameAccess!.isOpen;
+
+  String get _frameChipLabel {
+    return switch (frameAccess) {
+      FrameAccessLocked(:final distanceMeters) =>
+        switch (formatFrameDistance(distanceMeters)) {
+          final distance? => 'Locked · $distance',
+          null => 'Locked',
+        },
+      FrameAccessUnavailable() => 'Unavailable',
+      _ => 'AR',
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +98,11 @@ class SocialPostCard extends StatelessWidget {
                   children: [
                     Center(
                       child: Icon(
-                        post.hasArAnchor ? Icons.view_in_ar : Icons.photo,
+                        !post.hasArAnchor
+                            ? Icons.photo
+                            : _frameIsOpen
+                                ? Icons.view_in_ar
+                                : Icons.lock_outline,
                         size: 76,
                         color: colorScheme.primary,
                       ),
@@ -90,8 +116,8 @@ class SocialPostCard extends StatelessWidget {
                             color: Colors.black.withValues(alpha: 0.7),
                             borderRadius: BorderRadius.circular(18),
                           ),
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 6,
                             ),
@@ -99,14 +125,16 @@ class SocialPostCard extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  Icons.view_in_ar,
+                                  _frameIsOpen
+                                      ? Icons.view_in_ar
+                                      : Icons.lock_outline,
                                   color: Colors.white,
                                   size: 15,
                                 ),
-                                SizedBox(width: 5),
+                                const SizedBox(width: 5),
                                 Text(
-                                  'AR',
-                                  style: TextStyle(
+                                  _frameChipLabel,
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w700,
                                     fontSize: 12,
@@ -142,8 +170,12 @@ class SocialPostCard extends StatelessWidget {
                 if (post.hasArAnchor)
                   IconButton(
                     key: ValueKey('social_post_open_ar_${post.id}'),
-                    tooltip: 'Open AR anchor',
-                    icon: const Icon(Icons.view_in_ar),
+                    tooltip: _frameIsOpen
+                        ? 'Open AR anchor'
+                        : 'Go to the frame to open it',
+                    icon: Icon(
+                      _frameIsOpen ? Icons.view_in_ar : Icons.lock_outline,
+                    ),
                     onPressed: onOpenAr,
                   ),
                 IconButton(

@@ -138,6 +138,8 @@ A frame's stored AR pose (`localAnchorPose`) is expressed in the coordinate fram
 - [ ] Strict build with `JEZAKU_SOCIAL_URL` too (needs the social service): after the two accounts become friends, the friends-only frame appears within ~20 m (allow up to 5 minutes or a restart for the list to refresh); a stranger's friends-only frame stays hidden; removing the friendship hides it again within 5 minutes.
 - [ ] With the social service switched off or unreachable, friends-only frames of others stay hidden (fail closed) and public ones still show.
 - [ ] Focus the other account's frame: the panel shows Photo & comments and Recenter, but no Change frame, Details, calibration line or Re-hang here. Its photo page has no Change frame or Frame details button. Your own frames keep all of them.
+- [ ] On-site gate (strict build): with the other account's frame within ~20 m, its photo page and comments open. Walk 30 m or more away with the photo page open: it turns into a lock card with the distance.
+- [ ] Away from the frame, the Social post and Notification that link it show a lock with the distance; tapping explains "Frames open only on site" instead of opening AR. Comments on that post show the lock card. Your own frames still open from anywhere.
 - [ ] Sign out: the other account's frame disappears from the viewer.
 
 ### 4b. Frame styles

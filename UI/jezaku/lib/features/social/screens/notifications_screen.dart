@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
+import 'package:jejaku/features/ar_viewer/visibility/frame_visibility.dart';
+import 'package:jejaku/features/remote_frames/widgets/locked_frame_card.dart';
 
 import '../models/social_notification.dart';
 import '../states/social_notification_provider.dart';
@@ -99,18 +101,34 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (context, index) {
                       final notification = filteredNotifications[index];
-                      return _NotificationTile(
-                        notification: notification,
-                        onOpenAr: notification.linkedMemoryId == null
-                            ? null
-                            : () => _openNotificationAnchor(notification),
-                        onTap: () {
-                          if (notification.isRead) {
-                            return;
-                          }
-                          ref
-                              .read(socialNotificationsProvider.notifier)
-                              .markRead(notification.id);
+                      return Consumer(
+                        builder: (context, ref, _) {
+                          final linked = notification.linkedMemoryId;
+                          final access = linked == null
+                              ? null
+                              : ref.watch(
+                                  frameAccessProvider(
+                                    (memoryId: linked, alreadyOnSite: false),
+                                  ),
+                                );
+                          return _NotificationTile(
+                            notification: notification,
+                            frameIsOpen: access == null || access.isOpen,
+                            onOpenAr: linked == null
+                                ? null
+                                : () => _openNotificationAnchor(
+                                      notification,
+                                      access!,
+                                    ),
+                            onTap: () {
+                              if (notification.isRead) {
+                                return;
+                              }
+                              ref
+                                  .read(socialNotificationsProvider.notifier)
+                                  .markRead(notification.id);
+                            },
+                          );
                         },
                       );
                     },
@@ -121,13 +139,24 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  void _openNotificationAnchor(SocialNotification notification) {
+  void _openNotificationAnchor(
+    SocialNotification notification,
+    FrameAccess access,
+  ) {
     final linkedMemoryId = notification.linkedMemoryId;
     if (linkedMemoryId == null) {
       return;
     }
     if (!notification.isRead) {
       ref.read(socialNotificationsProvider.notifier).markRead(notification.id);
+    }
+    // Someone else's frame opens only on site: explain instead of opening.
+    final blocked = blockedFrameMessage(access);
+    if (blocked != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(blocked)));
+      return;
     }
     Navigator.pushNamed(
       context,
@@ -224,11 +253,15 @@ class _NotificationTile extends StatelessWidget {
     required this.notification,
     required this.onTap,
     required this.onOpenAr,
+    this.frameIsOpen = true,
   });
 
   final SocialNotification notification;
   final VoidCallback onTap;
   final VoidCallback? onOpenAr;
+
+  /// False when the linked frame is not open to the viewer (not on site).
+  final bool frameIsOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -263,8 +296,10 @@ class _NotificationTile extends StatelessWidget {
           if (onOpenAr != null)
             IconButton(
               key: ValueKey('notification_open_ar_${notification.id}'),
-              tooltip: 'View anchor in AR',
-              icon: const Icon(Icons.view_in_ar),
+              tooltip: frameIsOpen
+                  ? 'View anchor in AR'
+                  : 'Go to the frame to open it',
+              icon: Icon(frameIsOpen ? Icons.view_in_ar : Icons.lock_outline),
               onPressed: onOpenAr,
             ),
           if (!notification.isRead)

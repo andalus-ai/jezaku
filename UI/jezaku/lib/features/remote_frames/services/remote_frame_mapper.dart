@@ -24,7 +24,7 @@ class RemoteFrameMapper {
       caption: caption,
       distanceLabel: _distanceLabel(frame.distanceMeters),
       capturedAgo: _agoLabel(frame.capturedAt, now ?? DateTime.now()),
-      locationLabel: 'Nearby',
+      locationLabel: unnamedPlaceLabel,
       latitude: frame.latitude,
       longitude: frame.longitude,
       reactions: 0,
