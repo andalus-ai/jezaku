@@ -18,6 +18,16 @@ class SignInGate extends ConsumerWidget {
     final signedIn = ref.watch(
       authControllerProvider.select((state) => state.isSignedIn),
     );
+    final restoring = ref.watch(
+      authControllerProvider.select((state) => state.restoring),
+    );
+    if (required && restoring) {
+      // Reading the saved session: neither the app nor the sign-in screen yet.
+      return const Scaffold(
+        key: ValueKey('sign_in_restoring'),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     if (!required || signedIn) {
       return child;
     }

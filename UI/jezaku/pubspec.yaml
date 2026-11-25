@@ -36,6 +36,7 @@ dependencies:
   
   # Storage
   shared_preferences: ^2.2.2
+  flutter_secure_storage: ^9.2.2 # Session tokens in Keychain / Keystore
   path_provider: ^2.1.2
   
   # Permissions

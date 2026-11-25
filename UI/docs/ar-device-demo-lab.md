@@ -131,6 +131,9 @@ A frame's stored AR pose (`localAnchorPose`) is expressed in the coordinate fram
 - [ ] Strict build with `JEZAKU_IDENTITY_URL` set: the sign-in screen shows first. A wrong password shows one generic message; the right one opens the app.
 - [ ] Settings → Signed in → Sign out returns to the sign-in screen. Frames saved on the device are still there after signing back in.
 - [ ] Strict build with no identity URL: no sign-in screen (the gate is off).
+- [ ] Stay signed in: sign in, force-close the app and reopen it: a short spinner, then the app (no sign-in screen). Settings → Sign out, close and reopen: the sign-in screen shows.
+- [ ] Expiry: after the access token's lifetime has passed (or with the phone clock moved forward), reopening still signs in (the session is refreshed). With the identity service stopped and the token expired, the sign-in screen shows; once it is back, signing in works.
+- [ ] Revoke the session on the service (or disable the account), then use the app: you are signed out and the sign-in screen shows; reopening does not bring the old session back.
 
 - [ ] Demo build (no `JEZAKU_MEMORY_URL`): no request is made; only your own frames appear.
 - [ ] Strict build with `JEZAKU_MEMORY_URL` + `JEZAKU_IDENTITY_URL`, signed in, a second account has a public frame placed here: within ~20 m it hangs in AR with its picture; at 30 m it is hidden; walking back brings it back without flicker at the edge.

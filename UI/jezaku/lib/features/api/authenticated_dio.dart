@@ -1,20 +1,24 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/api/auth_interceptor.dart';
 import 'package:jejaku/features/auth/states/auth_providers.dart';
 
 /// The interceptor every authenticated service client uses: requests carry
-/// the signed-in user's token, and a rejected token signs the user out.
+/// the signed-in user's token (refreshed first when it is about to expire),
+/// and a rejected token renews the session or, when that is refused, signs the
+/// user out.
 AuthInterceptor authInterceptorFor(Ref ref) {
   return AuthInterceptor(
-    accessToken: () => ref.read(authControllerProvider).session?.accessToken,
-    onUnauthorized: (rejected) {
-      // A late 401 for an old token must not end a newer sign-in.
-      final current = ref.read(authControllerProvider).session;
-      if (current?.accessToken == rejected) {
-        ref.read(authControllerProvider.notifier).signOut();
-      }
-    },
+    // Renews an about-to-expire token before the request goes out.
+    accessToken: () =>
+        ref.read(authControllerProvider.notifier).freshAccessToken(),
+    // A late 401 for an old token changes nothing; for the current token the
+    // controller refreshes the session and signs out only if that is refused.
+    onUnauthorized: (rejected) => unawaited(
+      ref.read(authControllerProvider.notifier).handleRejectedToken(rejected),
+    ),
   );
 }
 
