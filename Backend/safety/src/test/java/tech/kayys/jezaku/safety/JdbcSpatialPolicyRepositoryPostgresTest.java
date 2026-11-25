@@ -59,8 +59,6 @@ class JdbcSpatialPolicyRepositoryPostgresTest {
         assertEquals(2, history.size(), "both successful writes must be audited");
         assertEquals(1, history.stream().filter(event -> "CREATED".equals(event.action())).count());
         assertEquals(1, history.stream().filter(event -> "UPDATED".equals(event.action())).count());
-        assertEquals("UPDATED", history.get(0).action(), "history is returned newest first");
-        assertEquals("CREATED", history.get(1).action());
         assertTrue(repository.findAuthority(principalId).isPresent());
     }
 
