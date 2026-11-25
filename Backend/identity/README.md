@@ -81,3 +81,4 @@ Easily start your REST Web Services
 Monitor your application's health using SmallRye Health
 
 [Related guide section...](https://quarkus.io/guides/smallrye-health)
+\n\n## Jezaku Admin access-control design\n\nThe identity service is the intended owner of operator profiles, scoped admin grants, role lifecycle and operator session controls. These capabilities are not implemented yet. Read [admin-access-control.md](docs/admin-access-control.md) and the [repository-wide contract](../../docs/admin-identity-and-access.md) before adding admin endpoints. In particular, do not persist grants or audit events in the current in-memory maps, and do not treat browser-supplied roles or JWT role claims as authorization.\n
