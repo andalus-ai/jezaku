@@ -46,6 +46,7 @@ import 'package:jejaku/features/ar_viewer/services/post_frame_coalescer.dart';
 import 'package:jejaku/features/ar_viewer/services/viewer_geo.dart';
 import 'package:jejaku/features/ar_viewer/services/viewer_pose_tracker.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_scene_sync_service.dart';
+import 'package:jejaku/features/ar_viewer/services/ar_diagnostics_presentation.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_pose_status.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_route_planner.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_runtime_permission_service.dart';
@@ -2278,85 +2279,23 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     ).toMap();
   }
 
-  IconData _sceneDiagnosticsIcon(ARMemorySceneDiagnostics diagnostics) {
-    if (diagnostics.hasNativeSceneFailure) {
-      return Icons.error_outline;
-    }
-    if (diagnostics.hasCloudAnchorFailures) {
-      return Icons.warning_amber;
-    }
-    if (diagnostics.hasSessionConfigDowngrades) {
-      return Icons.tune;
-    }
-    if (diagnostics.hasCloudAnchorRetryScheduled) {
-      return Icons.sync;
-    }
-    if (diagnostics.hasSyncedScene) {
-      return Icons.view_in_ar;
-    }
-    return Icons.hourglass_empty;
-  }
+  IconData _sceneDiagnosticsIcon(ARMemorySceneDiagnostics diagnostics) =>
+      ARDiagnosticsPresentation.sceneIcon(diagnostics);
 
   Color _sceneDiagnosticsColor(
     ARMemorySceneDiagnostics diagnostics,
     ColorScheme colors,
-  ) {
-    if (diagnostics.hasNativeSceneFailure) {
-      return colors.error;
-    }
-    if (diagnostics.hasCloudAnchorFailures) {
-      return colors.error;
-    }
-    if (diagnostics.hasSessionConfigDowngrades) {
-      return colors.tertiary;
-    }
-    if (diagnostics.hasCloudAnchorRetryScheduled) {
-      return colors.secondary;
-    }
-    if (diagnostics.hasSyncedScene) {
-      return colors.primary;
-    }
-    return colors.onSurfaceVariant;
-  }
+  ) =>
+      ARDiagnosticsPresentation.sceneColor(diagnostics, colors);
 
-  IconData _sessionHealthIcon(ARMemorySceneDiagnostics diagnostics) {
-    final assessment = diagnostics.sessionHealthAssessment;
-    if (assessment == null) {
-      return Icons.sensors_off;
-    }
-    if (assessment.hasIssue(ARSessionHealthIssue.noCameraFrame)) {
-      return Icons.sensors_off;
-    }
-    if (assessment.hasIssue(ARSessionHealthIssue.sessionStopped)) {
-      return Icons.portable_wifi_off;
-    }
-    if (assessment.hasIssue(ARSessionHealthIssue.sessionPaused)) {
-      return Icons.pause_circle_outline;
-    }
-    if (assessment.severity == ARSessionHealthSeverity.warning) {
-      return Icons.warning_amber;
-    }
-    return Icons.sensors;
-  }
+  IconData _sessionHealthIcon(ARMemorySceneDiagnostics diagnostics) =>
+      ARDiagnosticsPresentation.sessionHealthIcon(diagnostics);
 
   Color _sessionHealthColor(
     ARMemorySceneDiagnostics diagnostics,
     ColorScheme colors,
-  ) {
-    final assessment = diagnostics.sessionHealthAssessment;
-    if (assessment == null) {
-      return colors.onSurfaceVariant;
-    }
-    return switch (assessment.severity) {
-      ARSessionHealthSeverity.good => colors.primary,
-      ARSessionHealthSeverity.warning => colors.tertiary,
-      ARSessionHealthSeverity.blocked => assessment.hasIssue(
-          ARSessionHealthIssue.sessionStopped,
-        )
-            ? colors.error
-            : colors.tertiary,
-    };
-  }
+  ) =>
+      ARDiagnosticsPresentation.sessionHealthColor(diagnostics, colors);
 
   List<Widget> _capabilityHudPills(
     AsyncValue<JejakuARSessionPlan> arSessionPlan,
