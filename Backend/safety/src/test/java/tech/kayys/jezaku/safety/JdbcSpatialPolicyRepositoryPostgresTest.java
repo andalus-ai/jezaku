@@ -27,7 +27,9 @@ import tech.kayys.jezaku.safety.SpatialPolicyRepository.AuthorityAuditEvent;
  * against a real PostgreSQL instance rather than the in-memory test adapter.
  */
 @QuarkusTest
-@QuarkusTestResource(PostgresSpatialPolicyTestResource.class)
+// Without restrictToAnnotatedClass the container's datasource settings apply to every @QuarkusTest in
+// this module and silently defeat the datasource-free tests (e.g. the "policy store unavailable" 503 test).
+@QuarkusTestResource(value = PostgresSpatialPolicyTestResource.class, restrictToAnnotatedClass = true)
 class JdbcSpatialPolicyRepositoryPostgresTest {
 
     @Inject
