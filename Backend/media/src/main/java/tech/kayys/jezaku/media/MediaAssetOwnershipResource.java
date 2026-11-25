@@ -10,12 +10,13 @@ import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import tech.kayys.jezaku.auth.AuthContext;
+import tech.kayys.jezaku.auth.ServiceScopes;
 
 @Path("/media/internal/assets")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 public class MediaAssetOwnershipResource {
-    static final String REQUIRED_SCOPE = "commerce:media-ownership";
+    static final String REQUIRED_SCOPE = ServiceScopes.COMMERCE_MEDIA_OWNERSHIP;
 
     @Inject
     MediaService service;
