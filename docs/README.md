@@ -17,7 +17,7 @@ This directory contains product direction, target architecture, implementation g
 - [Navigation safety contract](navigation-safety-contract.md) — provider-neutral route geometry, segment-level safety, alternatives, live invalidation, and implementation gates.
 - [ADR-0002: Navigation and routing ownership](decisions/ADR-0002-navigation-and-routing-ownership.md) — routing-provider ownership, authoritative safety evaluation, and presentation boundaries.
 - [Admin console architecture](admin-console-architecture.md) — operator personas, service ownership, authorization, audit, security and console boundaries.
-- [Admin console implementation plan](admin-console-implementation-plan.md) — phased delivery from secure shell to access, safety, commerce, extensions and operations.
+- [Admin console implementation plan](admin-console-implementation-plan.md) — phased delivery from secure shell to access, safety, commerce, extensions and operations.\n- [Admin identity, access and audit contract](admin-identity-and-access.md) — RBAC, scoped grants, approvals, persistence, endpoint and audit contracts.\n- [ADR-0003: Admin authorization and audit ownership](decisions/ADR-0003-admin-authorization-and-audit.md) — preserves JWT identity semantics and domain-service authorization ownership.
 - [Architecture decisions](decisions/)
 
 ## Existing technical documentation
