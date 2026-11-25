@@ -1,0 +1,36 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Gradle
+.gradle/
+**/.gradle/
+build/
+**/build/
+.cxx/
+**/.cxx/
+captures/
+**/captures/
+**/local.properties
+
+# Dart / Flutter
+.dart_tool/
+**/.dart_tool/
+.pub-cache/
+**/.pub-cache/
+.pub/
+**/.pub/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# IDEs
+.idea/
+**/.idea/
+*.iml
+**/*.iml
+.vscode/
+**/.vscode/
+
+# Logs & temp
+*.log
+**/*.log
