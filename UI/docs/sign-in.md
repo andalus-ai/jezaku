@@ -54,7 +54,7 @@ Status: built and unit/widget-tested. Not yet run against a live identity servic
 - **The session is memory-only.** Tokens are not written to ordinary app storage, so the user signs in again after a restart. Secure persistence (platform keystore) comes with the API client.
 - **No token refresh.** An expired token ends in a 401 and a sign-out. 
 - No account creation or password reset screens.
-- **Remote frames are view-only but not yet fully guarded in the UI.** The focused-frame panel still offers calibrate / re-hang for any frame; for a remote frame those do nothing (they edit the local store). Gate them by owner in a follow-up.
+- **Remote frames are view-only.** The focused-frame panel and the photo page offer Change frame, Calibrate, Re-hang and Details only for the viewer's own frames (`FrameOwnerActions`); someone else's frame, a friend's included, keeps Photo & comments and Recenter. Not yet checked on a device.
 - Remote pictures are held in memory only (no disk cache), the 4 MB cap is applied after download, and the photo page shows the thumbnail only (no full image or comments for remote frames yet).
 - Friends are re-checked at most every 5 minutes, so a removed friend can still see your friends-only frames on site for a few minutes (the backend decides what it sends; this is the client's second line).
 - The offline AR test mode (`--dart-define` arOfflineTestMode) is not exempted; run it as a demo build.

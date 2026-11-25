@@ -18,6 +18,7 @@ One namespace: `UI/jezaku/lib/features/ar_viewer/visibility/`. Import `frame_vis
 | File | Role |
 |---|---|
 | `frame_visibility_rule.dart` | `FrameVisibilityRule` interface, `FrameVisibilityCandidate`, `FrameViewerContext`, `FrameViewerRelation`, `FrameVisibilityDecision` (`FrameVisible` / `FrameHidden(reason)`), `FrameHiddenReason`, `FrameRuleStage` |
+| `frame_owner_actions.dart` | `FrameOwnerActions.of(memory, viewer)`: which owner-only tools (change frame, calibrate, re-hang, details) a frame offers; owner only |
 | `frame_audience_rule.dart` | `FrameAudience` (`private`, `friends`, `public`), `frameAudienceOf(memory)`, `FrameAudienceRule` |
 | `frame_moderation_rule.dart` | `FrameModerationRule` (moderator-hidden frames are never drawn) |
 | `frame_physical_radius_rule.dart` | `defaultFrameViewRadiusMeters` (20) and `FramePhysicalRadiusRule` (horizontal distance, inclusive, unknown distance fails closed) |

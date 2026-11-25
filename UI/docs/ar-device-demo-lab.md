@@ -137,6 +137,7 @@ A frame's stored AR pose (`localAnchorPose`) is expressed in the coordinate fram
 - [ ] A friends-only frame of the second account stays hidden while the two accounts are not friends. Your own frames never appear twice.
 - [ ] Strict build with `JEZAKU_SOCIAL_URL` too (needs the social service): after the two accounts become friends, the friends-only frame appears within ~20 m (allow up to 5 minutes or a restart for the list to refresh); a stranger's friends-only frame stays hidden; removing the friendship hides it again within 5 minutes.
 - [ ] With the social service switched off or unreachable, friends-only frames of others stay hidden (fail closed) and public ones still show.
+- [ ] Focus the other account's frame: the panel shows Photo & comments and Recenter, but no Change frame, Details, calibration line or Re-hang here. Its photo page has no Change frame or Frame details button. Your own frames keep all of them.
 - [ ] Sign out: the other account's frame disappears from the viewer.
 
 ### 4b. Frame styles
