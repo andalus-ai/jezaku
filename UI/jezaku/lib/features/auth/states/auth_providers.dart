@@ -98,8 +98,10 @@ class AuthController extends Notifier<AuthState> {
     if (!ref.mounted) {
       return;
     }
-    // _refresh signed in on success; otherwise stay signed out.
-    if (!refreshed) {
+    // _refresh signed in on success. A refusal already signed out (and said
+    // why); an unreachable service leaves the expired session in place, which
+    // is dropped here (it stays saved for the next start).
+    if (!refreshed && state.session != null) {
       state = const AuthState();
     }
   }
@@ -169,7 +171,10 @@ class AuthController extends Notifier<AuthState> {
       if (failure.reason == AuthFailureReason.sessionRejected &&
           ref.mounted &&
           state.session?.sessionId == session.sessionId) {
-        state = const AuthState();
+        // Say why the sign-in screen is back.
+        state = const AuthState(
+          failure: AuthFailure(AuthFailureReason.sessionRejected),
+        );
         await _clearStore();
       }
       return false;

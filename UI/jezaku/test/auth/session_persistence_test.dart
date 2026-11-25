@@ -129,6 +129,9 @@ _Setup _setup({_Store? store, _Clock? clock}) {
     ],
   );
   addTearDown(container.dispose);
+  // The app's gate watches the controller from the first frame; build it now
+  // so a saved session is restored without waiting for a first read.
+  container.read(authControllerProvider);
   return (container: container, store: theStore, gateway: gateway);
 }
 
@@ -420,6 +423,11 @@ void main() {
 
       expect(_state(s.container).isSignedIn, isFalse);
       expect(_state(s.container).restoring, isFalse);
+      expect(
+        _state(s.container).failure?.reason,
+        AuthFailureReason.sessionRejected,
+        reason: 'the sign-in screen says why it is back',
+      );
       expect(s.store.saved, isNull);
     });
 
@@ -433,6 +441,7 @@ void main() {
 
       expect(_state(s.container).isSignedIn, isFalse);
       expect(_state(s.container).restoring, isFalse);
+      expect(_state(s.container).failure, isNull, reason: 'not their fault');
       expect(s.store.saved?.sessionId, 'sess-a');
     });
   });
@@ -513,6 +522,10 @@ void main() {
 
       expect(await _auth(s.container).freshAccessToken(), isNull);
       expect(_state(s.container).isSignedIn, isFalse);
+      expect(
+        _state(s.container).failure?.reason,
+        AuthFailureReason.sessionRejected,
+      );
       expect(s.store.saved, isNull);
     });
 
