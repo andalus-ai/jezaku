@@ -195,7 +195,20 @@ Do not store passwords, access tokens, secrets, raw private message content, cam
 - Extension review must check provenance, signature/integrity, declared permissions, compatibility, resource budgets, moderation, and revocation.
 - Admin console must not encourage unsafe field validation or physical-world interference.
 
-## 10. Frontend structure (target)
+## 10. Shared platform foundation: Alhambra
+
+Alhambra is the preferred reusable foundation for shared Flutter UI composition and, after separate validation, generic plugin contracts/runtime. Jezaku and Alhambra remain separate repositories. Jezaku owns product workflows, domain policy and backend enforcement.
+
+Integration rules:
+- Consume only the Alhambra packages needed by the admin client; do not add the complete plugin runtime merely because it exists.
+- Pin dependencies to an immutable Git revision or released package version and validate resolution from a clean checkout.
+- Keep Quarkus services authoritative for operator grants, scopes, approvals, domain decisions and durable audit. Alhambra UI/runtime capability state is not authorization.
+- Do not treat the Flutter plugin runtime as a sandbox for arbitrary marketplace-delivered Dart/native code. Third-party executable extensions require a separately approved isolation design.
+- Treat Alhambra identity authorization as unavailable for production enforcement until fail-closed behavior, trusted-principal boundaries, durable persistence and audit guarantees are reviewed and tested.
+
+See [ADR-0004: Alhambra as the shared platform foundation](decisions/ADR-0004-alhambra-platform-foundation.md) and the [Alhambra host integration contract](https://github.com/andalus-ai/alhambra/blob/main/Docs/JEZAKU_HOST_INTEGRATION_CONTRACT.md).
+
+## 11. Frontend structure (target)
 
 Keep the existing Flutter app as the single admin client. Proposed feature organization, to be adapted to actual code and manifest:
 
@@ -225,7 +238,7 @@ UI/jezaku_admin/
 
 This is a target organization, not a claim that these directories currently exist. Reuse dependencies and patterns only after checking the admin app manifest and the main app's actual conventions. Prefer responsive desktop/tablet layouts for operator workflows while preserving usable narrow-screen layouts. Do not add a state-management or routing package until the first implementation slice demonstrates the need.
 
-## 11. Operational and reliability requirements
+## 12. Operational and reliability requirements
 
 - Separate liveness, readiness, dependency health, and degraded state.
 - Show last successful refresh and data freshness.
@@ -235,7 +248,7 @@ This is a target organization, not a claim that these directories currently exis
 - Job retry/replay requires idempotency or a documented duplicate-side-effect strategy.
 - Maintenance mode, backup/restore, and service restart are not generic UI toggles; each requires deployment-specific contracts and safeguards.
 
-## 12. Testing and release gates
+## 13. Testing and release gates
 
 Frontend:
 - permission-aware navigation and disabled/hidden actions;
@@ -259,7 +272,7 @@ Release gates:
 - No operational write control ships without idempotency/rollback or explicit risk treatment.
 - Validate with seeded non-production data and test operators; never use real user private data in fixtures.
 
-## 13. Related documents
+## 14. Related documents
 
 - [Admin implementation plan](admin-console-implementation-plan.md)
 - [Backend service catalog](../Backend/docs/service-catalog.md)
