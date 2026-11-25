@@ -4,7 +4,7 @@ The operator-facing administration application for the Jezaku spatial experience
 
 ## Status
 
-This directory currently contains a Flutter starter application. The production admin console, authentication integration, management APIs, and operational dashboards are not yet implemented. See the architecture and phased plan before adding features.
+The initial responsive Flutter console shell is implemented, including navigation for the planned management areas and an overview that clearly marks backend data as not connected. Authentication, management APIs, live operational dashboards, and privileged workflows are not yet implemented. See the architecture and phased plan before adding features.
 
 ## Responsibilities
 
