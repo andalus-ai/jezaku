@@ -18,6 +18,8 @@ public final class ServiceScopes {
     public static final String SPATIAL_POLICY_EVALUATE = "spatial:policy-evaluate";
     /** Read ordered spatial policy invalidation events after a consumer's last revision. */
     public static final String SPATIAL_POLICY_CHANGES_READ = "spatial:policy-changes-read";
+    /** Verify that a Media asset belongs to the authenticated merchant actor and is eligible as evidence. */
+    public static final String COMMERCE_MEDIA_OWNERSHIP = "commerce:media-ownership";
     /** Hand a delivery to the notification service. */
     public static final String NOTIFICATION_INTAKE = "notification:intake";
 
