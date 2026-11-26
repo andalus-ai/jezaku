@@ -1,6 +1,6 @@
 # Alhambra Platform Integration
 
-> **Status:** Accepted direction; implementation is staged. No Alhambra package is yet declared as a dependency by Jezaku Admin.
+> **Status:** Accepted direction; initial Alhambra UI integration is committed. Clean-checkout dependency resolution and app validation are pending.
 
 See [ADR-0004](decisions/ADR-0004-alhambra-platform-foundation.md) for the architecture decision.
 
@@ -63,16 +63,16 @@ Alhambra is a separate repository: [andalus-ai/alhambra](https://github.com/anda
 - [x] Identify plugin runtime isolation limitation.
 - [x] Harden Alhambra identity authorization fail-closed behavior.
 - [x] Add SQLite membership, role and audit adapters with package CI.
-- [ ] Verify Alhambra UI package dependency graph and clean-checkout consumer build.
-- [ ] Record exact Alhambra commit/release to consume.
+- [x] Record the exact Alhambra UI commit in the Jezaku Admin pubspec (`1f861193950419a5d43a4a442c18dd83252ae225`).
+- [ ] Verify dependency resolution, analyzer, widget tests and supported target builds in CI from a clean consumer checkout.
 
 ### Stage B — Jezaku Admin UI
 
-- [ ] Add pinned Alhambra UI dependency.
-- [ ] Adapt the Admin shell to Alhambra composition while retaining Jezaku navigation and access semantics.
-- [ ] Keep unavailable backend sections explicitly unavailable.
-- [ ] Add/update widget and integration tests.
-- [ ] Verify supported target builds.
+- [x] Add the pinned `alhambra_ui` Git dependency to Jezaku Admin.
+- [x] Adopt Alhambra theme, card and badge components while retaining Jezaku's ten-destination responsive navigation.
+- [x] Keep unavailable backend sections explicitly unavailable.
+- [x] Add a dedicated `flutter-admin` validation job to repository CI.
+- [ ] Confirm clean-checkout dependency resolution, analyzer, widget tests and supported target builds.
 
 ### Stage C — Extension architecture
 
@@ -87,6 +87,10 @@ Alhambra is a separate repository: [andalus-ai/alhambra](https://github.com/anda
 Alhambra's identity authorization and SQLite adapters are reusable building blocks, not a complete production identity deployment. Hosts must supply trusted authentication, database lifecycle, migrations, backup/restore, access control, retention, and monitoring. Multi-instance deployments need an appropriate shared persistence adapter and revocation consistency strategy.
 
 Jezaku must continue to validate actor credentials in Quarkus, resolve target-resource scope from trusted records, enforce domain authorization on every request, and persist grants and audit through its own backend-owned persistence and transaction boundaries.
+
+## Current integration snapshot
+
+Jezaku Admin currently pins `alhambra_ui` to Alhambra commit `1f861193950419a5d43a4a442c18dd83252ae225`. It uses `AlhambraTheme`, `AlhambraCard`, and `AlhambraBadge`. The app retains its own navigation shell because Jezaku owns the ten-area admin information architecture; Alhambra's generic shell is not adopted blindly. The latest Jezaku CI run is queued, so dependency resolution and Flutter checks are not yet reported as passing.
 
 ## Exit criteria
 
