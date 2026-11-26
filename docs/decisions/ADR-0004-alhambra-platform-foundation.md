@@ -1,6 +1,6 @@
 # ADR-0004: Alhambra as the Shared Platform Foundation
 
-- **Status:** Accepted direction; adoption is staged and implementation remains pending.
+- **Status:** Accepted; initial Alhambra UI dependency and component adoption committed. CI validation pending.
 - **Date:** 2026-11-26
 - **Owners:** Jezaku platform maintainers
 
