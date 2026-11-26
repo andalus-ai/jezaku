@@ -24,6 +24,10 @@ The console is not a source of domain truth and must not access service database
 - [UI architecture](../docs/architecture.md)
 - [Backend service catalog](../../Backend/docs/service-catalog.md)
 
+## Shared UI foundation
+
+The Admin app pins the generic Alhambra UI package to an immutable Git commit and uses its theme and reusable components. Keep Jezaku-specific navigation, domain workflows, and backend authorization in this app and the Quarkus services. See [Alhambra platform integration](../../docs/alhambra-platform-integration.md).
+
 ## Development
 
 Use the Flutter SDK compatible with the checked-in `pubspec.yaml`.
