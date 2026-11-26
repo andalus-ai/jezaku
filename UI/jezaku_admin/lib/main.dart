@@ -1,3 +1,4 @@
+import 'package:alhambra_ui/alhambra_ui.dart';
 import 'package:material_ui/material_ui.dart';
 
 void main() {
@@ -17,18 +18,11 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Jezaku Admin',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
+      theme: AlhambraTheme.light(
+        primary: const Color(0xFF245B73),
+      ).copyWith(
         colorScheme: colorScheme,
-        useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFFF6F8FA),
-        cardTheme: const CardThemeData(
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(16)),
-            side: BorderSide(color: Color(0xFFE3E8ED)),
-          ),
-        ),
       ),
       home: const AdminHomePage(),
     );
@@ -248,7 +242,7 @@ class _OverviewPage extends StatelessWidget {
                         leading: Icon(_sections[i].icon),
                         title: Text(_sections[i].label),
                         subtitle: Text(_sections[i].description),
-                        trailing: const Chip(label: Text('Planned')),
+                        trailing: const AlhambraBadge(label: 'Planned'),
                       ),
                       if (i != _sections.length - 1)
                         const Divider(height: 1, indent: 16, endIndent: 16),
@@ -326,9 +320,8 @@ class _StatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: 270,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(18),
+      child: AlhambraCard(
+        padding: const EdgeInsets.all(18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -346,7 +339,6 @@ class _StatusCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
       ),
     );
   }
