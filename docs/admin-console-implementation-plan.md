@@ -24,8 +24,8 @@ Tasks:
 3. Inspect authentication/session flows and determine the supported admin authentication mechanism; do not assume an admin role claim exists.
 4. Define permission identifiers, scope model, operator bootstrap, step-up authentication, approval requirements and audit event contract.
 5. Decide deployment topology and allowed origins/base URLs without committing environment secrets.
-6. Validate the Alhambra package boundary, SDK constraints and immutable dependency strategy; do not add a dependency until a clean-checkout consumer build can be tested.
-7. Record ADRs for operator authorization/audit, Alhambra adoption and any cross-service admin facade only if needed.
+6. [x] Inspect the Alhambra package boundaries and define the shared-foundation ownership/security decision in ADR-0004. [ ] Validate the exact UI dependency graph, SDK constraints and immutable revision from a clean Jezaku checkout before adding the dependency.
+7. [x] Record ADR-0004 for Alhambra adoption. [ ] Record any cross-service admin facade ADR only if measured integration needs justify it.
 
 Exit criteria:
 - Capability matrix references actual source files, OpenAPI operations and tests.
