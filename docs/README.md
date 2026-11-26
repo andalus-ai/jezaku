@@ -18,6 +18,8 @@ This directory contains product direction, target architecture, implementation g
 - [ADR-0002: Navigation and routing ownership](decisions/ADR-0002-navigation-and-routing-ownership.md) — routing-provider ownership, authoritative safety evaluation, and presentation boundaries.
 - [Admin console architecture](admin-console-architecture.md) — operator personas, service ownership, authorization, audit, security and console boundaries.
 - [Admin console implementation plan](admin-console-implementation-plan.md) — phased delivery from secure shell to access, safety, commerce, extensions and operations.\n- [Admin identity, access and audit contract](admin-identity-and-access.md) — RBAC, scoped grants, approvals, persistence, endpoint and audit contracts.\n- [ADR-0003: Admin authorization and audit ownership](decisions/ADR-0003-admin-authorization-and-audit.md) — preserves JWT identity semantics and domain-service authorization ownership.
+- [Alhambra platform integration](alhambra-platform-integration.md) — shared Flutter foundation, product boundaries, security constraints and staged adoption.
+- [ADR-0004: Alhambra as the shared platform foundation](decisions/ADR-0004-alhambra-platform-foundation.md) — repository ownership, immutable dependency policy and backend authority.
 - [Architecture decisions](decisions/)
 
 ## Existing technical documentation
