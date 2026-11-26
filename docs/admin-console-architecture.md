@@ -98,7 +98,15 @@ A thin aggregation/BFF layer may be considered later if measured UI needs justif
 
 Do not infer a missing endpoint from a module name. Before connecting a screen, inspect the owning module's implementation, OpenAPI contract, tests, and authorization behavior.
 
-## 5. Console information architecture
+## 5. Shared Flutter foundation: Alhambra
+
+Alhambra is the preferred shared foundation for generic Flutter presentation and compiled extension-host composition, subject to clean-checkout dependency and target-platform validation. Jezaku Admin remains the product application: it owns its navigation semantics, operator workflows, API clients, and Jezaku-specific permissions. Alhambra UI components may provide the shell, responsive layout and reusable presentation primitives; they must not become an authorization authority.
+
+Do not add Alhambra as a dependency until its exact revision, SDK constraints, nested path dependencies and supported targets have been validated from a clean Jezaku checkout. Pin an immutable Git commit or release. Do not add Alhambra Dart identity to Quarkus backend modules. The Quarkus identity and domain services remain authoritative for admin grants, tenant/jurisdiction scope and audit.
+
+The Alhambra Flutter plugin runtime supports compiled host contributions; it is not a sandbox for arbitrary marketplace downloads. Jezaku marketplace extensions require a separately designed isolation boundary, publisher trust, permission review, resource limits and revocation enforcement. See [Alhambra platform integration](alhambra-platform-integration.md) and [ADR-0004](decisions/ADR-0004-alhambra-platform-foundation.md).
+
+## 6. Console information architecture
 
 Top-level navigation is capability- and permission-aware. Hidden navigation is a usability aid, not a security boundary.
 
