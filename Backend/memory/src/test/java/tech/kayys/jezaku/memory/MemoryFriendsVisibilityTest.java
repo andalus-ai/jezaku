@@ -66,6 +66,7 @@ class MemoryFriendsVisibilityTest {
                         visibility,
                         null,
                         null,
+                        null,
                         null))
                 .await().indefinitely().id();
     }

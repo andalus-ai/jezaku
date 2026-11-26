@@ -37,7 +37,8 @@ class InMemoryMemoryRepositoryTest {
                 List.of("repo"),
                 "place_repo",
                 Instant.parse("2026-05-30T00:00:00Z"),
-                Instant.parse("2026-05-30T00:00:01Z"));
+                Instant.parse("2026-05-30T00:00:01Z"),
+                null);
 
         repository.save(memory);
         repository.saveAnchorHistory(new MemoryAnchorHistoryRecord(

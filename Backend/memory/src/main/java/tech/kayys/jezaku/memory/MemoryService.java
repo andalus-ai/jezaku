@@ -116,6 +116,7 @@ public class MemoryService {
             String visibility = normalizeVisibility(request.visibility());
             String anchorType = anchorType(request.anchorType());
             String ownerId = requireText(request.ownerId(), "ownerId");
+            String frameStyle = MemoryFrameStyle.normalize(request.frameStyle());
             MemoryMediaReference media = mediaFor(request, ownerId, visibility);
             MemoryRecord memory = new MemoryRecord(
                     id,
@@ -137,7 +138,8 @@ public class MemoryService {
                     normalizeTags(request.tags()),
                     optionalTrim(request.placeId(), null),
                     request.capturedAt() == null ? now : request.capturedAt(),
-                    now);
+                    now,
+                    frameStyle);
             repository.save(memory);
             recordAnchorHistory(memory, memory.ownerId(), "capture", now);
             return toResponse(memory, request.position());
@@ -216,7 +218,8 @@ public class MemoryService {
                     existing.tags(),
                     existing.placeId(),
                     existing.capturedAt(),
-                    existing.createdAt());
+                    existing.createdAt(),
+                    existing.frameStyle());
             repository.save(updated);
             recordAnchorHistory(updated, ownerId, "refinement", Instant.now());
             return toResponse(updated, updated.position());
@@ -477,7 +480,8 @@ public class MemoryService {
                 List.of("campus", "trail"),
                 "place_bandung_campus",
                 now.minusSeconds(480),
-                now.minusSeconds(460)));
+                now.minusSeconds(460),
+                "oak"));
         addSeed(new MemoryRecord(
                 "memory_seed_rooftop",
                 "user_rooftop",
@@ -498,7 +502,8 @@ public class MemoryService {
                 List.of("photo", "rooftop"),
                 "place_rooftop_lane",
                 now.minusSeconds(360),
-                now.minusSeconds(350)));
+                now.minusSeconds(350),
+                "gold"));
         addSeed(new MemoryRecord(
                 "memory_seed_reviewed",
                 "user_reviewed",
@@ -519,7 +524,8 @@ public class MemoryService {
                 List.of("reviewed", "moderation"),
                 "place_review_lane",
                 now.minusSeconds(330),
-                now.minusSeconds(320)));
+                now.minusSeconds(320),
+                null));
         addSeed(new MemoryRecord(
                 "memory_seed_stale_guard",
                 "user_stale_guard",
@@ -540,7 +546,8 @@ public class MemoryService {
                 List.of("reviewed", "stale-guard"),
                 "place_review_lane",
                 now.minusSeconds(315),
-                now.minusSeconds(305)));
+                now.minusSeconds(305),
+                null));
         addSeed(new MemoryRecord(
                 "memory_seed_private",
                 "user_private",
@@ -561,7 +568,8 @@ public class MemoryService {
                 List.of("private"),
                 "place_bandung_campus",
                 now.minusSeconds(300),
-                now.minusSeconds(290)));
+                now.minusSeconds(290),
+                null));
         addSeed(new MemoryRecord(
                 "memory_seed_far",
                 "user_far",
@@ -582,7 +590,8 @@ public class MemoryService {
                 List.of("far"),
                 null,
                 now.minusSeconds(240),
-                now.minusSeconds(230)));
+                now.minusSeconds(230),
+                null));
     }
 
     private void addSeed(MemoryRecord memory) {
@@ -613,6 +622,7 @@ public class MemoryService {
                 memory.visibility(),
                 memory.tags(),
                 memory.placeId(),
+                memory.frameStyle(),
                 memory.capturedAt(),
                 memory.createdAt(),
                 round2(distance),
@@ -640,7 +650,8 @@ public class MemoryService {
                 round2(bearing),
                 offset.x(),
                 offset.y(),
-                memory.capturedAt());
+                memory.capturedAt(),
+                memory.frameStyle());
     }
 
     private MemoryMinimapDot toMinimapDot(MemoryRecord memory, GeoPoint origin, double orientation, double radiusMeters) {
@@ -675,7 +686,8 @@ public class MemoryService {
                 offset.x(),
                 offset.y(),
                 altitudeDeltaMeters(origin.altitudeMeters(), memory.position().altitudeMeters()),
-                memory.capturedAt());
+                memory.capturedAt(),
+                memory.frameStyle());
     }
 
     private MemoryMinimapSummary minimapSummary(
@@ -764,6 +776,7 @@ public class MemoryService {
         }
         validatedPosition(request.position());
         normalizeVisibility(request.visibility());
+        MemoryFrameStyle.normalize(request.frameStyle());
     }
 
     private MemoryMediaReference mediaFor(MemoryCreateRequest request, String ownerId, String visibility) {

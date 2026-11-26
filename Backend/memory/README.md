@@ -42,6 +42,15 @@ Other people's memories are read only on site. With `jezaku.memory.on-site-view.
 
 Anonymous callers (authentication not enforced) are never restricted. The position is client-reported, so this stops browsing rather than a determined spoofer; it sits alongside the audience and moderation checks. The client enforces the same rule in `UI/docs/frame-visibility-and-roadmap.md` (`strict` mode).
 
+### Frame look (`frameStyle`)
+
+`POST /memories` accepts an optional `frameStyle`: the id of the look the owner gave the frame (for example `classic`, `oak`, `gold`). It is returned as `frameStyle` by `GET /memories/{id}`, the nearby dots, and the minimap dots, so other people's clients can draw a frame the way its owner chose; `null` means "use your default look".
+
+- The service stores the id and does not know the catalog. Each client maps ids to looks and falls back to its default for an id it does not know, so new looks, including ones from appearance extensions, need no backend deploy.
+- The value is trimmed and lower-cased. It must be 1-64 characters: letters, digits, `.`, `_` or `-`, starting with a letter or digit (`ext.acme.neon-glass` is valid). Anything else returns 400 `BAD_REQUEST` and nothing is saved. A blank value is stored as `null`.
+- It is cosmetic only: it does not change who can see a frame, where, or whether it is moderated.
+- `PATCH /memories/{id}/anchor` keeps the look as it is. There is no endpoint yet for the owner to change a published frame's look; that is a follow-up, and until then a change made in the app stays on that device.
+
 ### Spatial publishing enforcement
 
 Production defaults to `jezaku.memory.spatial-safety.enforced=true`. Before `POST /memories` persists a frame, and before `PATCH /memories/{id}/anchor` persists a relocation, Memory calls the Safety service's `POST /safety/spatial/evaluate` endpoint with activity `PUBLISH`. `ALLOWED` and `CAUTION` proceed; restricted outcomes return 403. Missing configuration, an unavailable Safety service, or an invalid evaluation response returns 503 and does not save the frame or anchor change.
