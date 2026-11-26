@@ -8,6 +8,9 @@ These instructions apply to the Flutter application in this directory. Also foll
 - Consult `../../docs/admin-console-architecture.md` and `../../docs/admin-console-implementation-plan.md` before substantial changes.
 
 ## Architecture
+- Shared UI foundation: use the pinned `alhambra_ui` package for generic theme and reusable presentation components where appropriate. Keep Jezaku-specific navigation, operator workflows, and domain semantics in this app. Update the pinned Git SHA only through a reviewed dependency change.
+- Do not treat Alhambra UI permission gates or plugin capabilities as backend authorization. Do not add Alhambra Dart identity as a Quarkus backend dependency.
+- Alhambra's compiled Flutter plugin runtime is not a sandbox for arbitrary downloaded marketplace code.
 - Keep the Flutter app as the admin client; do not create a new backend service solely for UI aggregation.
 - Existing Quarkus services remain authoritative for their domains. Identity owns accounts, Safety owns moderation/restriction policy, Commerce owns merchant/campaign truth, and other services retain their documented ownership.
 - Inspect the current manifest and source before adding routing, state management, networking, or UI dependencies.
