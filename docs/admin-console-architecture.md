@@ -106,7 +106,7 @@ Do not add Alhambra as a dependency until its exact revision, SDK constraints, n
 
 The Alhambra Flutter plugin runtime supports compiled host contributions; it is not a sandbox for arbitrary marketplace downloads. Jezaku marketplace extensions require a separately designed isolation boundary, publisher trust, permission review, resource limits and revocation enforcement. See [Alhambra platform integration](alhambra-platform-integration.md) and [ADR-0004](decisions/ADR-0004-alhambra-platform-foundation.md).
 
-## 6. Console information architecture
+## Console information architecture
 
 Top-level navigation is capability- and permission-aware. Hidden navigation is a usability aid, not a security boundary.
 
