@@ -63,6 +63,60 @@ class HttpSpatialSafetyRouteTest {
     }
 
     @Test
+    void acceptsEmptyPolicyChangePageOnlyWhenCursorIsAtHighWaterRevision() {
+        HttpSpatialSafety safety = new HttpSpatialSafety(true,
+                Optional.of("http://safety.internal"), 3);
+        String payload = """
+                {"currentRevision":12,"afterRevision":12,"count":0,"events":[]}
+                """;
+
+        var page = safety.parsePolicyChanges(payload, 12, 10);
+
+        assertEquals(12, page.currentRevision());
+        assertTrue(page.events().isEmpty());
+    }
+
+    @Test
+    void acceptsFullPageWithoutSkippingUnreturnedHighWaterEvents() {
+        HttpSpatialSafety safety = new HttpSpatialSafety(true,
+                Optional.of("http://safety.internal"), 3);
+        String payload = """
+                {
+                  "currentRevision":15,"afterRevision":12,"count":2,
+                  "events":[
+                    {"policyRevision":13,"eventId":"event-13","eventType":"spatial.policy.changed",
+                     "eventVersion":1,"restrictionId":"restriction-a","restrictionVersion":1,"action":"CREATED",
+                     "jurisdiction":"ID.32","outcome":"PROHIBITED","activities":["NAVIGATE"],
+                     "occurredAt":"2026-11-24T01:00:00Z"},
+                    {"policyRevision":14,"eventId":"event-14","eventType":"spatial.policy.changed",
+                     "eventVersion":1,"restrictionId":"restriction-b","restrictionVersion":1,"action":"UPDATED",
+                     "jurisdiction":"ID.32","outcome":"CAUTION","activities":["NAVIGATE"],
+                     "occurredAt":"2026-11-24T01:01:00Z"}
+                  ]
+                }
+                """;
+
+        var page = safety.parsePolicyChanges(payload, 12, 2);
+
+        assertEquals(15, page.currentRevision());
+        assertEquals(14, page.events().getLast().policyRevision());
+        // A consumer must continue from revision 14, not jump to currentRevision 15.
+    }
+
+    @Test
+    void rejectsPolicyChangePagesWhenCountDoesNotMatchEvents() {
+        HttpSpatialSafety safety = new HttpSpatialSafety(true,
+                Optional.of("http://safety.internal"), 3);
+        String payload = """
+                {"currentRevision":12,"afterRevision":12,"count":1,"events":[]}
+                """;
+
+        WebApplicationException failure = assertThrows(WebApplicationException.class,
+                () -> safety.parsePolicyChanges(payload, 12, 10));
+
+        assertEquals(503, failure.getResponse().getStatus());
+    }
+    @Test
     void rejectsPolicyChangePagesWithDuplicateOrOutOfOrderRevisions() {
         HttpSpatialSafety safety = new HttpSpatialSafety(true,
                 Optional.of("http://safety.internal"), 3);
