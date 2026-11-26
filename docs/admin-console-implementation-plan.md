@@ -43,7 +43,7 @@ Tasks:
 4. [x] Add overview placeholders that clearly say not connected/not available instead of displaying fake health data.
 5. [ ] Add common table/list, filter, pagination, detail panel, empty/error/loading and confirmation patterns.
 6. [ ] Add typed environment configuration; never hardcode production URLs or secrets.
-7. [ ] Evaluate and integrate only the required Alhambra UI package(s), pinned to an immutable revision, after SDK/dependency compatibility validation.
+7. [x] Add the required `alhambra_ui` package pinned to an immutable revision; adopt Alhambra theme/card/badge components while preserving Jezaku navigation. [ ] Confirm clean-checkout dependency resolution, analyzer, widget tests and supported target builds in CI.
 8. [ ] Execute and extend tests for shell, responsive navigation, unavailable modules, and auth boundary states.
 
 Exit criteria:
