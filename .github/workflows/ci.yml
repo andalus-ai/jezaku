@@ -55,6 +55,22 @@ jobs:
       - run: flutter test
         if: ${{ !cancelled() }}
 
+  flutter-admin:
+    name: Flutter Jezaku Admin
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: UI/jezaku_admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test
+
   rust-ar-core:
     name: Rust ar-core
     runs-on: ubuntu-latest
