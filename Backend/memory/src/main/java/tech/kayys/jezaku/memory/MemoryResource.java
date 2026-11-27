@@ -27,6 +27,7 @@ import tech.kayys.jezaku.contract.MediaMemorySnapshotContracts.MemoryMediaSnapsh
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryAnchorHistoryResponse;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryAnchorUpdateRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryCreateRequest;
+import tech.kayys.jezaku.memory.MemoryDtos.MemoryDetailsUpdateRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryFeedResponse;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryFrameStyleUpdateRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryMediaSnapshotUpdateRequest;
@@ -88,6 +89,16 @@ public class MemoryResource {
             MemoryAnchorUpdateRequest request) {
         self(request == null ? null : request.ownerId());
         return service.updateAnchor(id, request);
+    }
+
+    /** The owner changes the caption and/or audience of a published frame; a missing field stays as it is. */
+    @PATCH
+    @Path("/{id}/details")
+    public Uni<MemoryResponse> updateDetails(
+            @PathParam("id") String id,
+            MemoryDetailsUpdateRequest request) {
+        self(request == null ? null : request.ownerId());
+        return service.updateDetails(id, request);
     }
 
     /** The owner changes the look of a published frame. A blank {@code frameStyle} restores the default. */

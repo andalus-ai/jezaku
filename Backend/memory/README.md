@@ -51,6 +51,7 @@ Anonymous callers (authentication not enforced) are never restricted. The positi
 - It is cosmetic only: it does not change who can see a frame, where, or whether it is moderated.
 - `PATCH /memories/{id}/anchor` keeps the look as it is.
 - `PATCH /memories/{id}/frame-style` with `{"ownerId": "...", "frameStyle": "gold"}` lets the **owner** change a published frame's look. The value follows the same rules as on create (invalid → 400 and the old look stays); `null` or a blank value restores the default look. Only the owner may call it (403 otherwise, 404 for an unknown frame). It touches nothing else: placement, audience and moderation stay as they are, so no spatial check runs. The response is the updated frame, like the anchor update.
+- `PATCH /memories/{id}/details` with `{"ownerId": "...", "caption": "...", "visibility": "friends"}` lets the **owner** change a published frame's caption and/or audience; a missing field stays as it is, at least one is required (400 otherwise), a blank caption clears it, and an invalid or blank `visibility` is a 400 (a blank value never falls back to `public`). Making a frame **public** needs an approved photo, as on create (`public memory media must be approved`), unless it uses an external URL; narrowing to friends/private is always allowed. 403 for anyone but the owner, 404 for an unknown frame. Placement, photo and look are untouched.
 
 ### Spatial publishing enforcement
 

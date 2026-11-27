@@ -16,6 +16,7 @@ import tech.kayys.jezaku.memory.MemoryDtos.MemoryAnchorHistoryEntry;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryAnchorHistoryResponse;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryAnchorUpdateRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryCreateRequest;
+import tech.kayys.jezaku.memory.MemoryDtos.MemoryDetailsUpdateRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryFeedResponse;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryFrameStyleUpdateRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryMediaSnapshotUpdateRequest;
@@ -223,6 +224,46 @@ public class MemoryService {
                     existing.frameStyle());
             repository.save(updated);
             recordAnchorHistory(updated, ownerId, "refinement", Instant.now());
+            return toResponse(updated, updated.position());
+        });
+    }
+
+    /**
+     * Changes the caption and/or audience of a published frame. Only the owner may. Placement and the photo are
+     * not touched. Making a frame public needs an approved photo, as on create; narrowing the audience is always
+     * allowed.
+     */
+    public Uni<MemoryResponse> updateDetails(String id, MemoryDetailsUpdateRequest request) {
+        return Uni.createFrom().item(() -> {
+            if (request == null) {
+                throw new BadRequestException("Request body is required");
+            }
+            String ownerId = requireText(request.ownerId(), "ownerId");
+            if (request.caption() == null && request.visibility() == null) {
+                throw new BadRequestException("caption or visibility is required");
+            }
+            if (request.visibility() != null && request.visibility().isBlank()) {
+                // A blank value must never fall back to the create default (public) and widen the audience.
+                throw new BadRequestException("visibility must be public, friends, or private");
+            }
+            String visibility = request.visibility() == null ? null : normalizeVisibility(request.visibility());
+            MemoryRecord existing = repository.findById(id);
+            if (existing == null) {
+                throw new NotFoundException("Memory not found: " + id);
+            }
+            if (!existing.ownerId().equals(ownerId)) {
+                throw new ForbiddenException("Only the memory owner can change the memory");
+            }
+            String newVisibility = visibility == null ? existing.visibility() : visibility;
+            if ("public".equals(newVisibility)
+                    && !"public".equals(existing.visibility())
+                    && existing.mediaId() != null
+                    && !"approved".equals(existing.moderationStatus())) {
+                throw new BadRequestException("public memory media must be approved");
+            }
+            String newCaption = request.caption() == null ? existing.caption() : optionalTrim(request.caption(), "");
+            MemoryRecord updated = existing.withDetails(newCaption, newVisibility);
+            repository.save(updated);
             return toResponse(updated, updated.position());
         });
     }

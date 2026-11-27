@@ -57,6 +57,24 @@ class MemoryOwnershipTest {
     }
 
     @Test
+    void onlyTheOwnerCanChangeTheCaptionAndAudience() {
+        String me = "me_" + UUID.randomUUID();
+        String id = create(me, "public");
+
+        given().header("Authorization", tokenFor("intruder")).contentType(ContentType.JSON)
+                .body("{\"ownerId\": \"%s\", \"caption\": \"hijacked\"}".formatted(me))
+                .when().patch("/memories/{id}/details", id).then().statusCode(403);
+        given().header("Authorization", tokenFor("intruder")).contentType(ContentType.JSON)
+                .body("{\"ownerId\": \"intruder\", \"visibility\": \"private\"}")
+                .when().patch("/memories/{id}/details", id).then().statusCode(403);
+
+        given().header("Authorization", tokenFor(me)).contentType(ContentType.JSON)
+                .body("{\"ownerId\": \"%s\", \"visibility\": \"friends\"}".formatted(me))
+                .when().patch("/memories/{id}/details", id).then().statusCode(200)
+                .body("visibility", equalTo("friends"));
+    }
+
+    @Test
     void onlyTheOwnerCanChangeTheFrameLook() {
         String me = "me_" + UUID.randomUUID();
         String id = create(me, "public");

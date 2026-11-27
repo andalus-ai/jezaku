@@ -64,6 +64,10 @@ public final class MemoryDtos {
             String anchorType) {
     }
 
+    /** Caption and audience of a published frame; a null field is left as it is. */
+    public record MemoryDetailsUpdateRequest(String ownerId, String caption, String visibility) {
+    }
+
     /** {@code frameStyle} null or blank returns the frame to the client's default look. */
     public record MemoryFrameStyleUpdateRequest(String ownerId, String frameStyle) {
     }
