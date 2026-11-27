@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/home/models/anchor_journey_step.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
@@ -11,6 +13,7 @@ import 'package:jejaku/features/home/states/viewer_location_provider.dart';
 import 'package:jejaku/features/home/states/sample_data_provider.dart';
 import 'package:jejaku/features/sync/models/anchor_media_sync_manifest.dart';
 import 'package:jejaku/features/sync/states/anchor_media_upload_queue_provider.dart';
+import 'package:jejaku/features/sync/states/frame_outbox_controller.dart';
 
 const viewerLatitude = fallbackViewerLatitude;
 const viewerLongitude = fallbackViewerLongitude;
@@ -204,6 +207,11 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
           .queueMedia(memory, queuedAt: resolvedCapturedAt);
     }
     _persistLocalMemories();
+    // Sends the frame to the server when this build has one; otherwise a
+    // no-op and the frame simply stays on the device.
+    unawaited(
+      ref.read(frameOutboxControllerProvider.notifier).enqueue(memory.id),
+    );
     return memory;
   }
 
@@ -431,6 +439,26 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
           memory,
     ];
     _persistLocalMemories();
+  }
+
+  /// Shows that sending this frame failed and needs the person to decide.
+  void markMemorySyncFailed(String memoryId) {
+    var changed = false;
+    state = [
+      for (final memory in state)
+        if (memory.id == memoryId &&
+            memory.syncStatus != AnchorSyncStatus.synced &&
+            memory.syncStatus != AnchorSyncStatus.failed)
+          () {
+            changed = true;
+            return memory.copyWith(syncStatus: AnchorSyncStatus.failed);
+          }()
+        else
+          memory,
+    ];
+    if (changed) {
+      _persistLocalMemories();
+    }
   }
 
   void markAllPendingSynced() {

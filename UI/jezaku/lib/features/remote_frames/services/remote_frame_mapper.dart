@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:jejaku/features/frame_styles/models/frame_look.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/remote_frames/models/remote_frame.dart';
 
@@ -46,6 +47,9 @@ class RemoteFrameMapper {
       moderationStatus: _moderation(frame.moderationStatus),
       audience: frame.audience,
       ownerId: frame.ownerId,
+      // The author's look. An id this build does not know renders as the
+      // classic look (frameLookById); the colour override is not synced.
+      frameLookId: frame.frameStyle ?? defaultFrameLookId,
     );
   }
 

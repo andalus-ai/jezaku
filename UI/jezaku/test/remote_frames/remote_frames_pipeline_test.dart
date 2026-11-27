@@ -20,6 +20,7 @@ import 'package:jejaku/features/remote_frames/services/remote_media_loader.dart'
 import 'package:jejaku/features/remote_frames/states/memory_api_provider.dart';
 import 'package:jejaku/features/remote_frames/states/remote_frames_controller.dart';
 import 'package:jejaku/features/remote_frames/states/viewer_anchors_provider.dart';
+import 'package:jejaku/features/sync/outbox/frame_publisher.dart';
 
 class _FakeApi implements MemoryApi {
   Future<List<RemoteFrame>> Function()? onNearby;
@@ -43,6 +44,10 @@ class _FakeApi implements MemoryApi {
 
   @override
   Future<List<RemoteFrame>> userMemories(String userId) => throw UnimplementedError();
+
+  @override
+  Future<String> create(FramePublishJob job, {required String mediaId}) =>
+      throw UnimplementedError();
 }
 
 class _FakeLoader implements RemoteMediaLoader {

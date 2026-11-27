@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:jejaku/features/api/api_failure.dart';
 import 'package:jejaku/features/remote_frames/models/remote_frame.dart';
+import 'package:jejaku/features/sync/outbox/frame_publisher.dart';
 
 /// Reads frames from the memory service. The service decides what the caller
 /// may see (friends, on-site radius); this client only asks and parses.
@@ -40,6 +41,39 @@ class MemoryApi {
       throw const ApiFailure(ApiFailureReason.server);
     }
     return _frames(body['memories']);
+  }
+
+  /// Creates the frame for [job] with an already uploaded photo
+  /// (`POST /memories`) and returns the frame's id on the server.
+  Future<String> create(FramePublishJob job, {required String mediaId}) async {
+    final body = await postJson(
+      _dio,
+      '/memories',
+      body: <String, Object?>{
+        'ownerId': job.ownerId,
+        'mediaId': mediaId,
+        'caption': job.caption,
+        'position': <String, Object?>{
+          'latitude': job.latitude,
+          'longitude': job.longitude,
+          if (job.altitudeMeters != null) 'altitudeMeters': job.altitudeMeters,
+        },
+        if (job.headingDegrees != null) 'headingDegrees': job.headingDegrees,
+        if (job.pitchDegrees != null) 'pitchDegrees': job.pitchDegrees,
+        if (job.rollDegrees != null) 'rollDegrees': job.rollDegrees,
+        if (job.gpsAccuracyMeters != null)
+          'gpsAccuracyMeters': job.gpsAccuracyMeters,
+        'anchorType': job.anchorType,
+        'visibility': job.visibility,
+        'frameStyle': job.frameStyle,
+        'capturedAt': job.capturedAt.toUtc().toIso8601String(),
+      },
+    );
+    final id = body is Map ? body['id'] : null;
+    if (id is! String || id.isEmpty) {
+      throw const ApiFailure(ApiFailureReason.server);
+    }
+    return id;
   }
 
   List<RemoteFrame> _frames(Object? list) {
