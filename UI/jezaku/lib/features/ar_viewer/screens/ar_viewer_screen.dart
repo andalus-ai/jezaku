@@ -35,6 +35,7 @@ import 'package:jejaku/features/ar_viewer/services/ar_viewer_health_policy.dart'
 import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_hosting_service.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_recording_coordinator.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_visual_frame_capturer.dart';
+import 'package:jejaku/features/ar_viewer/services/cloud_anchor_host_coordinator.dart';
 import 'package:jejaku/features/ar_viewer/services/cloud_anchor_scheduler.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_geospatial_quality_monitor.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
@@ -171,7 +172,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   JejakuGeoOrigin _latestNativeSceneOrigin = _viewerOrigin;
   Set<String> _unsupportedNativeSessionFeatureKeys = const <String>{};
   ARSessionReadiness? _latestSessionReadiness;
-  final Set<String> _cloudAnchorHostInFlightMemoryIds = <String>{};
+  final CloudAnchorHostCoordinator _cloudAnchorHost =
+      CloudAnchorHostCoordinator();
   final GlobalKey _arVisualOverlayRecordingBoundaryKey = GlobalKey(
     debugLabel: 'ar_visual_overlay_recording_boundary',
   );
@@ -707,7 +709,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _poseTracker.stop();
     unawaited(_arCameraSubscription?.cancel());
     _arCameraSubscription = null;
-    _cloudAnchorHostInFlightMemoryIds.clear();
+    _cloudAnchorHost.clear();
     final diagnosticsController = _diagnosticsController;
     final diagnosticsSessionId = _diagnosticsSessionId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1439,7 +1441,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       if (hadNativeSession) {
         _scheduleCaptureDetach();
       }
-      _cloudAnchorHostInFlightMemoryIds.clear();
+      _cloudAnchorHost.clear();
       _scheduleNativeSceneDiagnosticsReset();
     }
     if (plan.scheduleCloudAnchorMaintenance) {
@@ -1600,41 +1602,26 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     required JejakuMemorySceneSyncResult sceneResult,
     required List<AnchorMemory> memories,
   }) async {
-    if (sceneResult.isPlacementDeferred) {
-      return const ARMemoryCloudAnchorHostingResult();
-    }
-    if (!_nativeCloudAnchorsEnabled) {
-      return const ARMemoryCloudAnchorHostingResult();
-    }
     final manager = _nativeCloudAnchorManager;
-    if (manager == null) {
+    if (sceneResult.isPlacementDeferred ||
+        !_nativeCloudAnchorsEnabled ||
+        manager == null) {
       return const ARMemoryCloudAnchorHostingResult();
     }
-
-    final hostable = [
-      for (final placed in sceneResult.active)
-        if (!_cloudAnchorHostInFlightMemoryIds.contains(placed.memory.id))
-          placed,
-    ];
-    if (hostable.isEmpty) {
-      return const ARMemoryCloudAnchorHostingResult();
-    }
-
-    _cloudAnchorHostInFlightMemoryIds.addAll(
-      hostable.map((placed) => placed.memory.id),
-    );
-    ARMemoryCloudAnchorHostingResult hostingResult =
-        const ARMemoryCloudAnchorHostingResult();
-    try {
-      hostingResult =
-          await _cloudAnchorHostingService.hostMissingCloudAnchorsWithReport(
+    return _cloudAnchorHost.host(
+      active: sceneResult.active,
+      hostCall: (hostable) =>
+          _cloudAnchorHostingService.hostMissingCloudAnchorsWithReport(
         manager: manager,
         memories: memories,
         placedMemories: hostable,
-      );
-      if (mounted && hostingResult.records.isNotEmpty) {
+      ),
+      onRecords: (records) {
+        if (!mounted) {
+          return;
+        }
         final controller = ref.read(nearbyAnchorsProvider.notifier);
-        for (final record in hostingResult.records) {
+        for (final record in records) {
           controller.attachCloudAnchorRecord(
             memoryId: record.memoryId,
             localAnchorId: record.localAnchorId,
@@ -1642,25 +1629,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
             expiresAt: record.expiresAt,
           );
         }
-      }
-    } catch (_) {
-      final failedMemoryIds = {
-        for (final placed in hostable) placed.memory.id,
-      };
-      hostingResult = ARMemoryCloudAnchorHostingResult(
-        failedMemoryIds: failedMemoryIds,
-        failureReasons: <String, ARMemoryCloudAnchorHostingFailureReason>{
-          for (final memoryId in failedMemoryIds)
-            memoryId: ARMemoryCloudAnchorHostingFailureReason.nativeError,
-        },
-      );
-      // Native cloud persistence is opportunistic; placement still works.
-    } finally {
-      _cloudAnchorHostInFlightMemoryIds.removeAll(
-        hostable.map((placed) => placed.memory.id),
-      );
-    }
-    return hostingResult;
+      },
+    );
   }
 
   void _resyncNativeScene() {
