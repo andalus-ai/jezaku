@@ -128,6 +128,7 @@ Map<String, Object?> _memoryToJson(AnchorMemory memory) {
     'frameColor': memory.frameColorValue,
     'serverMemoryId': memory.serverMemoryId,
     'serverFrameLook': memory.serverFrameLookId,
+    'serverAudience': memory.serverAudience?.name,
     'allowComments': memory.allowComments,
     'hasArExperience': memory.hasArExperience,
     'captureMetadata': _captureMetadataToJson(memory.captureMetadata),
@@ -183,6 +184,7 @@ AnchorMemory? _memoryFromJson(Map<String, Object?> json) {
     serverFrameLookId: json['serverFrameLook'] is String
         ? json['serverFrameLook']! as String
         : null,
+    serverAudience: _serverAudience(json['serverAudience']),
     allowComments: _bool(json['allowComments'], fallback: true),
     hasArExperience: _bool(json['hasArExperience'], fallback: true),
     captureMetadata: _captureMetadataFromJson(
@@ -352,4 +354,14 @@ T _enumByName<T extends Enum>(List<T> values, Object? name, T fallback) {
     }
   }
   return fallback;
+}
+
+/// The audience the service holds, or null when it was never recorded.
+FrameAudience? _serverAudience(Object? value) {
+  for (final audience in FrameAudience.values) {
+    if (audience.name == value) {
+      return audience;
+    }
+  }
+  return null;
 }

@@ -1081,7 +1081,7 @@ class _SyncMemoryCard extends ConsumerWidget {
   }
 
   IconData _iconForSync(AnchorMemory memory) {
-    if (memory.syncReason == AnchorSyncReason.metadataUpdate &&
+    if (memory.syncReason.isUpdate &&
         memory.syncStatus != AnchorSyncStatus.synced) {
       return Icons.edit_note;
     }
@@ -1095,7 +1095,7 @@ class _SyncMemoryCard extends ConsumerWidget {
   }
 
   bool _hasPendingMetadataUpdate(AnchorMemory memory) {
-    return memory.syncReason == AnchorSyncReason.metadataUpdate &&
+    return memory.syncReason.isUpdate &&
         memory.syncStatus != AnchorSyncStatus.synced;
   }
 

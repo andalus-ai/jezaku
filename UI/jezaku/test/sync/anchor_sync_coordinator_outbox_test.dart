@@ -32,14 +32,15 @@ void main() {
     expect(storedFrame(container, memory.id).syncStatus, AnchorSyncStatus.synced);
   });
 
-  test('edits to frames already on the server are not claimed as synced', () {
+  test('edits the server cannot take yet are not claimed as synced', () {
     final container = outboxContainer(publisher: OutboxTestPublisher());
     final memory = captureFrame(container);
     final notifier = container.read(nearbyAnchorsProvider.notifier);
     notifier.markMemorySynced(memory.id);
+    // This frame has no id on the server, so even its audience cannot be sent.
     notifier.togglePrivacy(memory.id);
     final edited = storedFrame(container, memory.id);
-    expect(edited.syncReason, AnchorSyncReason.metadataUpdate);
+    expect(edited.syncReason, AnchorSyncReason.audienceUpdate);
 
     final outcome = container
         .read(anchorSyncCoordinatorProvider)
@@ -49,7 +50,7 @@ void main() {
     expect(outcome.message, contains('cannot be sent yet'));
     final after = storedFrame(container, memory.id);
     expect(after.syncStatus, AnchorSyncStatus.queued);
-    expect(after.syncReason, AnchorSyncReason.metadataUpdate);
+    expect(after.syncReason, AnchorSyncReason.audienceUpdate);
   });
 
   test('a build without a server keeps the device-only behaviour', () {

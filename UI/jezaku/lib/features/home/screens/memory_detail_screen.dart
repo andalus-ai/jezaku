@@ -315,7 +315,7 @@ class MemoryDetailScreen extends ConsumerWidget {
     if (memory.syncStatus == AnchorSyncStatus.synced) {
       return Icons.cloud_done;
     }
-    if (memory.syncReason == AnchorSyncReason.metadataUpdate) {
+    if (memory.syncReason.isUpdate) {
       return Icons.edit_note;
     }
     return Icons.cloud_upload_outlined;
@@ -714,7 +714,7 @@ IconData _syncIconForMemory(AnchorMemory memory) {
   if (memory.syncStatus == AnchorSyncStatus.synced) {
     return Icons.cloud_done;
   }
-  if (memory.syncReason == AnchorSyncReason.metadataUpdate) {
+  if (memory.syncReason.isUpdate) {
     return Icons.edit_note;
   }
   if (memory.syncStatus == AnchorSyncStatus.failed) {

@@ -86,7 +86,7 @@ final pendingMetadataSyncMemoriesProvider = Provider<List<AnchorMemory>>((ref) {
       .where(
         (memory) =>
             memory.syncStatus != AnchorSyncStatus.synced &&
-            memory.syncReason == AnchorSyncReason.metadataUpdate,
+            memory.syncReason.isUpdate,
       )
       .toList();
 });
@@ -263,19 +263,34 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
     }
   }
 
+  /// Flips a frame between "Only me" and public. For a frame that is already
+  /// published the change is sent to the service (now, or on a later pass when
+  /// offline) and the frame shows as waiting until then.
   void togglePrivacy(String memoryId) {
     state = [
       for (final memory in state)
-        if (memory.id == memoryId)
-          memory.copyWith(
-            isPrivate: !memory.isPrivate,
-            syncStatus: _syncStatusAfterLocalChange(memory.syncStatus),
-            syncReason: _syncReasonAfterLocalChange(memory.syncReason),
-          )
-        else
-          memory,
+        if (memory.id == memoryId) _withAudienceToggled(memory) else memory,
     ];
     _persistLocalMemories();
+    unawaited(ref.read(frameOutboxControllerProvider.notifier).syncDetails());
+  }
+
+  AnchorMemory _withAudienceToggled(AnchorMemory memory) {
+    final toggled = memory.copyWith(isPrivate: !memory.isPrivate);
+    // Back to what the service already has: nothing is left to send.
+    if (memory.syncReason == AnchorSyncReason.audienceUpdate &&
+        toggled.audience == memory.serverAudience) {
+      return toggled.copyWith(
+        syncStatus: AnchorSyncStatus.synced,
+        syncReason: AnchorSyncReason.none,
+      );
+    }
+    return toggled.copyWith(
+      syncStatus: _syncStatusAfterLocalChange(memory.syncStatus),
+      syncReason: memory.syncReason == AnchorSyncReason.none
+          ? AnchorSyncReason.audienceUpdate
+          : memory.syncReason,
+    );
   }
 
   /// Changes how a frame looks. A look change is cosmetic: it does not queue
@@ -449,6 +464,7 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
     String memoryId, {
     required String serverMemoryId,
     String? serverFrameLookId,
+    FrameAudience? serverAudience,
   }) {
     state = [
       for (final memory in state)
@@ -458,6 +474,7 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
             syncReason: AnchorSyncReason.none,
             serverMemoryId: serverMemoryId,
             serverFrameLookId: serverFrameLookId,
+            serverAudience: serverAudience,
           )
         else
           memory,
@@ -475,6 +492,34 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
           memory,
     ];
     _persistLocalMemories();
+  }
+
+  /// The service now holds [audience] for this frame. When that is what the
+  /// frame says and it was the only change waiting, the frame is synced.
+  void markFrameAudienceSynced(String memoryId, FrameAudience audience) {
+    state = [
+      for (final memory in state)
+        if (memory.id == memoryId)
+          _withAudienceSynced(memory, audience)
+        else
+          memory,
+    ];
+    _persistLocalMemories();
+  }
+
+  AnchorMemory _withAudienceSynced(
+    AnchorMemory memory,
+    FrameAudience audience,
+  ) {
+    final synced = memory.copyWith(serverAudience: audience);
+    if (memory.syncReason == AnchorSyncReason.audienceUpdate &&
+        memory.audience == audience) {
+      return synced.copyWith(
+        syncStatus: AnchorSyncStatus.synced,
+        syncReason: AnchorSyncReason.none,
+      );
+    }
+    return synced;
   }
 
   /// Shows that sending this frame failed and needs the person to decide.

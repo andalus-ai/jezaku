@@ -401,14 +401,16 @@ class AnchorSyncPayloadBuilder {
         allowComments: memory.allowComments,
         hasArExperience: memory.hasArExperience,
       ),
-      syncReason: memory.syncReason.name,
+      syncReason: memory.syncReason.payloadName,
       media: _mediaPayload(memory.mediaAttachment),
     );
   }
 
   String _operationFor(AnchorSyncReason reason) {
     return switch (reason) {
-      AnchorSyncReason.metadataUpdate => 'metadata_update',
+      AnchorSyncReason.metadataUpdate ||
+      AnchorSyncReason.audienceUpdate =>
+        'metadata_update',
       AnchorSyncReason.none || AnchorSyncReason.newCapture => 'create_memory',
     };
   }

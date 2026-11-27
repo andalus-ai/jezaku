@@ -36,6 +36,7 @@ class AnchorMemory {
     this.frameColorValue,
     this.serverMemoryId,
     this.serverFrameLookId,
+    this.serverAudience,
     this.allowComments = true,
     this.hasArExperience = true,
   }) : audience = audience ??
@@ -87,6 +88,16 @@ class AnchorMemory {
   bool get needsFrameLookSync =>
       serverMemoryId != null && serverFrameLookId != frameLookId;
 
+  /// Who the service is known to share the frame with, or null when that is
+  /// not known. Compared with [audience] to see whether a change still has to
+  /// be sent.
+  final FrameAudience? serverAudience;
+
+  /// Whether the owner changed who a published frame is shared with and the
+  /// service has not been told yet.
+  bool get needsAudienceSync =>
+      serverMemoryId != null && serverAudience != audience;
+
   final bool allowComments;
   final bool hasArExperience;
 
@@ -117,6 +128,7 @@ class AnchorMemory {
     Object? frameColorValue = _unchanged,
     Object? serverMemoryId = _unchanged,
     Object? serverFrameLookId = _unchanged,
+    Object? serverAudience = _unchanged,
     bool? allowComments,
     bool? hasArExperience,
   }) {
@@ -155,6 +167,9 @@ class AnchorMemory {
       serverFrameLookId: identical(serverFrameLookId, _unchanged)
           ? this.serverFrameLookId
           : serverFrameLookId as String?,
+      serverAudience: identical(serverAudience, _unchanged)
+          ? this.serverAudience
+          : serverAudience as FrameAudience?,
       allowComments: allowComments ?? this.allowComments,
       hasArExperience: hasArExperience ?? this.hasArExperience,
     );
@@ -186,16 +201,13 @@ class AnchorMemory {
   String get syncStatusLabel {
     return switch (syncStatus) {
       AnchorSyncStatus.synced => 'Synced',
-      AnchorSyncStatus.uploading
-          when syncReason == AnchorSyncReason.metadataUpdate =>
+      AnchorSyncStatus.uploading when syncReason.isUpdate =>
         'Updating metadata',
       AnchorSyncStatus.uploading => 'Uploading',
-      AnchorSyncStatus.queued
-          when syncReason == AnchorSyncReason.metadataUpdate =>
+      AnchorSyncStatus.queued when syncReason.isUpdate =>
         'Queued update',
       AnchorSyncStatus.queued => 'Queued upload',
-      AnchorSyncStatus.failed
-          when syncReason == AnchorSyncReason.metadataUpdate =>
+      AnchorSyncStatus.failed when syncReason.isUpdate =>
         'Update failed',
       AnchorSyncStatus.failed => 'Upload failed',
     };
@@ -853,15 +865,32 @@ enum AnchorSyncStatus {
 enum AnchorSyncReason {
   none,
   newCapture,
-  metadataUpdate;
+  metadataUpdate,
+
+  /// The only change waiting is who the frame is shared with. That one can be
+  /// sent to the service, so the frame becomes synced when it has been.
+  audienceUpdate;
 
   String get label {
     return switch (this) {
       AnchorSyncReason.none => 'No local changes',
       AnchorSyncReason.newCapture => 'New memory upload',
       AnchorSyncReason.metadataUpdate => 'Metadata update',
+      AnchorSyncReason.audienceUpdate => 'Audience update',
     };
   }
+
+  /// An edit to a frame that already exists (as opposed to a new upload).
+  bool get isUpdate =>
+      this == AnchorSyncReason.metadataUpdate ||
+      this == AnchorSyncReason.audienceUpdate;
+
+  /// The name sync payloads carry. An audience update is a metadata update to
+  /// anything reading the payload.
+  String get payloadName => switch (this) {
+        AnchorSyncReason.audienceUpdate => AnchorSyncReason.metadataUpdate.name,
+        _ => name,
+      };
 }
 
 class AnchorCaptureMetadata {
