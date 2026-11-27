@@ -278,8 +278,9 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
     _persistLocalMemories();
   }
 
-  /// Changes how a frame looks. A look change is local and cosmetic: it does
-  /// not queue the frame for upload.
+  /// Changes how a frame looks. A look change is cosmetic: it does not queue
+  /// the frame for upload. For a frame that is already published the new look
+  /// is sent to the service (now, or on a later pass when offline).
   void updateFrameStyle({
     required String memoryId,
     required String lookId,
@@ -293,6 +294,7 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
           memory,
     ];
     _persistLocalMemories();
+    unawaited(ref.read(frameOutboxControllerProvider.notifier).syncLooks());
   }
 
   void updateManualCorrection({
@@ -435,6 +437,40 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
       for (final memory in state)
         if (memory.id == memoryId)
           memory.copyWith(syncStatus: AnchorSyncStatus.queued)
+        else
+          memory,
+    ];
+    _persistLocalMemories();
+  }
+
+  /// The outbox published this frame: it is synced, and remembers its id on
+  /// the service and the look the service was sent with.
+  void markMemoryPublished(
+    String memoryId, {
+    required String serverMemoryId,
+    String? serverFrameLookId,
+  }) {
+    state = [
+      for (final memory in state)
+        if (memory.id == memoryId)
+          memory.copyWith(
+            syncStatus: AnchorSyncStatus.synced,
+            syncReason: AnchorSyncReason.none,
+            serverMemoryId: serverMemoryId,
+            serverFrameLookId: serverFrameLookId,
+          )
+        else
+          memory,
+    ];
+    _persistLocalMemories();
+  }
+
+  /// The service now holds [lookId] for this frame.
+  void markFrameLookSynced(String memoryId, String lookId) {
+    state = [
+      for (final memory in state)
+        if (memory.id == memoryId)
+          memory.copyWith(serverFrameLookId: lookId)
         else
           memory,
     ];

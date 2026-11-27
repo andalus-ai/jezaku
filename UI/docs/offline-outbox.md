@@ -14,7 +14,8 @@ A frame is always saved on the device first. The outbox is what later sends it t
 | Sync queue no longer fakes "Synced" | Done when the build has both service URLs: Sync All / Send Now hand frames to the outbox, and a frame shows synced only when the server has it. Builds without the URLs keep the old device-only behaviour |
 | Frames saved before the outbox existed | Picked up on sign-in if they are still "queued", have a photo-type attachment and belong to the signed-in user (or have no owner) |
 | Recordings and 3D objects | Not uploaded yet: held as `unsupported`, shown as not sent |
-| Edits to a frame already on the server (privacy, caption, look, placement) | **Not sent**: the sync queue says so instead of marking them synced |
+| Look change of a published frame | Sent with `PATCH /memories/{id}/frame-style` (`FrameLookSyncer`): right after the change, and after every outbox pass, so a change made offline goes out later. The frame remembers its server id and the look the server holds (`serverMemoryId`, `serverFrameLookId`) on the device. A frame the service refuses (for example removed) is skipped. Colour is not synced |
+| Other edits to a frame already on the server (privacy, caption, placement) | **Not sent**: the sync queue says so instead of marking them synced |
 | Real device / real network / real services validation | **Not done** |
 
 ## Turning it on
@@ -63,3 +64,4 @@ Build with `JEZAKU_MEMORY_URL`, `JEZAKU_MEDIA_URL` and `JEZAKU_IDENTITY_URL`, si
 - [ ] A **public** frame: it shows "Photo is being checked" until moderation approves the photo, then is created by itself.
 - [ ] Sign out with a frame waiting: it shows "Sign in to send" and is sent after signing in again; signing in as a different user does not send the first user's frame as theirs.
 - [ ] A refused frame (for example the service stopped, or the photo rejected): "Try again" and "Stop sending" both work, and "Stop sending" keeps the frame on the device.
+- [ ] Change the look of a published frame with airplane mode on, then back online: `GET /memories/{id}` returns the new `frameStyle` after the app is brought to the foreground; another device sees the frame in the new look.

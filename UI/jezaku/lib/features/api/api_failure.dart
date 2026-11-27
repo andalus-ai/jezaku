@@ -71,6 +71,26 @@ Future<Object?> postJson(
   return _checked(response);
 }
 
+/// `PATCH`es [body] as JSON to [path] and returns the decoded JSON answer,
+/// with the same failure mapping as [getJson].
+Future<Object?> patchJson(
+  Dio dio,
+  String path, {
+  Object? body,
+}) async {
+  final Response<Object?> response;
+  try {
+    response = await dio.patch<Object?>(
+      path,
+      data: body,
+      options: Options(validateStatus: (_) => true),
+    );
+  } on DioException {
+    throw const ApiFailure(ApiFailureReason.network);
+  }
+  return _checked(response);
+}
+
 Object? _checked(Response<Object?> response) {
   final status = response.statusCode ?? 0;
   if (status == 401 || status == 403) {

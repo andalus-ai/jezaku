@@ -48,6 +48,14 @@ class _FakeApi implements MemoryApi {
   @override
   Future<String> create(FramePublishJob job, {required String mediaId}) =>
       throw UnimplementedError();
+
+  @override
+  Future<void> updateFrameStyle({
+    required String serverMemoryId,
+    required String ownerId,
+    required String frameStyle,
+  }) =>
+      throw UnimplementedError();
 }
 
 class _FakeLoader implements RemoteMediaLoader {

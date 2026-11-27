@@ -6,7 +6,9 @@ import 'package:jejaku/features/home/states/anchor_providers.dart';
 import 'package:jejaku/features/remote_frames/states/memory_api_provider.dart';
 import 'package:jejaku/features/sync/outbox/anchor_memory_job_source.dart';
 import 'package:jejaku/features/sync/outbox/api_frame_publisher.dart';
+import 'package:jejaku/features/sync/outbox/frame_look_syncer.dart';
 import 'package:jejaku/features/sync/outbox/frame_outbox_processor.dart';
+import 'package:jejaku/features/sync/outbox/frame_publisher.dart';
 import 'package:jejaku/features/sync/outbox/media_api.dart';
 import 'package:jejaku/features/sync/outbox/outbox_store.dart';
 import 'package:jejaku/features/sync/services/local_first_sync_runtime.dart';
@@ -58,17 +60,61 @@ final frameOutboxProcessorProvider = Provider<FrameOutboxProcessor?>((ref) {
       !ref.watch(localFirstSyncRuntimeProvider).canFlushToServer) {
     return null;
   }
+  // The look each frame was sent with, so that a look changed while it was
+  // being sent is still sent afterwards.
+  final lookSent = <String, String>{};
   return FrameOutboxProcessor(
     store: ref.watch(frameOutboxStoreProvider),
     publisher: ApiFramePublisher(mediaApi: mediaApi, memoryApi: memoryApi),
     // Read lazily: the frames and their photos are looked up at send time.
-    jobs: AnchorMemoryJobSource(
-      memories: () => ref.read(nearbyAnchorsProvider),
-      mediaBytes: (mediaId) =>
-          ref.read(anchorMediaRepositoryProvider).mediaById(mediaId)?.bytes,
+    jobs: _LookRecordingJobs(
+      AnchorMemoryJobSource(
+        memories: () => ref.read(nearbyAnchorsProvider),
+        mediaBytes: (mediaId) =>
+            ref.read(anchorMediaRepositoryProvider).mediaById(mediaId)?.bytes,
+      ),
+      lookSent,
     ),
     onPublished: (memoryId, serverMemoryId) async {
-      ref.read(nearbyAnchorsProvider.notifier).markMemorySynced(memoryId);
+      ref.read(nearbyAnchorsProvider.notifier).markMemoryPublished(
+            memoryId,
+            serverMemoryId: serverMemoryId,
+            // Unknown after a restart: the look is then sent once more.
+            serverFrameLookId: lookSent.remove(memoryId),
+          );
     },
+  );
+});
+
+/// Remembers the look of every job it hands out.
+class _LookRecordingJobs implements FramePublishJobSource {
+  _LookRecordingJobs(this._inner, this._lookSent);
+
+  final FramePublishJobSource _inner;
+  final Map<String, String> _lookSent;
+
+  @override
+  FramePublishJob? jobFor(String memoryId, {required String ownerId}) {
+    final job = _inner.jobFor(memoryId, ownerId: ownerId);
+    if (job != null) {
+      _lookSent[memoryId] = job.frameStyle;
+    }
+    return job;
+  }
+}
+
+/// Sends look changes of published frames, or null when this build has no
+/// outbox (frames then never reach a server, so there is nothing to change).
+final frameLookSyncerProvider = Provider<FrameLookSyncer?>((ref) {
+  final memoryApi = ref.watch(memoryApiProvider);
+  if (memoryApi == null || ref.watch(frameOutboxProcessorProvider) == null) {
+    return null;
+  }
+  return FrameLookSyncer(
+    api: memoryApi,
+    memories: () => ref.read(nearbyAnchorsProvider),
+    onSynced: (memoryId, lookId) => ref
+        .read(nearbyAnchorsProvider.notifier)
+        .markFrameLookSynced(memoryId, lookId),
   );
 });

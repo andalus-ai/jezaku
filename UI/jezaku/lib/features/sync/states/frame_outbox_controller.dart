@@ -84,6 +84,9 @@ class FrameOutboxController extends Notifier<FrameOutboxState> {
       return;
     }
     await processor.enqueue(memoryId);
+    if (!ref.mounted) {
+      return;
+    }
     _publishState();
     await syncNow(force: false);
   }
@@ -107,6 +110,23 @@ class FrameOutboxController extends Notifier<FrameOutboxState> {
         _publishState(running: false, summary: summary);
       }
     }
+    // Frames published by this pass may have had their look changed while
+    // they were being sent.
+    if (ref.mounted) {
+      await syncLooks();
+    }
+  }
+
+  /// Sends look changes of already published frames (see [FrameLookSyncer]).
+  Future<void> syncLooks() async {
+    if (!ref.mounted) {
+      return;
+    }
+    final syncer = ref.read(frameLookSyncerProvider);
+    if (syncer == null) {
+      return;
+    }
+    await syncer.run(userId: ref.read(signedInUserIdProvider));
   }
 
   /// Lets a frame the service refused be sent again.
