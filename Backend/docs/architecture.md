@@ -12,8 +12,9 @@ Runnable service modules currently include:
 
 `identity`, `profile`, `social`, `engagement`, `discovery`, `journeys`, `messaging`, `rewards`, `camera`, `memory`, `media`, `presence`, `safety`, `commerce`, `spatial-trails-places`, `events`, and `notifications`.
 
-Shared library:
+Shared and domain-support modules:
 - `common`: shared HTTP/request context, API error handling, health wiring, and reusable geospatial/AR confidence utilities.
+- `extensions`: backend-owned extension manifest/capability validation and artifact digest primitives. This is a domain-support module, not yet a runnable marketplace service.
 
 Service names and ports are maintained in [service-catalog.md](service-catalog.md) and [service-ports.md](../service-ports.md).
 
@@ -79,9 +80,9 @@ A typical synchronous request should follow:
 
 Keep resources thin. Avoid persistence queries and policy-heavy logic directly inside resource methods.
 
-## 6. Shared platform module
+## 6. Shared and domain-support modules
 
-The `common` module is a technical foundation, not a general-purpose dumping ground. It currently supports shared request ID propagation, JSON API error responses, liveness health wiring, geospatial validation/math (distance, bearing, altitude delta, camera-oriented minimap offsets), and AR anchor confidence scoring.
+The `common` module is a technical foundation, not a general-purpose dumping ground. The `extensions` module owns extension package declaration validation and integrity primitives; it must not become a generic plugin runtime or grant authority. It currently supports shared request ID propagation, JSON API error responses, liveness health wiring, geospatial validation/math (distance, bearing, altitude delta, camera-oriented minimap offsets), and AR anchor confidence scoring.
 
 Promote code into `common` only when:
 - at least two modules need the same behavior;
