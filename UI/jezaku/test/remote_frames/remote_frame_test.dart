@@ -50,6 +50,20 @@ void main() {
       expect(frame.capturedAt, DateTime.utc(2026, 11, 20, 11, 7));
     });
 
+    test('reads the look the owner gave the frame', () {
+      final withLook = _memory()..['frameStyle'] = ' gold ';
+      expect(RemoteFrame.tryParse(withLook)!.frameStyle, 'gold');
+      expect(RemoteFrame.tryParse(_memory())!.frameStyle, isNull);
+      expect(
+        RemoteFrame.tryParse(_memory()..['frameStyle'] = '  ')!.frameStyle,
+        isNull,
+      );
+      expect(
+        RemoteFrame.tryParse(_memory()..['frameStyle'] = 7)!.frameStyle,
+        isNull,
+      );
+    });
+
     test('reads a minimap dot: heading from the anchor, no caption', () {
       final frame = RemoteFrame.tryParse(<String, Object?>{
         'id': 'd-1',
