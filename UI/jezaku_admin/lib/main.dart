@@ -314,9 +314,11 @@ class _AdminHomePageState extends State<AdminHomePage> {
                     onSelect: (index) {
                       setState(() => _selectedIndex = index);
                     },
-                    onToggle: () {
-                      setState(() => _sidebarExpanded = !_sidebarExpanded);
-                    },
+                    onToggle: medium
+                        ? null
+                        : () {
+                            setState(() => _sidebarExpanded = !_sidebarExpanded);
+                          },
                   ),
                 ),
               if (!compact) const VerticalDivider(width: 1),
@@ -651,28 +653,24 @@ class _OverviewPage extends StatelessWidget {
                         value: 'Unavailable',
                         detail: 'Health endpoint not connected',
                         icon: Icons.monitor_heart_outlined,
-                        state: _MetricState.unavailable,
                       ),
                       _MetricCard(
                         title: 'Pending reviews',
                         value: 'Unavailable',
                         detail: 'Moderation data not connected',
                         icon: Icons.fact_check_outlined,
-                        state: _MetricState.unavailable,
                       ),
                       _MetricCard(
                         title: 'Active operators',
                         value: 'Unavailable',
                         detail: 'Identity data not connected',
                         icon: Icons.admin_panel_settings_outlined,
-                        state: _MetricState.unavailable,
                       ),
                       _MetricCard(
                         title: 'Recent activity',
                         value: 'Unavailable',
                         detail: 'Audit feed not connected',
                         icon: Icons.receipt_long_outlined,
-                        state: _MetricState.unavailable,
                       ),
                     ].map((card) => SizedBox(width: width, child: card)).toList(),
                   );
@@ -765,22 +763,18 @@ class _ConnectionNotice extends StatelessWidget {
   }
 }
 
-enum _MetricState { unavailable }
-
 class _MetricCard extends StatelessWidget {
   const _MetricCard({
     required this.title,
     required this.value,
     required this.detail,
     required this.icon,
-    required this.state,
   });
 
   final String title;
   final String value;
   final String detail;
   final IconData icon;
-  final _MetricState state;
 
   @override
   Widget build(BuildContext context) {
