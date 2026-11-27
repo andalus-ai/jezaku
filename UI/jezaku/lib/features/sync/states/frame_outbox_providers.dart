@@ -57,7 +57,10 @@ persistentFrameOutboxStoreOverride({required SharedPreferences preferences}) {
 /// Sends saved frames to the server, or null when this build cannot: no
 /// memory or media service, or a device-only (offline) build. Callers treat
 /// null as "frames stay on this device".
-final frameOutboxProcessorProvider = Provider<FrameOutboxProcessor?>((ref) {
+// The type is spelled out because the deletion provider below refers back to
+// this one.
+final Provider<FrameOutboxProcessor?> frameOutboxProcessorProvider =
+    Provider<FrameOutboxProcessor?>((ref) {
   final memoryApi = ref.watch(memoryApiProvider);
   final mediaApi = ref.watch(mediaApiProvider);
   if (memoryApi == null ||
@@ -184,7 +187,8 @@ persistentPendingDeletionStoreOverride({
 
 /// Tells the service about deleted frames, or null when this build has no
 /// outbox (frames then never reach a server, so there is nothing to delete).
-final frameDeletionSyncerProvider = Provider<FrameDeletionSyncer?>((ref) {
+final Provider<FrameDeletionSyncer?> frameDeletionSyncerProvider =
+    Provider<FrameDeletionSyncer?>((ref) {
   final memoryApi = ref.watch(memoryApiProvider);
   if (memoryApi == null || ref.watch(frameOutboxProcessorProvider) == null) {
     return null;
