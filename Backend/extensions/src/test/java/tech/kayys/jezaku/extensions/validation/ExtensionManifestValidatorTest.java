@@ -11,9 +11,7 @@ class ExtensionManifestValidatorTest {
 
     @BeforeEach
     void setUp() {
-        validator = new ExtensionManifestValidator();
-        validator.mapper = new ObjectMapper();
-        validator.capabilities = new ExtensionCapabilityCatalog();
+        validator = new ExtensionManifestValidator(new ObjectMapper(), new ExtensionCapabilityCatalog());
     }
 
     @Test
