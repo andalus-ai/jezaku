@@ -64,6 +64,10 @@ public final class MemoryDtos {
             String anchorType) {
     }
 
+    /** {@code frameStyle} null or blank returns the frame to the client's default look. */
+    public record MemoryFrameStyleUpdateRequest(String ownerId, String frameStyle) {
+    }
+
     public record MemoryMediaSnapshotUpdateRequest(String mediaStatus, String moderationStatus) {
     }
 

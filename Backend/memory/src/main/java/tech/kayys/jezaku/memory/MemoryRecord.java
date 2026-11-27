@@ -27,6 +27,31 @@ record MemoryRecord(
         Instant capturedAt,
         Instant createdAt,
         String frameStyle) {
+    MemoryRecord withFrameStyle(String newFrameStyle) {
+        return new MemoryRecord(
+                id,
+                ownerId,
+                mediaId,
+                mediaStatus,
+                moderationStatus,
+                mediaUrl,
+                thumbnailUrl,
+                caption,
+                position,
+                headingDegrees,
+                compassDegrees,
+                pitchDegrees,
+                rollDegrees,
+                gpsAccuracyMeters,
+                anchorType,
+                visibility,
+                tags,
+                placeId,
+                capturedAt,
+                createdAt,
+                newFrameStyle);
+    }
+
     MemoryRecord withMediaSnapshot(String mediaStatus, String moderationStatus) {
         return new MemoryRecord(
                 id,

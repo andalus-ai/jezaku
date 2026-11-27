@@ -111,4 +111,108 @@ class MemoryFrameStyleResourceTest {
                 .then().statusCode(200)
                 .body("frameStyle", equalTo("oak"));
     }
+
+    private record Published(String id, String ownerId) {
+    }
+
+    private static Published publish(String frameStyleJson) {
+        String ownerId = "frame_style_change_owner_" + UUID.randomUUID();
+        String id = given()
+                .contentType(ContentType.JSON)
+                .body("""
+                        {
+                          "ownerId": "%s",
+                          "mediaUrl": "https://cdn.jezaku.local/upload/photo.jpg",
+                          "caption": "Change my look",
+                          "position": {"latitude": -6.880100, "longitude": 107.611100},
+                          "visibility": "public"%s
+                        }
+                        """.formatted(ownerId, frameStyleJson))
+                .when().post("/memories")
+                .then().statusCode(201)
+                .extract().path("id");
+        return new Published(id, ownerId);
+    }
+
+    private static io.restassured.response.ValidatableResponse changeLook(
+            String id, String ownerId, String frameStyleJson) {
+        return given()
+                .contentType(ContentType.JSON)
+                .body("{\"ownerId\": \"%s\", \"frameStyle\": %s}".formatted(ownerId, frameStyleJson))
+                .when().patch("/memories/{id}/frame-style", id)
+                .then();
+    }
+
+    @Test
+    void theOwnerCanChangeThePublishedLookAndItIsNormalised() {
+        Published frame = publish(", \"frameStyle\": \"oak\"");
+
+        changeLook(frame.id(), frame.ownerId(), "\" Gold \"")
+                .statusCode(200)
+                .body("id", equalTo(frame.id()))
+                .body("frameStyle", equalTo("gold"));
+
+        given().when().get("/memories/{id}", frame.id())
+                .then().statusCode(200)
+                .body("frameStyle", equalTo("gold"));
+    }
+
+    @Test
+    void changingTheLookLeavesEverythingElseAsItWas() {
+        Published frame = publish(", \"frameStyle\": \"oak\"");
+
+        changeLook(frame.id(), frame.ownerId(), "\"gold\"")
+                .statusCode(200)
+                .body("caption", equalTo("Change my look"))
+                .body("visibility", equalTo("public"))
+                .body("position.latitude", equalTo(-6.8801f));
+    }
+
+    @Test
+    void aBlankOrNullLookRestoresTheDefault() {
+        Published frame = publish(", \"frameStyle\": \"oak\"");
+
+        changeLook(frame.id(), frame.ownerId(), "\"  \"")
+                .statusCode(200)
+                .body("frameStyle", nullValue());
+
+        changeLook(frame.id(), frame.ownerId(), "\"gold\"").statusCode(200);
+        changeLook(frame.id(), frame.ownerId(), "null")
+                .statusCode(200)
+                .body("frameStyle", nullValue());
+    }
+
+    @Test
+    void anInvalidLookIsRejectedAndTheOldOneStays() {
+        Published frame = publish(", \"frameStyle\": \"oak\"");
+
+        changeLook(frame.id(), frame.ownerId(), "\"not a slug!\"")
+                .statusCode(400)
+                .body("code", equalTo("BAD_REQUEST"))
+                .body("message", containsString("frameStyle"));
+
+        given().when().get("/memories/{id}", frame.id())
+                .then().statusCode(200)
+                .body("frameStyle", equalTo("oak"));
+    }
+
+    @Test
+    void onlyTheOwnerCanChangeTheLook() {
+        Published frame = publish(", \"frameStyle\": \"oak\"");
+
+        changeLook(frame.id(), "someone_else_" + UUID.randomUUID(), "\"gold\"")
+                .statusCode(403);
+
+        given().when().get("/memories/{id}", frame.id())
+                .then().statusCode(200)
+                .body("frameStyle", equalTo("oak"));
+    }
+
+    @Test
+    void anUnknownFrameIsNotFoundAndAnOwnerIsRequired() {
+        changeLook("memory_does_not_exist", "someone", "\"gold\"").statusCode(404);
+
+        Published frame = publish("");
+        changeLook(frame.id(), "", "\"gold\"").statusCode(400);
+    }
 }

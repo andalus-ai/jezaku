@@ -28,6 +28,7 @@ import tech.kayys.jezaku.memory.MemoryDtos.MemoryAnchorHistoryResponse;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryAnchorUpdateRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryCreateRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryFeedResponse;
+import tech.kayys.jezaku.memory.MemoryDtos.MemoryFrameStyleUpdateRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryMediaSnapshotUpdateRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryMediaSnapshotUpdateResponse;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryMinimapResponse;
@@ -87,6 +88,16 @@ public class MemoryResource {
             MemoryAnchorUpdateRequest request) {
         self(request == null ? null : request.ownerId());
         return service.updateAnchor(id, request);
+    }
+
+    /** The owner changes the look of a published frame. A blank {@code frameStyle} restores the default. */
+    @PATCH
+    @Path("/{id}/frame-style")
+    public Uni<MemoryResponse> updateFrameStyle(
+            @PathParam("id") String id,
+            MemoryFrameStyleUpdateRequest request) {
+        self(request == null ? null : request.ownerId());
+        return service.updateFrameStyle(id, request);
     }
 
     @GET

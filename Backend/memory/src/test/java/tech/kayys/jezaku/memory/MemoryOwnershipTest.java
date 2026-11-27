@@ -57,6 +57,25 @@ class MemoryOwnershipTest {
     }
 
     @Test
+    void onlyTheOwnerCanChangeTheFrameLook() {
+        String me = "me_" + UUID.randomUUID();
+        String id = create(me, "public");
+
+        // A signed-in user cannot act as the owner, nor name themselves as the owner.
+        given().header("Authorization", tokenFor("intruder")).contentType(ContentType.JSON)
+                .body("{\"ownerId\": \"%s\", \"frameStyle\": \"gold\"}".formatted(me))
+                .when().patch("/memories/{id}/frame-style", id).then().statusCode(403);
+        given().header("Authorization", tokenFor("intruder")).contentType(ContentType.JSON)
+                .body("{\"ownerId\": \"intruder\", \"frameStyle\": \"gold\"}")
+                .when().patch("/memories/{id}/frame-style", id).then().statusCode(403);
+
+        given().header("Authorization", tokenFor(me)).contentType(ContentType.JSON)
+                .body("{\"ownerId\": \"%s\", \"frameStyle\": \"gold\"}".formatted(me))
+                .when().patch("/memories/{id}/frame-style", id).then().statusCode(200)
+                .body("frameStyle", equalTo("gold"));
+    }
+
+    @Test
     void privateMemoriesAreInvisibleToOthers() {
         String me = "me_" + UUID.randomUUID();
         String privateId = create(me, "private");
