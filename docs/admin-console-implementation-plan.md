@@ -44,7 +44,7 @@ Tasks:
 5. [ ] Add common table/list, filter, pagination, detail panel, empty/error/loading and confirmation patterns.
 6. [ ] Add typed environment configuration; never hardcode production URLs or secrets.
 7. [x] Add the required `alhambra_ui` package pinned to an immutable revision; adopt Alhambra theme/card/badge components while preserving Jezaku navigation. [ ] Confirm clean-checkout dependency resolution, analyzer, widget tests and supported target builds in CI.
-8. [ ] Execute and extend tests for shell, responsive navigation, unavailable modules, and auth boundary states.
+8. [x] Add widget coverage for overview unavailable states, desktop navigation, compact drawer, light/dark theme switching, and global management-area search. [ ] Run formatter, analyzer, and widget tests in a clean Flutter environment.
 
 Exit criteria:
 - Admin app builds on its declared target platforms (not yet verified).
