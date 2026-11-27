@@ -21,6 +21,8 @@ This directory contains product direction, target architecture, implementation g
 - [Admin identity, access and audit contract](admin-identity-and-access.md) — RBAC, scoped grants, approvals, persistence, endpoint and audit contracts.
 - [ADR-0003: Admin authorization and audit ownership](decisions/ADR-0003-admin-authorization-and-audit.md) — preserves JWT identity semantics and domain-service authorization ownership.
 - [Alhambra platform integration](alhambra-platform-integration.md) — shared Flutter foundation, product boundaries, security constraints and staged adoption.
+- [Jezaku–Alhambra extension contract](jezaku-alhambra-extension-contract.md) — capability mapping, manifest schema, lifecycle, trust boundaries and execution policy.
+- [Jezaku extension manifest schema](../schemas/jezaku-extension-manifest.schema.json) — draft machine-readable package declaration schema v1.0.0.
 - [ADR-0004: Alhambra as the shared platform foundation](decisions/ADR-0004-alhambra-platform-foundation.md) — repository ownership, immutable dependency policy and backend authority.
 - [Architecture decisions](decisions/)
 
