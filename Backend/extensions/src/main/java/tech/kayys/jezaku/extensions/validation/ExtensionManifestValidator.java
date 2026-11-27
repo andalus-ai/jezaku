@@ -2,8 +2,6 @@ package tech.kayys.jezaku.extensions.validation;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -16,7 +14,6 @@ import java.util.regex.Pattern;
  * Validates the security-relevant subset of manifest v1.0.0 at the API boundary.
  * Validation never creates grants or marks a package approved.
  */
-@ApplicationScoped
 public class ExtensionManifestValidator {
     private static final String MANIFEST_VERSION = "1.0.0";
     private static final Pattern IDENTIFIER = Pattern.compile("^[a-z0-9][a-z0-9.-]{2,127}$");
@@ -28,8 +25,13 @@ public class ExtensionManifestValidator {
     private static final Set<String> SCOPE_TYPES = Set.of(
             "self", "owned", "tenant", "organization", "area", "user-consented", "server-assigned");
 
-    @Inject ObjectMapper mapper;
-    @Inject ExtensionCapabilityCatalog capabilities;
+    private final ObjectMapper mapper;
+    private final ExtensionCapabilityCatalog capabilities;
+
+    public ExtensionManifestValidator(ObjectMapper mapper, ExtensionCapabilityCatalog capabilities) {
+        this.mapper = mapper;
+        this.capabilities = capabilities;
+    }
 
     public record ValidationResult(boolean valid, List<String> violations) {
         public ValidationResult {
