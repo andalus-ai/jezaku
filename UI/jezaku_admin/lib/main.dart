@@ -1,5 +1,5 @@
 import 'package:alhambra_ui/alhambra_ui.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 void main() {
   runApp(const MyApp());
