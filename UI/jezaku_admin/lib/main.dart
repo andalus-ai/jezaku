@@ -187,9 +187,6 @@ class _AdminHomePageState extends State<AdminHomePage> {
 
   void _selectSection(int index) {
     setState(() => _selectedIndex = index);
-    if (Scaffold.of(context).isDrawerOpen) {
-      Navigator.of(context).pop();
-    }
   }
 
   void _showUnavailable(String title, String message) {
