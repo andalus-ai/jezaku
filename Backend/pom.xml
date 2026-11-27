@@ -13,6 +13,7 @@
 
     <modules>
         <module>common</module>
+        <module>extensions</module>
         <module>identity</module>
         <module>profile</module>
         <module>social</module>
