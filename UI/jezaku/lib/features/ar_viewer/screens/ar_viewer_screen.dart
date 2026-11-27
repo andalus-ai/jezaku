@@ -56,8 +56,11 @@ import 'package:jejaku/features/ar_viewer/states/ar_capture_provider.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capability_providers.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_scene_diagnostics_provider.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_debug_log_controls.dart';
+import 'package:jejaku/features/ar_viewer/widgets/ar_hud_edge_scrim.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_placement_quality_chip.dart';
+import 'package:jejaku/features/ar_viewer/widgets/ar_session_interruption_panel.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_snapshot_review_dialog.dart';
+import 'package:jejaku/features/ar_viewer/widgets/ar_tracking_recovery_hint.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_trail_launch_conflict_dialog.dart';
 import 'package:jejaku/features/camera/models/capture_sensor_snapshot.dart';
 import 'package:jejaku/features/camera/states/capture_session_provider.dart';
@@ -813,28 +816,9 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                         ),
                       ),
                     // Subtle edge scrims keep controls and status readable
-                    // over bright skies without dimming the center camera view.
+                    // over bright skies without dimming the camera centre.
                     if (_hud.masterVisible)
-                      const Positioned.fill(
-                        child: IgnorePointer(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Color(0x66000000),
-                                  Color(0x12000000),
-                                  Color(0x00000000),
-                                  Color(0x18000000),
-                                  Color(0x99000000),
-                                ],
-                                stops: [0, 0.18, 0.48, 0.72, 1],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      const Positioned.fill(child: ARHudEdgeScrim()),
                     _buildTopLeftControls(context),
                     if (_hud.isShown(ARHudPanel.statusChips)) _buildStatusChips(),
                     if ((_isResumingARSession && _arController != null) ||
@@ -844,82 +828,10 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                         left: 16,
                         right: 16,
                         top: 112,
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 360),
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.86),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: _arResumeError == null
-                                      ? Colors.white24
-                                      : Colors.orangeAccent,
-                                ),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(14),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        if (_isResumingARSession)
-                                          const SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        else
-                                          const Icon(
-                                            Icons.warning_amber_rounded,
-                                            color: Colors.orangeAccent,
-                                            size: 20,
-                                          ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Text(
-                                            _arResumeError == null
-                                                ? 'Resuming AR session'
-                                                : 'AR session needs to restart',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      _arResumeError == null
-                                          ? 'The camera may take a moment to relocalize. Keep the app open and slowly scan the area.'
-                                          : 'The camera session could not resume. Restart AR to continue. $_arResumeError',
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                        height: 1.35,
-                                      ),
-                                    ),
-                                    if (_arResumeError != null) ...[
-                                      const SizedBox(height: 10),
-                                      Align(
-                                        alignment: Alignment.centerRight,
-                                        child: FilledButton.tonal(
-                                          key: const ValueKey('ar_session_restart_button'),
-                                          onPressed: _retryARSessionAfterInterruption,
-                                          child: const Text('Restart AR'),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
+                        child: ARSessionInterruptionPanel(
+                          isResuming: _isResumingARSession,
+                          error: _arResumeError,
+                          onRestart: _retryARSessionAfterInterruption,
                         ),
                       ),
                     if (_hud.masterVisible &&
@@ -929,63 +841,11 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                         key: const ValueKey('ar_tracking_recovery_guidance'),
                         top: 112,
                         right: 16,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 224),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.76),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: _isRelocalizing()
-                                    ? Colors.orangeAccent.shade100
-                                    : Colors.amberAccent.shade100,
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(10),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(
-                                    _isRelocalizing()
-                                        ? Icons.center_focus_weak
-                                        : Icons.lightbulb_outline,
-                                    color: _poseSourceColor(Theme.of(context).colorScheme),
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          _isRelocalizing()
-                                              ? 'Recovering AR tracking'
-                                              : 'AR tracking unavailable',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          _poseRecoveryGuidance(),
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 11,
-                                            height: 1.3,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                        child: ARTrackingRecoveryHint(
+                          isRelocalizing: _isRelocalizing(),
+                          guidance: _poseRecoveryGuidance(),
+                          iconColor:
+                              _poseSourceColor(Theme.of(context).colorScheme),
                         ),
                       ),
                     if (_hud.isShown(ARHudPanel.quickTools))
