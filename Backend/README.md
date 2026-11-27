@@ -48,6 +48,16 @@ Each service has a stable development port so the full backend can run together:
 
 See [service-ports.md](service-ports.md) for direct Swagger UI and OpenAPI links.
 
+## Extension Validation Foundation
+
+`extensions` is a backend domain-support module (not a runnable marketplace service yet). It owns the initial capability allowlist, security-relevant manifest checks and SHA-256 artifact digest verification. It does not grant permissions or execute extension code. See [extensions README](extensions/README.md) and [the extension contract](../docs/jezaku-alhambra-extension-contract.md).
+
+Focused tests:
+
+```bash
+./mvnw -B -pl extensions -am test
+```
+
 ## Shared Platform Module
 
 `common` is a backend library module, not a runnable service. It owns shared Quarkus plumbing that should stay identical across services:
