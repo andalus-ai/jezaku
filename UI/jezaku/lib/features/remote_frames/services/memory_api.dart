@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:jejaku/features/api/api_failure.dart';
 import 'package:jejaku/features/remote_frames/models/remote_frame.dart';
+import 'package:jejaku/features/sync/outbox/frame_look_syncer.dart';
 import 'package:jejaku/features/sync/outbox/frame_publisher.dart';
 
 /// Reads frames from the memory service. The service decides what the caller
@@ -8,7 +9,7 @@ import 'package:jejaku/features/sync/outbox/frame_publisher.dart';
 ///
 /// The [Dio] it is given must already add the access token (see
 /// `AuthInterceptor`).
-class MemoryApi {
+class MemoryApi implements FrameLookApi {
   MemoryApi({required Dio dio}) : _dio = dio;
 
   final Dio _dio;
@@ -41,6 +42,21 @@ class MemoryApi {
       throw const ApiFailure(ApiFailureReason.server);
     }
     return _frames(body['memories']);
+  }
+
+  /// Changes the look of a published frame
+  /// (`PATCH /memories/{id}/frame-style`). Only the owner may.
+  @override
+  Future<void> updateFrameStyle({
+    required String serverMemoryId,
+    required String ownerId,
+    required String frameStyle,
+  }) async {
+    await patchJson(
+      _dio,
+      '/memories/${Uri.encodeComponent(serverMemoryId)}/frame-style',
+      body: <String, Object?>{'ownerId': ownerId, 'frameStyle': frameStyle},
+    );
   }
 
   /// Creates the frame for [job] with an already uploaded photo

@@ -167,6 +167,62 @@ void main() {
     });
   });
 
+  group('MemoryApi.updateFrameStyle', () {
+    test('PATCHes the look to the frame-style endpoint', () async {
+      final adapter = _Adapter((_) => _json(200, {'id': 'srv-1'}));
+      final api = MemoryApi(dio: _dio(adapter, 'http://memory.test'));
+
+      await api.updateFrameStyle(
+        serverMemoryId: 'srv/1',
+        ownerId: 'u-1',
+        frameStyle: 'gold',
+      );
+
+      final request = adapter.requests.single;
+      expect(request.method, 'PATCH');
+      expect(request.uri.path, '/memories/srv%2F1/frame-style');
+      expect(_bodyOf(request), {'ownerId': 'u-1', 'frameStyle': 'gold'});
+    });
+
+    test('maps refusals and connection problems like the other calls',
+        () async {
+      Future<ApiFailure> failWith(int status) => _failure(
+            MemoryApi(
+              dio: _dio(
+                _Adapter((_) => _json(status, {'code': 'X'})),
+                'http://memory.test',
+              ),
+            ).updateFrameStyle(
+              serverMemoryId: 'a',
+              ownerId: 'u',
+              frameStyle: 'gold',
+            ),
+          );
+
+      expect((await failWith(403)).reason, ApiFailureReason.notAllowed);
+      expect((await failWith(404)).statusCode, 404);
+      expect((await failWith(503)).statusCode, 503);
+
+      final offline = MemoryApi(
+        dio: _dio(
+          _Adapter((o) => throw DioException(requestOptions: o)),
+          'http://memory.test',
+        ),
+      );
+      expect(
+        (await _failure(
+          offline.updateFrameStyle(
+            serverMemoryId: 'a',
+            ownerId: 'u',
+            frameStyle: 'gold',
+          ),
+        ))
+            .reason,
+        ApiFailureReason.network,
+      );
+    });
+  });
+
   group('MediaApi', () {
     test('reserves a slot', () async {
       final adapter = _Adapter(

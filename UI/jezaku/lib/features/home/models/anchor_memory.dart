@@ -34,6 +34,8 @@ class AnchorMemory {
     this.ownerId,
     this.frameLookId = 'classic',
     this.frameColorValue,
+    this.serverMemoryId,
+    this.serverFrameLookId,
     this.allowComments = true,
     this.hasArExperience = true,
   }) : audience = audience ??
@@ -69,6 +71,22 @@ class AnchorMemory {
 
   /// ARGB colour the author picked for the frame, or null for the look's own.
   final int? frameColorValue;
+
+  /// The frame's id on the memory service once it was published from this
+  /// device; null for frames that were never sent (and for other people's
+  /// frames, which are not ours to change).
+  final String? serverMemoryId;
+
+  /// The look the service is known to hold for this frame, or null when that
+  /// is not known. Compared with [frameLookId] to see whether a look change
+  /// still has to be sent.
+  final String? serverFrameLookId;
+
+  /// Whether the owner changed the look of a published frame and the service
+  /// has not been told yet.
+  bool get needsFrameLookSync =>
+      serverMemoryId != null && serverFrameLookId != frameLookId;
+
   final bool allowComments;
   final bool hasArExperience;
 
@@ -97,6 +115,8 @@ class AnchorMemory {
     String? ownerId,
     String? frameLookId,
     Object? frameColorValue = _unchanged,
+    Object? serverMemoryId = _unchanged,
+    Object? serverFrameLookId = _unchanged,
     bool? allowComments,
     bool? hasArExperience,
   }) {
@@ -129,6 +149,12 @@ class AnchorMemory {
       frameColorValue: identical(frameColorValue, _unchanged)
           ? this.frameColorValue
           : frameColorValue as int?,
+      serverMemoryId: identical(serverMemoryId, _unchanged)
+          ? this.serverMemoryId
+          : serverMemoryId as String?,
+      serverFrameLookId: identical(serverFrameLookId, _unchanged)
+          ? this.serverFrameLookId
+          : serverFrameLookId as String?,
       allowComments: allowComments ?? this.allowComments,
       hasArExperience: hasArExperience ?? this.hasArExperience,
     );
