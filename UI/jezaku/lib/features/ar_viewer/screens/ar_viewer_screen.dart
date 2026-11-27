@@ -35,6 +35,7 @@ import 'package:jejaku/features/ar_viewer/services/ar_viewer_health_policy.dart'
 import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_hosting_service.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_recording_coordinator.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_visual_frame_capturer.dart';
+import 'package:jejaku/features/ar_viewer/services/cloud_anchor_host_coordinator.dart';
 import 'package:jejaku/features/ar_viewer/services/cloud_anchor_scheduler.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_geospatial_quality_monitor.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_scene_diagnostics_export_bundle_store.dart';
@@ -55,8 +56,11 @@ import 'package:jejaku/features/ar_viewer/states/ar_capture_provider.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capability_providers.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_scene_diagnostics_provider.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_debug_log_controls.dart';
+import 'package:jejaku/features/ar_viewer/widgets/ar_hud_edge_scrim.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_placement_quality_chip.dart';
+import 'package:jejaku/features/ar_viewer/widgets/ar_session_interruption_panel.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_snapshot_review_dialog.dart';
+import 'package:jejaku/features/ar_viewer/widgets/ar_tracking_recovery_hint.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_trail_launch_conflict_dialog.dart';
 import 'package:jejaku/features/camera/models/capture_sensor_snapshot.dart';
 import 'package:jejaku/features/camera/states/capture_session_provider.dart';
@@ -171,7 +175,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
   JejakuGeoOrigin _latestNativeSceneOrigin = _viewerOrigin;
   Set<String> _unsupportedNativeSessionFeatureKeys = const <String>{};
   ARSessionReadiness? _latestSessionReadiness;
-  final Set<String> _cloudAnchorHostInFlightMemoryIds = <String>{};
+  final CloudAnchorHostCoordinator _cloudAnchorHost =
+      CloudAnchorHostCoordinator();
   final GlobalKey _arVisualOverlayRecordingBoundaryKey = GlobalKey(
     debugLabel: 'ar_visual_overlay_recording_boundary',
   );
@@ -707,7 +712,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     _poseTracker.stop();
     unawaited(_arCameraSubscription?.cancel());
     _arCameraSubscription = null;
-    _cloudAnchorHostInFlightMemoryIds.clear();
+    _cloudAnchorHost.clear();
     final diagnosticsController = _diagnosticsController;
     final diagnosticsSessionId = _diagnosticsSessionId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -811,28 +816,9 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                         ),
                       ),
                     // Subtle edge scrims keep controls and status readable
-                    // over bright skies without dimming the center camera view.
+                    // over bright skies without dimming the camera centre.
                     if (_hud.masterVisible)
-                      const Positioned.fill(
-                        child: IgnorePointer(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Color(0x66000000),
-                                  Color(0x12000000),
-                                  Color(0x00000000),
-                                  Color(0x18000000),
-                                  Color(0x99000000),
-                                ],
-                                stops: [0, 0.18, 0.48, 0.72, 1],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      const Positioned.fill(child: ARHudEdgeScrim()),
                     _buildTopLeftControls(context),
                     if (_hud.isShown(ARHudPanel.statusChips)) _buildStatusChips(),
                     if ((_isResumingARSession && _arController != null) ||
@@ -842,82 +828,10 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                         left: 16,
                         right: 16,
                         top: 112,
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 360),
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.86),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: _arResumeError == null
-                                      ? Colors.white24
-                                      : Colors.orangeAccent,
-                                ),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(14),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        if (_isResumingARSession)
-                                          const SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        else
-                                          const Icon(
-                                            Icons.warning_amber_rounded,
-                                            color: Colors.orangeAccent,
-                                            size: 20,
-                                          ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Text(
-                                            _arResumeError == null
-                                                ? 'Resuming AR session'
-                                                : 'AR session needs to restart',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      _arResumeError == null
-                                          ? 'The camera may take a moment to relocalize. Keep the app open and slowly scan the area.'
-                                          : 'The camera session could not resume. Restart AR to continue. $_arResumeError',
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                        height: 1.35,
-                                      ),
-                                    ),
-                                    if (_arResumeError != null) ...[
-                                      const SizedBox(height: 10),
-                                      Align(
-                                        alignment: Alignment.centerRight,
-                                        child: FilledButton.tonal(
-                                          key: const ValueKey('ar_session_restart_button'),
-                                          onPressed: _retryARSessionAfterInterruption,
-                                          child: const Text('Restart AR'),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
+                        child: ARSessionInterruptionPanel(
+                          isResuming: _isResumingARSession,
+                          error: _arResumeError,
+                          onRestart: _retryARSessionAfterInterruption,
                         ),
                       ),
                     if (_hud.masterVisible &&
@@ -927,63 +841,11 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
                         key: const ValueKey('ar_tracking_recovery_guidance'),
                         top: 112,
                         right: 16,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 224),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.76),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: _isRelocalizing()
-                                    ? Colors.orangeAccent.shade100
-                                    : Colors.amberAccent.shade100,
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(10),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(
-                                    _isRelocalizing()
-                                        ? Icons.center_focus_weak
-                                        : Icons.lightbulb_outline,
-                                    color: _poseSourceColor(Theme.of(context).colorScheme),
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          _isRelocalizing()
-                                              ? 'Recovering AR tracking'
-                                              : 'AR tracking unavailable',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          _poseRecoveryGuidance(),
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 11,
-                                            height: 1.3,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                        child: ARTrackingRecoveryHint(
+                          isRelocalizing: _isRelocalizing(),
+                          guidance: _poseRecoveryGuidance(),
+                          iconColor:
+                              _poseSourceColor(Theme.of(context).colorScheme),
                         ),
                       ),
                     if (_hud.isShown(ARHudPanel.quickTools))
@@ -1439,7 +1301,7 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
       if (hadNativeSession) {
         _scheduleCaptureDetach();
       }
-      _cloudAnchorHostInFlightMemoryIds.clear();
+      _cloudAnchorHost.clear();
       _scheduleNativeSceneDiagnosticsReset();
     }
     if (plan.scheduleCloudAnchorMaintenance) {
@@ -1600,41 +1462,26 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     required JejakuMemorySceneSyncResult sceneResult,
     required List<AnchorMemory> memories,
   }) async {
-    if (sceneResult.isPlacementDeferred) {
-      return const ARMemoryCloudAnchorHostingResult();
-    }
-    if (!_nativeCloudAnchorsEnabled) {
-      return const ARMemoryCloudAnchorHostingResult();
-    }
     final manager = _nativeCloudAnchorManager;
-    if (manager == null) {
+    if (sceneResult.isPlacementDeferred ||
+        !_nativeCloudAnchorsEnabled ||
+        manager == null) {
       return const ARMemoryCloudAnchorHostingResult();
     }
-
-    final hostable = [
-      for (final placed in sceneResult.active)
-        if (!_cloudAnchorHostInFlightMemoryIds.contains(placed.memory.id))
-          placed,
-    ];
-    if (hostable.isEmpty) {
-      return const ARMemoryCloudAnchorHostingResult();
-    }
-
-    _cloudAnchorHostInFlightMemoryIds.addAll(
-      hostable.map((placed) => placed.memory.id),
-    );
-    ARMemoryCloudAnchorHostingResult hostingResult =
-        const ARMemoryCloudAnchorHostingResult();
-    try {
-      hostingResult =
-          await _cloudAnchorHostingService.hostMissingCloudAnchorsWithReport(
+    return _cloudAnchorHost.host(
+      active: sceneResult.active,
+      hostCall: (hostable) =>
+          _cloudAnchorHostingService.hostMissingCloudAnchorsWithReport(
         manager: manager,
         memories: memories,
         placedMemories: hostable,
-      );
-      if (mounted && hostingResult.records.isNotEmpty) {
+      ),
+      onRecords: (records) {
+        if (!mounted) {
+          return;
+        }
         final controller = ref.read(nearbyAnchorsProvider.notifier);
-        for (final record in hostingResult.records) {
+        for (final record in records) {
           controller.attachCloudAnchorRecord(
             memoryId: record.memoryId,
             localAnchorId: record.localAnchorId,
@@ -1642,25 +1489,8 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
             expiresAt: record.expiresAt,
           );
         }
-      }
-    } catch (_) {
-      final failedMemoryIds = {
-        for (final placed in hostable) placed.memory.id,
-      };
-      hostingResult = ARMemoryCloudAnchorHostingResult(
-        failedMemoryIds: failedMemoryIds,
-        failureReasons: <String, ARMemoryCloudAnchorHostingFailureReason>{
-          for (final memoryId in failedMemoryIds)
-            memoryId: ARMemoryCloudAnchorHostingFailureReason.nativeError,
-        },
-      );
-      // Native cloud persistence is opportunistic; placement still works.
-    } finally {
-      _cloudAnchorHostInFlightMemoryIds.removeAll(
-        hostable.map((placed) => placed.memory.id),
-      );
-    }
-    return hostingResult;
+      },
+    );
   }
 
   void _resyncNativeScene() {
