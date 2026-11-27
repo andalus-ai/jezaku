@@ -12,6 +12,8 @@ import 'package:jejaku/features/sync/services/anchor_sync_payload_builder_provid
 import 'package:jejaku/features/sync/services/local_first_sync_runtime.dart';
 import 'package:jejaku/features/sync/states/anchor_sync_delivery_log_provider.dart';
 import 'package:jejaku/features/sync/states/anchor_media_upload_queue_provider.dart';
+import 'package:jejaku/features/sync/states/frame_outbox_controller.dart';
+import 'package:jejaku/features/sync/widgets/frame_outbox_status_tile.dart';
 
 enum _SyncQueueFilter { all, uploads, media, metadata, quality }
 
@@ -716,6 +718,8 @@ class _SyncMemoryCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final sendsForReal =
+        ref.read(frameOutboxControllerProvider.notifier).isActive;
     final uploadEntries = ref.watch(anchorMediaUploadQueueProvider);
     final mediaUploadEntry = memory.mediaAttachment == null
         ? null
@@ -944,6 +948,7 @@ class _SyncMemoryCard extends ConsumerWidget {
                 ),
               ),
             ],
+            FrameOutboxStatusTile(memoryId: memory.id),
             const SizedBox(height: 12),
             if (mediaManifest != null) ...[
               Row(
@@ -1005,8 +1010,17 @@ class _SyncMemoryCard extends ConsumerWidget {
                       ref,
                       hasMedia: mediaManifest != null,
                     ),
-                    icon: Icon(_markSyncedButtonIcon(memory)),
-                    label: Text(_markSyncedButtonLabel(memory)),
+                    icon: Icon(
+                      sendsForReal && !_hasPendingMetadataUpdate(memory)
+                          ? Icons.cloud_upload_outlined
+                          : _markSyncedButtonIcon(memory),
+                    ),
+                    label: Text(
+                      _markSyncedButtonLabel(
+                        memory,
+                        sendsForReal: sendsForReal,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -1092,12 +1106,16 @@ class _SyncMemoryCard extends ConsumerWidget {
     return Icons.cloud_done;
   }
 
-  String _markSyncedButtonLabel(AnchorMemory memory) {
+  String _markSyncedButtonLabel(
+    AnchorMemory memory, {
+    required bool sendsForReal,
+  }) {
     if (_hasPendingMetadataUpdate(memory)) {
       return 'Mark Metadata Synced';
     }
     if (memory.syncReason == AnchorSyncReason.newCapture) {
-      return 'Mark Upload Synced';
+      // With a server behind the app the button really sends the frame.
+      return sendsForReal ? 'Send Now' : 'Mark Upload Synced';
     }
     return 'Mark Synced';
   }
