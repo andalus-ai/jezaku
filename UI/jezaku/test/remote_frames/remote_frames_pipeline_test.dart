@@ -56,6 +56,14 @@ class _FakeApi implements MemoryApi {
     required String frameStyle,
   }) =>
       throw UnimplementedError();
+
+  @override
+  Future<void> updateAudience({
+    required String serverMemoryId,
+    required String ownerId,
+    required FrameAudience audience,
+  }) =>
+      throw UnimplementedError();
 }
 
 class _FakeLoader implements RemoteMediaLoader {

@@ -17,7 +17,7 @@ class FrameLookSyncer extends PublishedFrameSyncer<String> {
   FrameLookSyncer({
     required FrameLookApi api,
     required super.memories,
-    required void Function(String memoryId, String lookId) onSynced,
+    required super.onSynced,
   }) : super(
           needsSync: (memory) => memory.needsFrameLookSync,
           valueOf: (memory) => memory.frameLookId,
@@ -26,6 +26,5 @@ class FrameLookSyncer extends PublishedFrameSyncer<String> {
             ownerId: userId,
             frameStyle: look,
           ),
-          onSynced: onSynced,
         );
 }

@@ -21,7 +21,7 @@ class FrameAudienceSyncer extends PublishedFrameSyncer<FrameAudience> {
   FrameAudienceSyncer({
     required FrameDetailsApi api,
     required super.memories,
-    required void Function(String memoryId, FrameAudience audience) onSynced,
+    required super.onSynced,
     required void Function(String memoryId) onRejected,
   }) : super(
           needsSync: (memory) => memory.needsAudienceSync,
@@ -31,7 +31,6 @@ class FrameAudienceSyncer extends PublishedFrameSyncer<FrameAudience> {
             ownerId: userId,
             audience: audience,
           ),
-          onSynced: onSynced,
           onRejected: onRejected,
         );
 }
