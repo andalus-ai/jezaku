@@ -23,8 +23,8 @@ void main() {
 
   testWidgets('navigation opens an explicit not-implemented state',
       (WidgetTester tester) async {
-    await tester.view.setPhysicalSize(const Size(1200, 900));
-    await tester.view.setDevicePixelRatio(1);
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
@@ -43,7 +43,7 @@ void main() {
   testWidgets('compact layout exposes navigation through the drawer',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(420, 850);
-    await tester.view.setDevicePixelRatio(1);
+    tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
