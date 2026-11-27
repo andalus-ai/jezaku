@@ -29,54 +29,22 @@ The repository already has a separate Flutter admin application at `UI/jezaku_ad
 
 ### Primary navigation
 
-- **Overview** — platform or organization health, activity, alerts, and shortcuts.
-- **Workspace**
-  - Organizations and tenants
-  - Members and teams
-  - Workspace settings
-- **Identity & Access**
-  - Users
-  - Roles and permissions
-  - Sessions and API credentials
-- **Spatial**
-  - Objects and assets
-  - Scenes and placements
-  - Publishing and visibility
-  - Safety and moderation review
-- **Content**
-  - Content library
-  - Review queue
-  - Publishing history
-- **Marketplace**
-  - Catalog
-  - Submissions and reviews
-  - Licenses and distribution
-- **Extensions**
-  - Installed extensions
-  - Compatibility and permissions
-  - Versions and lifecycle
-- **Campaigns** (optional platform capability)
-  - Merchants and advertisers
-  - Campaigns and promotions
-  - Eligibility and performance
-- **Operations**
-  - Services and health
-  - Jobs and schedules
-  - Events and logs
-- **Analytics**
-  - Usage and operational insights
-  - Privacy-aware reporting
-- **Security & Audit**
-  - Security events
-  - Audit history
-  - Policy decisions
-- **Settings**
-  - Platform/workspace configuration
-  - Feature availability
-  - Integrations
+Preserve the ten capability areas already present in the initial `UI/jezaku_admin/` shell. Refine them into grouped navigation rather than replacing them with a new taxonomy:
 
-Navigation is permission-filtered. Avoid showing links that lead to unauthorized pages. Distinguish platform-wide administration from tenant-scoped administration in both labels and page context. Optional capabilities such as marketplace and campaigns should only appear when enabled and implemented.
+- **Overview** — deployment/workspace health, activity, alerts, and shortcuts.
+- **People & Access** — operators, users, memberships, teams, roles, permissions, and sessions.
+- **Trust & Safety** — reports, moderation, appeals, spatial restrictions, and authority workflows.
+- **Spatial Operations** — spatial objects, assets, scenes, placements, visibility, and publishing.
+- **Commerce** — merchants, stores, campaigns, promotions, and redemption operations.
+- **Extensions** — publishers, package submissions, reviews, installed extensions, capabilities, and versions.
+- **Operations** — service health, jobs, schedules, events, and diagnostics.
+- **Configuration** — deployment/workspace settings, feature flags, and integration configuration.
+- **Audit** — immutable administrative activity and security history.
+- **System** — deployment information, integrations, and maintenance-level settings.
 
+Use page-level tabs or secondary navigation for sub-capabilities. Do not add Workspace, Content, Marketplace, Campaigns, or Analytics as duplicate top-level entries when those workflows belong under an existing capability area. If future scale requires a different grouping, record the navigation migration and validate it with operator tasks first.
+
+Navigation is permission-filtered. Avoid showing links that lead to unauthorized pages. Distinguish platform-wide administration from tenant-scoped administration in both labels and page context. Optional capabilities such as marketplace, campaigns, and analytics should only appear when enabled and implemented.
 ## 4. Application shell
 
 ### Desktop
