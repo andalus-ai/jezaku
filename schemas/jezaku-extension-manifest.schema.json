@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jezaku.dev/schemas/extension-manifest-1.0.0.json",
+  "title": "Jezaku Extension Manifest",
+  "description": "Declarative package metadata and requested capabilities. This schema validates declarations; it does not authorize or sandbox an extension.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["manifestVersion", "id", "version", "publisher", "compatibility", "packageType", "capabilities", "permissions", "assets", "privacy", "safety"],
+  "properties": {
+    "manifestVersion": { "const": "1.0.0" },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{2,127}$" },
+    "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$" },
+    "publisher": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "displayName"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{2,127}$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "supportUrl": { "type": "string", "format": "uri", "pattern": "^https://" }
+      }
+    },
+    "compatibility": {
+      "type": "object", "additionalProperties": false,
+      "required": ["jezakuApi"],
+      "properties": {
+        "jezakuApi": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "alhambraContract": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "platforms": { "type": "array", "uniqueItems": true, "items": { "enum": ["android", "ios", "web", "windows", "macos", "linux"] } }
+      }
+    },
+    "packageType": { "enum": ["declarative-object", "asset-pack", "experience", "provider-adapter", "integration", "sandboxed-module"] },
+    "description": { "type": "string", "maxLength": 2000 },
+    "capabilities": {
+      "type": "array", "uniqueItems": true, "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "rationale"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$" },
+          "rationale": { "type": "string", "minLength": 1, "maxLength": 1000 }
+        }
+      }
+    },
+    "permissions": {
+      "type": "array", "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "access", "scope", "purpose"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$" },
+          "access": { "enum": ["read", "create", "update", "delete", "invoke"] },
+          "scope": {
+            "type": "object", "additionalProperties": false,
+            "required": ["type"],
+            "properties": {
+              "type": { "enum": ["self", "owned", "tenant", "organization", "area", "user-consented", "server-assigned"] },
+              "resourceType": { "type": "string", "maxLength": 100 },
+              "requestedArea": { "type": "string", "maxLength": 200 }
+            }
+          },
+          "purpose": { "type": "string", "minLength": 1, "maxLength": 1000 },
+          "optional": { "type": "boolean", "default": false }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "array", "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "versionRange"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{2,127}$" },
+          "versionRange": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "optional": { "type": "boolean", "default": false }
+        }
+      }
+    },
+    "objects": {
+      "type": "array", "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["typeId", "schemaVersion"],
+        "properties": {
+          "typeId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{2,127}$" },
+          "schemaVersion": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "displayName": { "type": "string", "maxLength": 120 },
+          "schemaAsset": { "type": "string", "maxLength": 512 }
+        }
+      }
+    },
+    "assets": {
+      "type": "array", "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["path", "mediaType", "sha256", "license"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1, "maxLength": 512, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" },
+          "mediaType": { "type": "string", "minLength": 1, "maxLength": 127 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "license": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "attribution": { "type": "string", "maxLength": 2000 }
+        }
+      }
+    },
+    "entrypoints": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "declarative": { "type": "string", "maxLength": 512 },
+        "remoteService": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "sandboxModule": { "type": "string", "maxLength": 512 }
+      },
+      "minProperties": 1
+    },
+    "resourceRequirements": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "maxMemoryMb": { "type": "integer", "minimum": 1, "maximum": 512 },
+        "maxCpuMillis": { "type": "integer", "minimum": 1, "maximum": 30000 },
+        "maxStorageMb": { "type": "integer", "minimum": 0, "maximum": 2048 },
+        "maxExecutionMillis": { "type": "integer", "minimum": 1, "maximum": 60000 }
+      }
+    },
+    "privacy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["dataCollected", "dataShared", "retention"],
+      "properties": {
+        "dataCollected": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "uniqueItems": true },
+        "dataShared": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "uniqueItems": true },
+        "retention": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "privacyPolicyUrl": { "type": "string", "format": "uri", "pattern": "^https://" }
+      }
+    },
+    "safety": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contentCategories", "physicalWorldImpact"],
+      "properties": {
+        "contentCategories": { "type": "array", "items": { "type": "string", "maxLength": 100 }, "uniqueItems": true },
+        "physicalWorldImpact": { "enum": ["none", "informational-overlay", "navigation-guidance", "spatial-placement", "device-interaction", "external-actuation"] },
+        "ageRating": { "type": "string", "maxLength": 32 },
+        "safetyNotes": { "type": "string", "maxLength": 4000 }
+      }
+    },
+    "release": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "changelog": { "type": "string", "maxLength": 4000 },
+        "deprecated": { "type": "boolean", "default": false },
+        "supersedes": { "type": "string", "maxLength": 128 }
+      }
+    }
+  }
+}
