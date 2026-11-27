@@ -22,6 +22,8 @@ import 'package:jejaku/features/remote_frames/states/memory_api_provider.dart';
 import 'package:jejaku/features/settings/services/app_settings_store.dart';
 import 'package:jejaku/features/sync/services/anchor_media_upload_queue_store.dart';
 import 'package:jejaku/features/sync/services/anchor_sync_delivery_log_store.dart';
+import 'package:jejaku/features/sync/states/frame_outbox_auto_sync.dart';
+import 'package:jejaku/features/sync/states/frame_outbox_providers.dart';
 import 'package:jejaku/features/trails/services/ar_trail_progress_store.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -98,6 +100,9 @@ Future<void> _bootstrapAndRun() async {
           memoryApiOverride(baseUrl: _memoryUrl),
           httpRemoteMediaLoaderOverride(),
         ],
+        // Frames saved offline wait here until they can be sent.
+        persistentFrameOutboxStoreOverride(preferences: preferences),
+        if (_mediaUrl.isNotEmpty) mediaApiOverride(baseUrl: _mediaUrl),
         persistentARHudStoreOverride(
           preferences: preferences,
         ),
@@ -124,6 +129,10 @@ const _identityUrl = String.fromEnvironment('JEZAKU_IDENTITY_URL');
 /// this build does not load frames from a server.
 const _memoryUrl = String.fromEnvironment('JEZAKU_MEMORY_URL');
 
+/// Base URL of the media service, e.g. `http://10.0.2.2:8108`. Empty means
+/// this build cannot upload photos, so saved frames stay on the device.
+const _mediaUrl = String.fromEnvironment('JEZAKU_MEDIA_URL');
+
 /// Base URL of the social service, e.g. `http://10.0.2.2:8103`. Empty means
 /// this build does not load friends (friends-only frames of others stay
 /// hidden).
@@ -135,6 +144,7 @@ class JejakuApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(arModelAssetCacheStartupMaintenanceProvider);
+    ref.watch(frameOutboxAutoSyncProvider);
     return MaterialApp(
       title: 'Jejaku',
       debugShowCheckedModeBanner: false,

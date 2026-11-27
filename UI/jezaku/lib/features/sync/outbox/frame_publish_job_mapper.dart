@@ -5,9 +5,12 @@ import 'package:jejaku/features/sync/outbox/frame_publisher.dart';
 
 /// Turns a frame stored on this device into what the memory service expects.
 abstract final class FramePublishJobMapper {
+  /// [storedBytes] are the photo's bytes from the device's media store, for a
+  /// frame whose own attachment no longer carries them.
   static FramePublishJob fromMemory(
     AnchorMemory memory, {
     required String ownerId,
+    Uint8List? storedBytes,
   }) {
     final meta = memory.captureMetadata;
     return FramePublishJob(
@@ -21,7 +24,7 @@ abstract final class FramePublishJobMapper {
       longitude: memory.longitude,
       frameStyle: memory.frameLookId,
       capturedAt: (memory.capturedAt ?? DateTime.now()).toUtc(),
-      photo: photoOf(memory),
+      photo: photoOf(memory, storedBytes: storedBytes),
       caption: memory.caption,
       altitudeMeters: meta.altitudeMeters,
       headingDegrees: _heading(meta.headingDegrees),
@@ -34,9 +37,13 @@ abstract final class FramePublishJobMapper {
   }
 
   /// The frame's photo, or null when it has none the media service accepts.
-  static FramePhoto? photoOf(AnchorMemory memory) {
+  ///
+  /// The attachment's own bytes win; [storedBytes] fill in when it has none
+  /// (frames loaded from disk keep their photo in the media store).
+  static FramePhoto? photoOf(AnchorMemory memory, {Uint8List? storedBytes}) {
     final attachment = memory.mediaAttachment;
-    final bytes = attachment?.bytes;
+    final own = attachment?.bytes;
+    final bytes = own != null && own.isNotEmpty ? own : storedBytes;
     if (attachment == null || bytes == null || bytes.isEmpty) {
       return null;
     }
