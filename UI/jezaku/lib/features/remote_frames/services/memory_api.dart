@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:jejaku/features/api/api_failure.dart';
+import 'package:jejaku/features/home/models/frame_audience.dart';
 import 'package:jejaku/features/remote_frames/models/remote_frame.dart';
+import 'package:jejaku/features/sync/outbox/frame_audience_syncer.dart';
 import 'package:jejaku/features/sync/outbox/frame_look_syncer.dart';
 import 'package:jejaku/features/sync/outbox/frame_publisher.dart';
 
@@ -9,7 +11,7 @@ import 'package:jejaku/features/sync/outbox/frame_publisher.dart';
 ///
 /// The [Dio] it is given must already add the access token (see
 /// `AuthInterceptor`).
-class MemoryApi implements FrameLookApi {
+class MemoryApi implements FrameLookApi, FrameDetailsApi {
   MemoryApi({required Dio dio}) : _dio = dio;
 
   final Dio _dio;
@@ -56,6 +58,24 @@ class MemoryApi implements FrameLookApi {
       _dio,
       '/memories/${Uri.encodeComponent(serverMemoryId)}/frame-style',
       body: <String, Object?>{'ownerId': ownerId, 'frameStyle': frameStyle},
+    );
+  }
+
+  /// Changes who a published frame is shared with
+  /// (`PATCH /memories/{id}/details`). Only the owner may.
+  @override
+  Future<void> updateAudience({
+    required String serverMemoryId,
+    required String ownerId,
+    required FrameAudience audience,
+  }) async {
+    await patchJson(
+      _dio,
+      '/memories/${Uri.encodeComponent(serverMemoryId)}/details',
+      body: <String, Object?>{
+        'ownerId': ownerId,
+        'visibility': audience.wireName,
+      },
     );
   }
 

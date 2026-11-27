@@ -1,11 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/api/authenticated_dio.dart';
+import 'package:jejaku/features/home/models/frame_audience.dart';
 import 'package:jejaku/features/home/services/anchor_media_repository.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
 import 'package:jejaku/features/remote_frames/states/memory_api_provider.dart';
 import 'package:jejaku/features/sync/outbox/anchor_memory_job_source.dart';
 import 'package:jejaku/features/sync/outbox/api_frame_publisher.dart';
+import 'package:jejaku/features/sync/outbox/frame_audience_syncer.dart';
 import 'package:jejaku/features/sync/outbox/frame_look_syncer.dart';
 import 'package:jejaku/features/sync/outbox/frame_outbox_processor.dart';
 import 'package:jejaku/features/sync/outbox/frame_publisher.dart';
@@ -60,44 +62,58 @@ final frameOutboxProcessorProvider = Provider<FrameOutboxProcessor?>((ref) {
       !ref.watch(localFirstSyncRuntimeProvider).canFlushToServer) {
     return null;
   }
-  // The look each frame was sent with, so that a look changed while it was
-  // being sent is still sent afterwards.
-  final lookSent = <String, String>{};
+  // The look and audience each frame was sent with, so that a change made
+  // while it was being sent is still sent afterwards.
+  final sent = <String, _SentState>{};
   return FrameOutboxProcessor(
     store: ref.watch(frameOutboxStoreProvider),
     publisher: ApiFramePublisher(mediaApi: mediaApi, memoryApi: memoryApi),
     // Read lazily: the frames and their photos are looked up at send time.
-    jobs: _LookRecordingJobs(
+    jobs: _SentStateRecordingJobs(
       AnchorMemoryJobSource(
         memories: () => ref.read(nearbyAnchorsProvider),
         mediaBytes: (mediaId) =>
             ref.read(anchorMediaRepositoryProvider).mediaById(mediaId)?.bytes,
       ),
-      lookSent,
+      sent,
     ),
     onPublished: (memoryId, serverMemoryId) async {
+      // Unknown after a restart: the look and audience are then sent once
+      // more, which changes nothing on the service.
+      final state = sent.remove(memoryId);
       ref.read(nearbyAnchorsProvider.notifier).markMemoryPublished(
             memoryId,
             serverMemoryId: serverMemoryId,
-            // Unknown after a restart: the look is then sent once more.
-            serverFrameLookId: lookSent.remove(memoryId),
+            serverFrameLookId: state?.look,
+            serverAudience: state?.audience,
           );
     },
   );
 });
 
-/// Remembers the look of every job it hands out.
-class _LookRecordingJobs implements FramePublishJobSource {
-  _LookRecordingJobs(this._inner, this._lookSent);
+/// What a frame was sent with.
+class _SentState {
+  const _SentState({required this.look, required this.audience});
+
+  final String look;
+  final FrameAudience audience;
+}
+
+/// Remembers the look and audience of every job it hands out.
+class _SentStateRecordingJobs implements FramePublishJobSource {
+  _SentStateRecordingJobs(this._inner, this._sent);
 
   final FramePublishJobSource _inner;
-  final Map<String, String> _lookSent;
+  final Map<String, _SentState> _sent;
 
   @override
   FramePublishJob? jobFor(String memoryId, {required String ownerId}) {
     final job = _inner.jobFor(memoryId, ownerId: ownerId);
     if (job != null) {
-      _lookSent[memoryId] = job.frameStyle;
+      _sent[memoryId] = _SentState(
+        look: job.frameStyle,
+        audience: FrameAudience.fromName(job.visibility, FrameAudience.private),
+      );
     }
     return job;
   }
@@ -116,5 +132,25 @@ final frameLookSyncerProvider = Provider<FrameLookSyncer?>((ref) {
     onSynced: (memoryId, lookId) => ref
         .read(nearbyAnchorsProvider.notifier)
         .markFrameLookSynced(memoryId, lookId),
+  );
+});
+
+/// Sends audience changes of published frames, or null when this build has no
+/// outbox.
+final frameAudienceSyncerProvider = Provider<FrameAudienceSyncer?>((ref) {
+  final memoryApi = ref.watch(memoryApiProvider);
+  if (memoryApi == null || ref.watch(frameOutboxProcessorProvider) == null) {
+    return null;
+  }
+  return FrameAudienceSyncer(
+    api: memoryApi,
+    memories: () => ref.read(nearbyAnchorsProvider),
+    onSynced: (memoryId, audience) => ref
+        .read(nearbyAnchorsProvider.notifier)
+        .markFrameAudienceSynced(memoryId, audience),
+    // The service refuses the change: the frame shows "update failed" and the
+    // next pass tries again.
+    onRejected: (memoryId) =>
+        ref.read(nearbyAnchorsProvider.notifier).markMemorySyncFailed(memoryId),
   );
 });

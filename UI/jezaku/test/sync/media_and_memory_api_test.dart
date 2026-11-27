@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jejaku/features/api/api_failure.dart';
+import 'package:jejaku/features/home/models/frame_audience.dart';
 import 'package:jejaku/features/remote_frames/services/memory_api.dart';
 import 'package:jejaku/features/sync/outbox/api_frame_publisher.dart';
 import 'package:jejaku/features/sync/outbox/frame_publisher.dart';
@@ -220,6 +221,66 @@ void main() {
             .reason,
         ApiFailureReason.network,
       );
+    });
+  });
+
+  group('MemoryApi.updateAudience', () {
+    test('PATCHes the visibility to the details endpoint', () async {
+      final adapter = _Adapter((_) => _json(200, {'id': 'srv-1'}));
+      final api = MemoryApi(dio: _dio(adapter, 'http://memory.test'));
+
+      await api.updateAudience(
+        serverMemoryId: 'srv/1',
+        ownerId: 'u-1',
+        audience: FrameAudience.private,
+      );
+
+      final request = adapter.requests.single;
+      expect(request.method, 'PATCH');
+      expect(request.uri.path, '/memories/srv%2F1/details');
+      expect(_bodyOf(request), {'ownerId': 'u-1', 'visibility': 'private'});
+    });
+
+    test('sends friends and public by their service names', () async {
+      final adapter = _Adapter((_) => _json(200, {'id': 'srv-1'}));
+      final api = MemoryApi(dio: _dio(adapter, 'http://memory.test'));
+
+      await api.updateAudience(
+        serverMemoryId: 'a',
+        ownerId: 'u',
+        audience: FrameAudience.friends,
+      );
+      await api.updateAudience(
+        serverMemoryId: 'a',
+        ownerId: 'u',
+        audience: FrameAudience.public,
+      );
+
+      expect(
+        adapter.requests.map((r) => _bodyOf(r)['visibility']),
+        ['friends', 'public'],
+      );
+    });
+
+    test('maps refusals and connection problems like the other calls',
+        () async {
+      Future<ApiFailure> failWith(int status) => _failure(
+            MemoryApi(
+              dio: _dio(
+                _Adapter((_) => _json(status, {'code': 'X'})),
+                'http://memory.test',
+              ),
+            ).updateAudience(
+              serverMemoryId: 'a',
+              ownerId: 'u',
+              audience: FrameAudience.public,
+            ),
+          );
+
+      expect((await failWith(400)).statusCode, 400);
+      expect((await failWith(403)).reason, ApiFailureReason.notAllowed);
+      expect((await failWith(404)).statusCode, 404);
+      expect((await failWith(503)).statusCode, 503);
     });
   });
 

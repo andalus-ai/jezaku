@@ -110,10 +110,13 @@ class FrameOutboxController extends Notifier<FrameOutboxState> {
         _publishState(running: false, summary: summary);
       }
     }
-    // Frames published by this pass may have had their look changed while
-    // they were being sent.
+    // Frames published by this pass may have had their look or audience
+    // changed while they were being sent.
     if (ref.mounted) {
       await syncLooks();
+    }
+    if (ref.mounted) {
+      await syncDetails();
     }
   }
 
@@ -123,6 +126,19 @@ class FrameOutboxController extends Notifier<FrameOutboxState> {
       return;
     }
     final syncer = ref.read(frameLookSyncerProvider);
+    if (syncer == null) {
+      return;
+    }
+    await syncer.run(userId: ref.read(signedInUserIdProvider));
+  }
+
+  /// Sends audience changes of already published frames (the audience
+  /// syncer).
+  Future<void> syncDetails() async {
+    if (!ref.mounted) {
+      return;
+    }
+    final syncer = ref.read(frameAudienceSyncerProvider);
     if (syncer == null) {
       return;
     }
