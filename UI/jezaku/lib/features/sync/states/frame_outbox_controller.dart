@@ -84,6 +84,9 @@ class FrameOutboxController extends Notifier<FrameOutboxState> {
       return;
     }
     await processor.enqueue(memoryId);
+    if (!ref.mounted) {
+      return;
+    }
     _publishState();
     await syncNow(force: false);
   }
@@ -109,11 +112,16 @@ class FrameOutboxController extends Notifier<FrameOutboxState> {
     }
     // Frames published by this pass may have had their look changed while
     // they were being sent.
-    await syncLooks();
+    if (ref.mounted) {
+      await syncLooks();
+    }
   }
 
   /// Sends look changes of already published frames (see [FrameLookSyncer]).
   Future<void> syncLooks() async {
+    if (!ref.mounted) {
+      return;
+    }
     final syncer = ref.read(frameLookSyncerProvider);
     if (syncer == null) {
       return;
