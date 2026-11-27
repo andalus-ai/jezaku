@@ -29,6 +29,6 @@ The look is referenced by a **stable id**, not by enum index or by materials. Th
 
 ## Known limits
 
-- Not synced yet: the memory service accepts and returns an optional `frameStyle` (the look id, see Backend/memory/README.md "Frame look"), but the app neither sends it when publishing nor reads it for other people's frames, so other devices still see the author's frame with the default look. The app side, and a backend endpoint for changing a published frame's look, are the next steps.
+- Sync: the memory service stores the look id as `frameStyle` (see Backend/memory/README.md "Frame look") and the owner can change it with `PATCH /memories/{id}/frame-style`. The app **reads** it for other people's frames (`RemoteFrame.frameStyle` → `AnchorMemory.frameLookId`), so their frames hang in the author's look; an id this build does not know renders as the classic look. Not synced yet: the app does not call the change endpoint (it needs the frame's server id stored locally, which the outbox does not keep yet), and the colour override is local only because the service has no colour field. Not validated on a device.
 - Not validated on a physical device (see the checklist in [ar-device-demo-lab.md](ar-device-demo-lab.md)).
 - Only built-in looks; no custom frame images or marketplace looks yet.

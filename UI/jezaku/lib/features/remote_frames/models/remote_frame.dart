@@ -20,6 +20,7 @@ class RemoteFrame {
     this.mediaStatus,
     this.moderationStatus,
     this.capturedAt,
+    this.frameStyle,
   });
 
   final String id;
@@ -44,6 +45,12 @@ class RemoteFrame {
   final String? mediaStatus;
   final String? moderationStatus;
   final DateTime? capturedAt;
+
+  /// The id of the look the owner gave the frame (`frameStyle` from the
+  /// service), or null when none was set. The service does not know the
+  /// catalog, so it may be an id this build has never heard of; the frame
+  /// renderer falls back to its default look for those.
+  final String? frameStyle;
 
   /// Reads one entry of `/memories/nearby` (a minimap dot) or of `/feed` and
   /// `/users/{id}` (a full memory). Returns null for an entry that is not
@@ -92,6 +99,7 @@ class RemoteFrame {
       mediaStatus: _text(json['mediaStatus']),
       moderationStatus: _text(json['moderationStatus']),
       capturedAt: _time(json['capturedAt']),
+      frameStyle: _text(json['frameStyle'])?.trim(),
     );
   }
 
