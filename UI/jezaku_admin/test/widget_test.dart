@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 import 'package:jezaku_admin/main.dart';
 
 void main() {
   testWidgets('shows the Jezaku Admin overview without fake live data',
       (WidgetTester tester) async {
-    await tester.view.setPhysicalSize(const Size(1200, 900));
-    await tester.view.setDevicePixelRatio(1);
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
@@ -42,7 +42,7 @@ void main() {
 
   testWidgets('compact layout exposes navigation through the drawer',
       (WidgetTester tester) async {
-    await tester.view.setPhysicalSize(const Size(420, 850));
+    tester.view.physicalSize = const Size(420, 850);
     await tester.view.setDevicePixelRatio(1);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
