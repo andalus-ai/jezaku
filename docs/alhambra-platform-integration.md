@@ -76,7 +76,7 @@ Alhambra is a separate repository: [andalus-ai/alhambra](https://github.com/anda
 
 ### Stage C — Extension architecture
 
-- [ ] Map Jezaku extension manifest and capability requirements to Alhambra plugin contracts.
+- [x] Map Jezaku extension manifest and capability requirements to Alhambra plugin contracts in [Jezaku–Alhambra Extension Contract](jezaku-alhambra-extension-contract.md); add draft manifest schema v1.0.0.
 - [ ] Define Jezaku-specific permissions, spatial scopes, safety policy and moderation gates in Jezaku.
 - [ ] Choose the execution boundary for untrusted extensions; compiled in-process plugins are trusted host code only.
 - [ ] Define package provenance, publisher trust, signature/revocation, compatibility and resource-budget controls.
