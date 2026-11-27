@@ -102,6 +102,7 @@ Future<void> _bootstrapAndRun() async {
         ],
         // Frames saved offline wait here until they can be sent.
         persistentFrameOutboxStoreOverride(preferences: preferences),
+        persistentPendingDeletionStoreOverride(preferences: preferences),
         if (_mediaUrl.isNotEmpty) mediaApiOverride(baseUrl: _mediaUrl),
         persistentARHudStoreOverride(
           preferences: preferences,

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/api/authenticated_dio.dart';
+import 'package:jejaku/features/auth/states/auth_providers.dart';
 import 'package:jejaku/features/home/models/frame_audience.dart';
 import 'package:jejaku/features/home/services/anchor_media_repository.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
@@ -8,11 +9,13 @@ import 'package:jejaku/features/remote_frames/states/memory_api_provider.dart';
 import 'package:jejaku/features/sync/outbox/anchor_memory_job_source.dart';
 import 'package:jejaku/features/sync/outbox/api_frame_publisher.dart';
 import 'package:jejaku/features/sync/outbox/frame_audience_syncer.dart';
+import 'package:jejaku/features/sync/outbox/frame_deletion_syncer.dart';
 import 'package:jejaku/features/sync/outbox/frame_look_syncer.dart';
 import 'package:jejaku/features/sync/outbox/frame_outbox_processor.dart';
 import 'package:jejaku/features/sync/outbox/frame_publisher.dart';
 import 'package:jejaku/features/sync/outbox/media_api.dart';
 import 'package:jejaku/features/sync/outbox/outbox_store.dart';
+import 'package:jejaku/features/sync/outbox/pending_deletion_store.dart';
 import 'package:jejaku/features/sync/services/local_first_sync_runtime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -81,6 +84,16 @@ final frameOutboxProcessorProvider = Provider<FrameOutboxProcessor?>((ref) {
       // Unknown after a restart: the look and audience are then sent once
       // more, which changes nothing on the service.
       final state = sent.remove(memoryId);
+      final frames = ref.read(nearbyAnchorsProvider);
+      if (!frames.any((frame) => frame.id == memoryId)) {
+        // Deleted on this device while it was being sent: the service has it
+        // now, so it has to be told to remove it.
+        await ref.read(frameDeletionSyncerProvider)?.record(
+              serverMemoryId: serverMemoryId,
+              ownerId: ref.read(signedInUserIdProvider),
+            );
+        return;
+      }
       ref.read(nearbyAnchorsProvider.notifier).markMemoryPublished(
             memoryId,
             serverMemoryId: serverMemoryId,
@@ -152,5 +165,32 @@ final frameAudienceSyncerProvider = Provider<FrameAudienceSyncer?>((ref) {
     // next pass tries again.
     onRejected: (memoryId) =>
         ref.read(nearbyAnchorsProvider.notifier).markMemorySyncFailed(memoryId),
+  );
+});
+
+/// Where deletions waiting for the service are kept. In memory unless the app
+/// overrides it.
+final pendingDeletionStoreProvider =
+    Provider<PendingDeletionStore>((ref) => InMemoryPendingDeletionStore());
+
+/// Keeps waiting deletions across restarts.
+persistentPendingDeletionStoreOverride({
+  required SharedPreferences preferences,
+}) {
+  return pendingDeletionStoreProvider.overrideWith(
+    (ref) => SharedPreferencesPendingDeletionStore(preferences: preferences),
+  );
+}
+
+/// Tells the service about deleted frames, or null when this build has no
+/// outbox (frames then never reach a server, so there is nothing to delete).
+final frameDeletionSyncerProvider = Provider<FrameDeletionSyncer?>((ref) {
+  final memoryApi = ref.watch(memoryApiProvider);
+  if (memoryApi == null || ref.watch(frameOutboxProcessorProvider) == null) {
+    return null;
+  }
+  return FrameDeletionSyncer(
+    api: memoryApi,
+    store: ref.watch(pendingDeletionStoreProvider),
   );
 });
