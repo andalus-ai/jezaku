@@ -1,7 +1,7 @@
 # Jezaku Admin Console — UI/UX Specification
 
 **Status:** Proposed product and interaction specification  
-**Scope:** Web-based administration experience for the Jezaku platform  
+**Scope:** Existing Flutter application at `UI/jezaku_admin/`  
 **Relationship:** Complements the Flutter end-user application; does not replace it.
 
 ## 1. Product intent
@@ -10,7 +10,7 @@ The Admin Console is the operational workspace for people who configure, govern,
 
 The console is a management surface, not the spatial end-user experience. It should optimize for clarity, safe operations, efficient review, and explainable state.
 
-The current repository's primary UI is a Flutter mobile/spatial client. This specification defines the web management UX independently; the web implementation technology and deployment boundary must be decided after inspecting backend contracts and the repository's build/deployment setup. Do not force desktop administration into the mobile app's navigation model.
+The repository already has a separate Flutter admin application at `UI/jezaku_admin/`, distinct from the Flutter end-user app at `UI/jezaku/`. The admin app has an initial responsive shell, ten management-area destinations, and honest not-connected/not-implemented overview states. Its dependency manifest includes Flutter and `material_ui`; the broader admin architecture also records adoption of the Alhambra UI foundation. This specification refines that existing console rather than proposing a separate web application or a second UI stack. Recheck source before implementation; the current shell and backend integration status may have changed.
 
 ## 2. UX principles
 
