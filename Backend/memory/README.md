@@ -49,7 +49,8 @@ Anonymous callers (authentication not enforced) are never restricted. The positi
 - The service stores the id and does not know the catalog. Each client maps ids to looks and falls back to its default for an id it does not know, so new looks, including ones from appearance extensions, need no backend deploy.
 - The value is trimmed and lower-cased. It must be 1-64 characters: letters, digits, `.`, `_` or `-`, starting with a letter or digit (`ext.acme.neon-glass` is valid). Anything else returns 400 `BAD_REQUEST` and nothing is saved. A blank value is stored as `null`.
 - It is cosmetic only: it does not change who can see a frame, where, or whether it is moderated.
-- `PATCH /memories/{id}/anchor` keeps the look as it is. There is no endpoint yet for the owner to change a published frame's look; that is a follow-up, and until then a change made in the app stays on that device.
+- `PATCH /memories/{id}/anchor` keeps the look as it is.
+- `PATCH /memories/{id}/frame-style` with `{"ownerId": "...", "frameStyle": "gold"}` lets the **owner** change a published frame's look. The value follows the same rules as on create (invalid → 400 and the old look stays); `null` or a blank value restores the default look. Only the owner may call it (403 otherwise, 404 for an unknown frame). It touches nothing else: placement, audience and moderation stay as they are, so no spatial check runs. The response is the updated frame, like the anchor update.
 
 ### Spatial publishing enforcement
 

@@ -29,6 +29,6 @@ The look is referenced by a **stable id**, not by enum index or by materials. Th
 
 ## Known limits
 
-- Not synced yet: the memory service accepts and returns an optional `frameStyle` (the look id, see Backend/memory/README.md "Frame look"), but the app neither sends it when publishing nor reads it for other people's frames, so other devices still see the author's frame with the default look. The app side, and a backend endpoint for changing a published frame's look, are the next steps.
+- Not synced yet: the memory service accepts and returns an optional `frameStyle` (the look id, see Backend/memory/README.md "Frame look"), and the owner can change a published frame's look with `PATCH /memories/{id}/frame-style`. The app sends the look when it publishes (through the outbox) but does not read it for other people's frames and does not call the change endpoint yet, so other devices still see the author's frame with the default look. The app side is the next step.
 - Not validated on a physical device (see the checklist in [ar-device-demo-lab.md](ar-device-demo-lab.md)).
 - Only built-in looks; no custom frame images or marketplace looks yet.

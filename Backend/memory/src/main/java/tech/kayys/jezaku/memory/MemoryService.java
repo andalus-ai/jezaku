@@ -17,6 +17,7 @@ import tech.kayys.jezaku.memory.MemoryDtos.MemoryAnchorHistoryResponse;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryAnchorUpdateRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryCreateRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryFeedResponse;
+import tech.kayys.jezaku.memory.MemoryDtos.MemoryFrameStyleUpdateRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryMediaSnapshotUpdateRequest;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryMediaSnapshotUpdateResponse;
 import tech.kayys.jezaku.memory.MemoryDtos.MemoryMinimapCluster;
@@ -222,6 +223,29 @@ public class MemoryService {
                     existing.frameStyle());
             repository.save(updated);
             recordAnchorHistory(updated, ownerId, "refinement", Instant.now());
+            return toResponse(updated, updated.position());
+        });
+    }
+
+    /**
+     * Changes the look of a published frame. Only the owner may; the look is cosmetic, so nothing else about the
+     * frame (placement, audience, moderation) is touched and no spatial check is needed.
+     */
+    public Uni<MemoryResponse> updateFrameStyle(String id, MemoryFrameStyleUpdateRequest request) {
+        return Uni.createFrom().item(() -> {
+            if (request == null) {
+                throw new BadRequestException("Request body is required");
+            }
+            String ownerId = requireText(request.ownerId(), "ownerId");
+            MemoryRecord existing = repository.findById(id);
+            if (existing == null) {
+                throw new NotFoundException("Memory not found: " + id);
+            }
+            if (!existing.ownerId().equals(ownerId)) {
+                throw new ForbiddenException("Only the memory owner can change the frame look");
+            }
+            MemoryRecord updated = existing.withFrameStyle(MemoryFrameStyle.normalize(request.frameStyle()));
+            repository.save(updated);
             return toResponse(updated, updated.position());
         });
     }
