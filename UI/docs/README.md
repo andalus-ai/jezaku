@@ -1,6 +1,7 @@
 # UI Documentation
 
 - [AR Device Demo Lab](ar-device-demo-lab.md) — offline-first physical-device testing workflow for AR runtime, placement, photo frames, snapshots and recording.
+- [Offline outbox](offline-outbox.md) — how frames saved on the device are sent to the server when online: stages, holds, retry timing, and what is not wired yet.
 - [Frame visibility and AR frames roadmap](frame-visibility-and-roadmap.md) — who may see a frame, the 20 m physical radius, the central rule namespace, and the ordered roadmap.
 - [Sign-in](sign-in.md) — the client sign-in seam: required in production builds with an identity service, bypassed in demo builds.
 - [Frame styles](frame-styles.md) — the frame gallery: built-in looks, default frame in Settings, changing a published frame, and how it maps to the platform's appearance contract.

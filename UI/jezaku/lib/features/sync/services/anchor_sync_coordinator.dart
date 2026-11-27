@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
@@ -7,6 +9,7 @@ import 'package:jejaku/features/sync/services/anchor_sync_payload_builder_provid
 import 'package:jejaku/features/sync/services/local_first_sync_runtime.dart';
 import 'package:jejaku/features/sync/states/anchor_sync_delivery_log_provider.dart';
 import 'package:jejaku/features/sync/states/anchor_media_upload_queue_provider.dart';
+import 'package:jejaku/features/sync/states/frame_outbox_controller.dart';
 
 final anchorSyncCoordinatorProvider = Provider<AnchorSyncCoordinator>((ref) {
   return AnchorSyncCoordinator(
@@ -15,6 +18,11 @@ final anchorSyncCoordinatorProvider = Provider<AnchorSyncCoordinator>((ref) {
     mediaQueue: ref.read(anchorMediaUploadQueueProvider.notifier),
     deliveryLog: ref.read(anchorSyncDeliveryLogProvider.notifier),
     memoryController: ref.read(nearbyAnchorsProvider.notifier),
+    // Only a build with a memory and a media service really sends frames; the
+    // others keep the older, device-only behaviour.
+    outbox: ref.read(frameOutboxControllerProvider.notifier).isActive
+        ? ref.read(frameOutboxControllerProvider.notifier)
+        : null,
   );
 });
 
@@ -25,7 +33,9 @@ class AnchorSyncCoordinator {
     required AnchorMediaUploadQueueController mediaQueue,
     required AnchorSyncDeliveryLogController deliveryLog,
     required AnchorMemoryController memoryController,
-  })  : _runtime = runtime,
+    FrameOutboxController? outbox,
+  })  : _outbox = outbox,
+        _runtime = runtime,
         _payloadBuilder = payloadBuilder,
         _mediaQueue = mediaQueue,
         _deliveryLog = deliveryLog,
@@ -37,11 +47,19 @@ class AnchorSyncCoordinator {
   final AnchorSyncDeliveryLogController _deliveryLog;
   final AnchorMemoryController _memoryController;
 
+  /// Sends frames to the server. Null in builds that cannot, where the
+  /// methods below keep the device-only behaviour.
+  final FrameOutboxController? _outbox;
+
   AnchorSyncOutcome syncAll(Iterable<AnchorMemory> memories) {
     final items = memories.toList(growable: false);
     final blocked = _blockIfOffline(items, markMediaFailed: true);
     if (blocked != null) {
       return blocked;
+    }
+    final handedOver = _handToOutbox(items);
+    if (handedOver != null) {
+      return handedOver;
     }
     _mediaQueue.uploadAllMedia(items);
     final payload = _payloadBuilder.batchPayload(
@@ -65,6 +83,10 @@ class AnchorSyncCoordinator {
     if (blocked != null) {
       return blocked;
     }
+    final handedOver = _handToOutbox(items);
+    if (handedOver != null) {
+      return handedOver;
+    }
     _mediaQueue.uploadAllMedia(items);
     final payload = _payloadBuilder.batchPayload(
       items,
@@ -86,6 +108,10 @@ class AnchorSyncCoordinator {
     final blocked = _blockIfOffline(items, markMediaFailed: true);
     if (blocked != null) {
       return blocked;
+    }
+    final handedOver = _handToOutbox(items);
+    if (handedOver != null) {
+      return handedOver;
     }
     _mediaQueue.uploadAllMedia(items);
     final payload = _payloadBuilder.batchPayload(
@@ -114,6 +140,10 @@ class AnchorSyncCoordinator {
     if (blocked != null) {
       return blocked;
     }
+    final handedOver = _handToOutbox(items);
+    if (handedOver != null) {
+      return handedOver;
+    }
     final payload = _payloadBuilder.batchPayload(
       items,
       batchType: AnchorSyncBatchType.uploadMetadata,
@@ -136,6 +166,10 @@ class AnchorSyncCoordinator {
     final blocked = _blockIfOffline([memory], markMediaFailed: true);
     if (blocked != null) {
       return blocked;
+    }
+    final handedOver = _handToOutbox([memory]);
+    if (handedOver != null) {
+      return handedOver;
     }
     _mediaQueue.uploadMedia(memory);
     final payload = _payloadBuilder.batchPayload(
@@ -160,6 +194,10 @@ class AnchorSyncCoordinator {
     if (blocked != null) {
       return blocked;
     }
+    final handedOver = _handToOutbox([memory]);
+    if (handedOver != null) {
+      return handedOver;
+    }
     if (includeMedia) {
       _mediaQueue.uploadMedia(memory);
     }
@@ -175,6 +213,45 @@ class AnchorSyncCoordinator {
         message: 'Marked sync item synced.',
         payload: payload,
       ),
+    );
+  }
+
+  /// With a real outbox, frames are sent for real instead of being marked
+  /// "synced" on the spot. Returns null when this build has no outbox.
+  ///
+  /// New frames are handed to the outbox and sent now (or as soon as the
+  /// device is online); the frames' status changes only when the server has
+  /// them. Edits to frames that are already on the server have no route to
+  /// the server yet, so they stay pending and the person is told.
+  AnchorSyncOutcome? _handToOutbox(List<AnchorMemory> items) {
+    final outbox = _outbox;
+    if (outbox == null) {
+      return null;
+    }
+    final newFrames = [
+      for (final memory in items)
+        if (memory.syncReason == AnchorSyncReason.newCapture) memory,
+    ];
+    final editCount = items.length - newFrames.length;
+    final editNote = editCount == 0
+        ? ''
+        : ' Changes to $editCount frame${editCount == 1 ? '' : 's'} already '
+            'on the server cannot be sent yet.';
+    if (newFrames.isEmpty) {
+      return AnchorSyncOutcome.blocked(
+        itemCount: items.length,
+        message: 'Nothing new to send.$editNote',
+      );
+    }
+    for (final memory in newFrames) {
+      unawaited(outbox.enqueue(memory.id));
+    }
+    unawaited(outbox.syncNow());
+    final label = newFrames.length == 1 ? 'frame' : 'frames';
+    return AnchorSyncOutcome.started(
+      itemCount: newFrames.length,
+      message: 'Sending ${newFrames.length} $label. Each shows as synced '
+          'once the server has it.$editNote',
     );
   }
 
@@ -232,7 +309,7 @@ class AnchorSyncCoordinator {
   }
 }
 
-enum AnchorSyncOutcomeStatus { completed, blocked }
+enum AnchorSyncOutcomeStatus { completed, blocked, started }
 
 class AnchorSyncOutcome {
   const AnchorSyncOutcome._({
@@ -269,6 +346,17 @@ class AnchorSyncOutcome {
           payload: payload,
         );
 
+  /// Frames were handed to the outbox. Nothing is confirmed by the server yet.
+  const AnchorSyncOutcome.started({
+    required int itemCount,
+    required String message,
+  }) : this._(
+          status: AnchorSyncOutcomeStatus.started,
+          itemCount: itemCount,
+          mediaCount: 0,
+          message: message,
+        );
+
   final AnchorSyncOutcomeStatus status;
   final int itemCount;
   final int mediaCount;
@@ -278,4 +366,6 @@ class AnchorSyncOutcome {
   bool get isCompleted => status == AnchorSyncOutcomeStatus.completed;
 
   bool get isBlocked => status == AnchorSyncOutcomeStatus.blocked;
+
+  bool get isStarted => status == AnchorSyncOutcomeStatus.started;
 }

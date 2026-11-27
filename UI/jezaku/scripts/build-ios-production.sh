@@ -183,6 +183,9 @@ BUILD_CMD=(
     # Memory and social services: other people's frames and friends. Empty
     # leaves the app offline for those.
     --dart-define=JEZAKU_MEMORY_URL="${JEZAKU_MEMORY_URL:-}"
+    # Media service: photos of saved frames are uploaded here. Empty keeps
+    # saved frames on the device.
+    --dart-define=JEZAKU_MEDIA_URL="${JEZAKU_MEDIA_URL:-}"
     --dart-define=JEZAKU_SOCIAL_URL="${JEZAKU_SOCIAL_URL:-}"
 )
 
