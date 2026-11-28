@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart';
 
 /// Empty state shared by the home list and the gallery.
 ///
@@ -55,16 +56,17 @@ class MemoryEmptyState extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               if (hasAnyMemories)
-                OutlinedButton.icon(
+                JzButton(
+                  label: 'Show all',
+                  variant: JzButtonVariant.outline,
+                  leading: const Icon(Icons.clear_all),
                   onPressed: onResetFilter,
-                  icon: const Icon(Icons.clear_all),
-                  label: const Text('Show all'),
                 )
               else
-                FilledButton.icon(
+                JzButton(
+                  label: 'Capture a memory',
+                  leading: const Icon(Icons.photo_camera_outlined),
                   onPressed: onCapture,
-                  icon: const Icon(Icons.photo_camera_outlined),
-                  label: const Text('Capture a memory'),
                 ),
             ],
           ),
