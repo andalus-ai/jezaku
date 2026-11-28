@@ -41,7 +41,7 @@ Tasks:
 2. [ ] Add sign-in/session-expired/unauthorized states only after confirming the backend auth contract; use a clearly marked development placeholder only in local non-production mode if the auth contract is absent.
 3. [x] Add capability-area navigation with explicit not-implemented states.
 4. [x] Add overview placeholders that clearly say not connected/not available instead of displaying fake health data.
-5. [ ] Add common table/list, filter, pagination, detail panel, empty/error/loading and confirmation patterns.
+5. [x] Add reusable searchable/sortable/paginated table, mobile record cards, feedback states (loading/empty/error/forbidden/unavailable), scoped confirmation dialog, and tabbed detail scaffold. [ ] Add domain-specific filters, validated forms, activity timeline and backend-connected detail workflows as owning contracts become available.
 6. [ ] Add typed environment configuration; never hardcode production URLs or secrets.
 7. [x] Add the required `alhambra_ui` package pinned to an immutable revision; adopt Alhambra theme/card/badge components while preserving Jezaku navigation. [ ] Confirm clean-checkout dependency resolution, analyzer, widget tests and supported target builds in CI.
 8. [x] Add widget coverage for overview unavailable states, desktop navigation, compact drawer, light/dark theme switching, and global management-area search. [ ] Run formatter, analyzer, and widget tests in a clean Flutter environment.
@@ -191,3 +191,15 @@ A capability is complete only when:
 - tests cover success, denial, cross-scope access and failure;
 - documentation describes the actual implementation, limitations and operational procedure;
 - relevant Flutter and Maven checks have been run and outcomes reported.
+
+
+## UX-A2 — Reusable management components
+
+Implemented in `UI/jezaku_admin/lib/widgets/`:
+- `admin_data_table.dart`: typed columns, local text search, column sorting, pagination, responsive mobile record cards, optional filter-bar slot, and explicit loading/error/empty states.
+- `admin_feedback_state.dart`: consistent loading, empty, error, forbidden and unavailable presentation.
+- `admin_confirm_dialog.dart`: scoped consequence confirmation with optional exact-phrase confirmation for destructive actions. A confirmed dialog is only a UI decision; callers must still invoke an authorized backend operation and handle its result.
+- `admin_detail_scaffold.dart`: reusable tabbed detail layout with status, metadata and action slots.
+- `test/admin_components_test.dart`: widget coverage for search, pagination, mobile layout, destructive confirmation, forbidden state and detail tabs.
+
+Not included in this slice: live data, API repositories, domain filter definitions, create/edit forms, audit timeline data, or authorization decisions. Those require verified backend contracts. Flutter formatter, analyzer and widget tests remain to be run in a Flutter-enabled environment.
