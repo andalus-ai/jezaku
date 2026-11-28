@@ -4,7 +4,7 @@ The operator-facing administration application for the Jezaku spatial experience
 
 ## Status
 
-The initial responsive Flutter console shell is implemented, including navigation for the planned management areas and an overview that clearly marks backend data as not connected. Authentication, management APIs, live operational dashboards, and privileged workflows are not yet implemented. See the architecture and phased plan before adding features.
+The responsive Flutter console shell and first UI/UX refresh are implemented: Jezaku-branded navigation, desktop sidebar collapse, compact drawer navigation, overview dashboard hierarchy, honest unavailable-data states, light/dark theme switching, and global management-area search. Authentication, management APIs, live operational dashboards, and privileged workflows are not yet implemented. See the [Admin Console UI/UX specification](../../docs/ADMIN_CONSOLE_UI_UX.md). See the architecture and phased plan before adding features.
 
 ## Responsibilities
 

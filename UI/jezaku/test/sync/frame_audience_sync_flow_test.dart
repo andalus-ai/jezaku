@@ -78,7 +78,7 @@ void main() {
     container.read(nearbyAnchorsProvider.notifier).togglePrivacy('a');
     // Waiting for the service until it has been told.
     expect(_stored(container, 'a').syncStatus, AnchorSyncStatus.queued);
-    expect(_stored(container, 'a').syncReason, AnchorSyncReason.audienceUpdate);
+    expect(_stored(container, 'a').syncReason, AnchorSyncReason.serverUpdate);
     await pumpEventQueue();
 
     expect(api.calls, ['srv-a:private']);
@@ -202,7 +202,7 @@ void main() {
         .markMetadataUpdatesSynced([edited]);
 
     expect(outcome.isStarted, isTrue);
-    expect(outcome.message, contains('who 1 frame is shared with'));
+    expect(outcome.message, contains('changes to 1 published frame'));
     expect(outcome.message, isNot(contains('cannot be sent yet')));
   });
 
