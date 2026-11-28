@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:ar_engine/ar_engine.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_runtime_permission_service.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capability_providers.dart';
