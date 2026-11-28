@@ -41,7 +41,7 @@ Tasks:
 2. [ ] Add sign-in/session-expired/unauthorized states only after confirming the backend auth contract; use a clearly marked development placeholder only in local non-production mode if the auth contract is absent.
 3. [x] Add capability-area navigation with explicit not-implemented states.
 4. [x] Add overview placeholders that clearly say not connected/not available instead of displaying fake health data.
-5. [x] Add reusable searchable/sortable/paginated table, mobile record cards, feedback states (loading/empty/error/forbidden/unavailable), scoped confirmation dialog, and tabbed detail scaffold. [ ] Add domain-specific filters, validated forms, activity timeline and backend-connected detail workflows as owning contracts become available.
+5. [x] Add reusable searchable/sortable/paginated table, mobile record cards, feedback states (loading/empty/error/forbidden/unavailable), scoped confirmation dialog, tabbed detail scaffold, draft/apply filters, validated form fields, unsaved-changes guard, review-before-submit with scope/reason capture, and activity timeline. [ ] Add backend-connected detail and mutation workflows as owning contracts become available.
 6. [ ] Add typed environment configuration; never hardcode production URLs or secrets.
 7. [x] Add the required `alhambra_ui` package pinned to an immutable revision; adopt Alhambra theme/card/badge components while preserving Jezaku navigation. [ ] Confirm clean-checkout dependency resolution, analyzer, widget tests and supported target builds in CI.
 8. [x] Add widget coverage for overview unavailable states, desktop navigation, compact drawer, light/dark theme switching, and global management-area search. [ ] Run formatter, analyzer, and widget tests in a clean Flutter environment.
@@ -203,3 +203,18 @@ Implemented in `UI/jezaku_admin/lib/widgets/`:
 - `test/admin_components_test.dart`: widget coverage for search, pagination, mobile layout, destructive confirmation, forbidden state and detail tabs.
 
 Not included in this slice: live data, API repositories, domain filter definitions, create/edit forms, audit timeline data, or authorization decisions. Those require verified backend contracts. Flutter formatter, analyzer and widget tests remain to be run in a Flutter-enabled environment.
+
+
+## UX-A3 — Forms, filters and workflow patterns
+
+Implemented in `UI/jezaku_admin/lib/widgets/`:
+- `admin_form_section.dart`: consistent form sections, validated text fields and a discard-unsaved-changes confirmation helper.
+- `admin_filter_panel.dart`: grouped filter chips with draft state and explicit apply/reset behavior. Applying filters only reports the selected values to the caller.
+- `admin_workflow_review.dart`: review-before-submit dialog showing consequence, scope and supplied change summary; can require an operator reason and returns that reason to the caller.
+- `admin_activity_timeline.dart`: actor, timestamp, severity, description and event-reference presentation.
+- `admin_data_table.dart`: configured empty-state title/message are now respected.
+- `test/admin_components_test.dart`: expanded widget coverage for filter application, required-field validation, reason-required review, activity timeline and unsaved-change cancellation.
+
+Security boundary: these widgets do not authorize, persist or execute operations. Callers must submit to the owning backend, which validates scope and permissions, applies domain rules, enforces approval/dual-control requirements and records the authoritative audit event. The activity timeline must be populated from trusted backend audit data, not client-generated claims.
+
+Flutter formatter, analyzer and widget tests have not yet been run in a Flutter-enabled environment.
