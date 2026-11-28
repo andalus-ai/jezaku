@@ -234,5 +234,22 @@ final Provider<FrameDeletionSyncer?> frameDeletionSyncerProvider =
   return FrameDeletionSyncer(
     api: memoryApi,
     store: ref.watch(pendingDeletionStoreProvider),
+    onChanged: (count) {
+      if (ref.mounted) {
+        ref.read(pendingDeletionCountProvider.notifier).set(count);
+      }
+    },
   );
 });
+
+/// How many deleted frames the service still has to be told about, for the
+/// sync queue to show.
+final pendingDeletionCountProvider =
+    NotifierProvider<PendingDeletionCount, int>(PendingDeletionCount.new);
+
+class PendingDeletionCount extends Notifier<int> {
+  @override
+  int build() => ref.watch(pendingDeletionStoreProvider).load().length;
+
+  void set(int count) => state = count;
+}

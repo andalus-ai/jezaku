@@ -152,15 +152,17 @@ class FrameOutboxController extends Notifier<FrameOutboxState> {
 
   /// Tells the service about frames deleted on this device (the deletion
   /// syncer).
-  Future<void> syncDeletions() async {
+  ///
+  /// Returns how many deletions the service confirmed.
+  Future<int> syncDeletions() async {
     if (!ref.mounted) {
-      return;
+      return 0;
     }
     final syncer = ref.read(frameDeletionSyncerProvider);
     if (syncer == null) {
-      return;
+      return 0;
     }
-    await syncer.run(userId: ref.read(signedInUserIdProvider));
+    return syncer.run(userId: ref.read(signedInUserIdProvider));
   }
 
   /// Lets a frame the service refused be sent again.
