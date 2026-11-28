@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
+import 'package:jejaku/app/theme/jezaku_status_colors.dart';
 import 'package:jejaku/features/parent/models/child_account.dart';
 import 'package:jejaku/features/parent/states/parent_providers.dart';
 
@@ -480,7 +481,9 @@ class _ChildSummaryCard extends StatelessWidget {
                   if (child.hasPendingExtension)
                     Chip(
                       label: const Text('Request'),
-                      backgroundColor: Colors.orange.shade100,
+                      backgroundColor: JezakuStatusColors.of(context)
+                          .warning
+                          .withValues(alpha: 0.18),
                     ),
                 ],
               ),

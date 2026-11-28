@@ -138,6 +138,21 @@ void main() {
       expect(light.lerp(null, 0.5), same(light));
     });
 
+    test('onColor picks a readable foreground for light and dark fills', () {
+      const white = Color(0xFFFFFFFF);
+      const ink = Color(0xFF171827);
+
+      expect(JezakuStatusColors.onColor(const Color(0xFF000000)), white);
+      expect(JezakuStatusColors.onColor(const Color(0xFFFFFFFF)), ink);
+      // Light-theme status colours are dark enough for white text; the
+      // dark-theme ones are light and need dark text.
+      for (final b in Brightness.values) {
+        final colors = JezakuStatusColors.forBrightness(b);
+        final expected = b == Brightness.dark ? ink : white;
+        expect(JezakuStatusColors.onColor(colors.success), expected);
+      }
+    });
+
     testWidgets('of() falls back to the ambient brightness without extension',
         (tester) async {
       late JezakuStatusColors resolved;

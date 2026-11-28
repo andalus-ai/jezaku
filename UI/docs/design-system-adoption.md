@@ -45,14 +45,26 @@ values that cross cleanly.
 | Card and input themes | Same as `JzTheme`: flat bordered cards, filled inputs with a subtle surface and focus ring. |
 | Status colours | `JezakuStatusColors` (a `material_ui` `ThemeExtension`) exposes `success`, `warning`, `danger`, `info`, `surfaceSubtle` and `border`, read from `JzTheme` so light/dark values never fork. Use `JezakuStatusColors.of(context)` — never a raw hex — and pair colour with text or an icon. |
 
+### Screens migrated to status colours
+
+| Screen / widget | Change |
+| --- | --- |
+| `ARWallCard` | Public/Group badge uses `success`/`warning` (was `Colors.green`/`orange`); the label colour is chosen with `JezakuStatusColors.onColor` because dark-theme status colours are light. The active-wall dot uses `success` and now has an "Active wall" semantic label. |
+| Parent dashboard | The "Request" chip on a child uses a tinted `warning` (was `Colors.orange.shade100`, which glared in dark theme). |
+
+Deliberately **not** migrated: colours drawn over the camera, AR or minimap
+imagery (`camera_*`, minimap legend, `anchor_media_pill` overlay), where
+contrast against live video is the constraint, not the theme; the like-heart
+red; the my-location dot. Revisit once the HUD has its own overlay tokens.
+
 `test/app_theme_test.dart` asserts the app's colour scheme equals
 `JzTheme`'s for the same brightness and that the status colours mirror
 `JzThemeTokens`, so drift from the design system fails CI.
 
 ## Not yet done
 
-- Migrating screens from raw colours/paddings to `JezakuStatusColors`,
-  `JzSpacing` and `JzRadius` (do it per feature, one PR each).
+- Migrating the remaining screens from raw colours/paddings to
+  `JezakuStatusColors`, `JzSpacing` and `JzRadius` (per feature, one PR each).
 - Using `JzButton` / `JzCard` / `JzBadge` / `JzTextField` / `JzEmptyState`
   directly (blocked on the type split above: either `jezaku_ds` moves to
   `material_ui`, or the app wraps in `MaterialUiCompatibilityBridge`).
