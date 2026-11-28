@@ -30,6 +30,12 @@ Future<void> _pump(WidgetTester tester, ThemeData theme, ARWall wall) {
   );
 }
 
+// The card is one tappable node, so the icon's label is merged into a longer
+// semantics label and cannot be matched exactly; assert on the icon itself.
+final _activeIndicator = find.byWidgetPredicate(
+  (widget) => widget is Icon && widget.semanticLabel == 'Active wall',
+);
+
 /// The badge's filled background, found from its label.
 Color _badgeColor(WidgetTester tester, String label) {
   final box = tester.widget<DecoratedBox>(
@@ -73,21 +79,17 @@ void main() {
         );
       });
 
-      testWidgets('active wall exposes an "Active wall" semantic label',
+      testWidgets('active wall labels its active indicator "Active wall"',
           (tester) async {
-        final semantics = tester.ensureSemantics();
         await _pump(tester, theme, _wall(isActive: true));
 
-        expect(find.bySemanticsLabel('Active wall'), findsOneWidget);
-        semantics.dispose();
+        expect(_activeIndicator, findsOneWidget);
       });
 
       testWidgets('inactive wall has no active indicator', (tester) async {
-        final semantics = tester.ensureSemantics();
         await _pump(tester, theme, _wall());
 
-        expect(find.bySemanticsLabel('Active wall'), findsNothing);
-        semantics.dispose();
+        expect(_activeIndicator, findsNothing);
       });
     });
   }
