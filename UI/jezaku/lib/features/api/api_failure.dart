@@ -91,6 +91,21 @@ Future<Object?> patchJson(
   return _checked(response);
 }
 
+/// `DELETE`s [path] with the same failure mapping as [getJson]. A success
+/// has no body to return.
+Future<void> deleteJson(Dio dio, String path) async {
+  final Response<Object?> response;
+  try {
+    response = await dio.delete<Object?>(
+      path,
+      options: Options(validateStatus: (_) => true),
+    );
+  } on DioException {
+    throw const ApiFailure(ApiFailureReason.network);
+  }
+  _checked(response);
+}
+
 Object? _checked(Response<Object?> response) {
   final status = response.statusCode ?? 0;
   if (status == 401 || status == 403) {

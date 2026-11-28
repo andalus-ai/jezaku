@@ -14,6 +14,7 @@ import 'package:jejaku/features/home/states/sample_data_provider.dart';
 import 'package:jejaku/features/sync/models/anchor_media_sync_manifest.dart';
 import 'package:jejaku/features/sync/states/anchor_media_upload_queue_provider.dart';
 import 'package:jejaku/features/sync/states/frame_outbox_controller.dart';
+import 'package:jejaku/features/sync/states/frame_outbox_providers.dart';
 
 const viewerLatitude = fallbackViewerLatitude;
 const viewerLongitude = fallbackViewerLongitude;
@@ -234,6 +235,23 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
     state = remainingMemories;
     _releaseDeletedMediaIfUnused(deletedMemory, remainingMemories);
     _persistLocalMemories();
+    _deleteOnServer(deletedMemory);
+  }
+
+  /// A frame that reached the service has to be removed there too. The
+  /// deletion is kept until the service confirms it, so deleting offline works.
+  void _deleteOnServer(AnchorMemory deleted) {
+    final serverId = deleted.serverMemoryId;
+    final deletions = ref.read(frameDeletionSyncerProvider);
+    if (serverId == null || deletions == null) {
+      return;
+    }
+    unawaited(() async {
+      await deletions.record(serverMemoryId: serverId, ownerId: deleted.ownerId);
+      if (ref.mounted) {
+        await ref.read(frameOutboxControllerProvider.notifier).syncDeletions();
+      }
+    }());
   }
 
   void _releaseDeletedMediaIfUnused(

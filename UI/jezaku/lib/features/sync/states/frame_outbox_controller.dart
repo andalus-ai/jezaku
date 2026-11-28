@@ -118,6 +118,9 @@ class FrameOutboxController extends Notifier<FrameOutboxState> {
     if (ref.mounted) {
       await syncDetails();
     }
+    if (ref.mounted) {
+      await syncDeletions();
+    }
   }
 
   /// Sends look changes of already published frames (see [FrameLookSyncer]).
@@ -139,6 +142,19 @@ class FrameOutboxController extends Notifier<FrameOutboxState> {
       return;
     }
     final syncer = ref.read(frameAudienceSyncerProvider);
+    if (syncer == null) {
+      return;
+    }
+    await syncer.run(userId: ref.read(signedInUserIdProvider));
+  }
+
+  /// Tells the service about frames deleted on this device (the deletion
+  /// syncer).
+  Future<void> syncDeletions() async {
+    if (!ref.mounted) {
+      return;
+    }
+    final syncer = ref.read(frameDeletionSyncerProvider);
     if (syncer == null) {
       return;
     }

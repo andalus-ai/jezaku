@@ -284,6 +284,49 @@ void main() {
     });
   });
 
+  group('MemoryApi.deleteFrame', () {
+    test('DELETEs the frame by its encoded id', () async {
+      final adapter = _Adapter(
+        (_) => ResponseBody.fromString('', 204),
+      );
+      final api = MemoryApi(dio: _dio(adapter, 'http://memory.test'));
+
+      await api.deleteFrame(serverMemoryId: 'srv/1');
+
+      final request = adapter.requests.single;
+      expect(request.method, 'DELETE');
+      expect(request.uri.path, '/memories/srv%2F1');
+    });
+
+    test('maps refusals and connection problems like the other calls',
+        () async {
+      Future<ApiFailure> failWith(int status) => _failure(
+            MemoryApi(
+              dio: _dio(
+                _Adapter((_) => _json(status, {'code': 'X'})),
+                'http://memory.test',
+              ),
+            ).deleteFrame(serverMemoryId: 'a'),
+          );
+
+      expect((await failWith(401)).reason, ApiFailureReason.notAllowed);
+      expect((await failWith(403)).reason, ApiFailureReason.notAllowed);
+      expect((await failWith(404)).statusCode, 404);
+      expect((await failWith(503)).statusCode, 503);
+
+      final offline = MemoryApi(
+        dio: _dio(
+          _Adapter((o) => throw DioException(requestOptions: o)),
+          'http://memory.test',
+        ),
+      );
+      expect(
+        (await _failure(offline.deleteFrame(serverMemoryId: 'a'))).reason,
+        ApiFailureReason.network,
+      );
+    });
+  });
+
   group('MediaApi', () {
     test('reserves a slot', () async {
       final adapter = _Adapter(

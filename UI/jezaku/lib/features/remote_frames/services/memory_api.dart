@@ -3,6 +3,7 @@ import 'package:jejaku/features/api/api_failure.dart';
 import 'package:jejaku/features/home/models/frame_audience.dart';
 import 'package:jejaku/features/remote_frames/models/remote_frame.dart';
 import 'package:jejaku/features/sync/outbox/frame_audience_syncer.dart';
+import 'package:jejaku/features/sync/outbox/frame_deletion_syncer.dart';
 import 'package:jejaku/features/sync/outbox/frame_look_syncer.dart';
 import 'package:jejaku/features/sync/outbox/frame_publisher.dart';
 
@@ -11,7 +12,7 @@ import 'package:jejaku/features/sync/outbox/frame_publisher.dart';
 ///
 /// The [Dio] it is given must already add the access token (see
 /// `AuthInterceptor`).
-class MemoryApi implements FrameLookApi, FrameDetailsApi {
+class MemoryApi implements FrameLookApi, FrameDetailsApi, FrameDeletionApi {
   MemoryApi({required Dio dio}) : _dio = dio;
 
   final Dio _dio;
@@ -76,6 +77,16 @@ class MemoryApi implements FrameLookApi, FrameDetailsApi {
         'ownerId': ownerId,
         'visibility': audience.wireName,
       },
+    );
+  }
+
+  /// Removes a published frame (`DELETE /memories/{id}`). Only the owner may.
+  /// A frame the service no longer has answers 404.
+  @override
+  Future<void> deleteFrame({required String serverMemoryId}) {
+    return deleteJson(
+      _dio,
+      '/memories/${Uri.encodeComponent(serverMemoryId)}',
     );
   }
 
