@@ -53,6 +53,17 @@ class JezakuStatusColors extends ThemeExtension<JezakuStatusColors> {
         JezakuStatusColors.forBrightness(theme.brightness);
   }
 
+  /// A readable foreground (white or near-black) for text/icons drawn on
+  /// [background].
+  ///
+  /// The dark-theme status colours are light, so a fixed white label on them
+  /// would fail contrast; pick the foreground from the actual background.
+  static Color onColor(Color background) {
+    return ThemeData.estimateBrightnessForColor(background) == Brightness.dark
+        ? const Color(0xFFFFFFFF)
+        : const Color(0xFF171827);
+  }
+
   @override
   JezakuStatusColors copyWith({
     Color? success,

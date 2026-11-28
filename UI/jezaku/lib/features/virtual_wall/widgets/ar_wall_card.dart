@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:jejaku/app/theme/jezaku_status_colors.dart';
 import 'package:jejaku/features/virtual_wall/models/ar_wall.dart';
 import 'package:jejaku/features/virtual_wall/models/wall_trail_preview.dart';
 
@@ -19,6 +20,7 @@ class ARWallCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final status = JezakuStatusColors.of(context);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
@@ -73,7 +75,7 @@ class ARWallCard extends StatelessWidget {
                         icon: wall.isPublic ? Icons.public : Icons.group,
                         label: wall.isPublic ? 'Public' : 'Group',
                         backgroundColor:
-                            wall.isPublic ? Colors.green : Colors.orange,
+                            wall.isPublic ? status.success : status.warning,
                       ),
                     ),
                     if (onStartTrail != null && wall.linkedMemoryIds.isNotEmpty)
@@ -122,8 +124,9 @@ class ARWallCard extends StatelessWidget {
                       if (wall.isActive)
                         Icon(
                           Icons.radio_button_checked,
-                          color: Colors.green.shade600,
+                          color: status.success,
                           size: 18,
+                          semanticLabel: 'Active wall',
                         ),
                     ],
                   ),
@@ -251,6 +254,7 @@ class _Badge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final foreground = JezakuStatusColors.onColor(backgroundColor);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: backgroundColor,
@@ -261,12 +265,12 @@ class _Badge extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: Colors.white, size: 14),
+            Icon(icon, color: foreground, size: 14),
             const SizedBox(width: 4),
             Text(
               label,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: foreground,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
