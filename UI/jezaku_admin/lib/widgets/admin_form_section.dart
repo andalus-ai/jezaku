@@ -86,3 +86,27 @@ class AdminValidatedTextField extends StatelessWidget {
     ),
   );
 }
+
+
+Future<bool> confirmAdminDiscardChanges(BuildContext context) async {
+  final result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) => AlertDialog(
+      icon: const Icon(Icons.edit_off_outlined),
+      title: const Text('Discard unsaved changes?'),
+      content: const Text('Your edits have not been saved. Leaving now will discard them.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Keep editing'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text('Discard changes'),
+        ),
+      ],
+    ),
+  );
+  return result ?? false;
+}
