@@ -16,6 +16,7 @@ import 'package:jejaku/app/utils/bounded_timers.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_memory_scene_diagnostics.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_memory_projection.dart';
 import 'package:jejaku/features/ar_viewer/presentation/ar_capture_readiness_trend.dart';
+import 'package:jejaku/features/ar_viewer/presentation/ar_capability_pills.dart';
 import 'package:jejaku/features/ar_viewer/presentation/ar_diagnostics_labels.dart';
 import 'package:jejaku/features/ar_viewer/presentation/ar_session_report_comparison.dart';
 import 'package:jejaku/features/ar_viewer/models/ar_scene_diagnostics_export_bundle.dart';
@@ -2117,101 +2118,19 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     ARMemorySceneDiagnostics sceneDiagnostics,
     ColorScheme colors,
   ) {
-    return arSessionPlan.when(
-      data: (plan) {
-        final capabilities = plan.capabilities;
-        final placementReadiness = sceneDiagnostics.nativePlacementReadiness;
-        final isPlacementPaused = capabilities.canPlaceMemories &&
-            placementReadiness != null &&
-            !placementReadiness.canPlaceAnchors;
-        final placementLabel = isPlacementPaused
-            ? 'Place paused'
-            : capabilities.usesNativeGeospatial
-                ? 'Geo AR'
-                : capabilities.canPlaceMemories
-                    ? 'Local AR'
-                    : 'AR off';
-        final placementIcon = isPlacementPaused
-            ? Icons.motion_photos_pause_outlined
-            : capabilities.usesNativeGeospatial
-                ? Icons.public
-                : capabilities.canPlaceMemories
-                    ? Icons.map_outlined
-                    : Icons.portable_wifi_off;
-        final placementColor = isPlacementPaused
-            ? _sessionHealthColor(sceneDiagnostics, colors)
-            : capabilities.canPlaceMemories
-                ? colors.primary
-                : colors.onSurfaceVariant;
-        final placementTooltip =
-            isPlacementPaused ? placementReadiness.detailLabel : null;
-        final recordingLabel = capabilities.recordingMode ==
-                JejakuARRecordingMode.nativeEncode
-            ? 'Screen rec'
-            : capabilities.recordingMode == JejakuARRecordingMode.dartFallback
-                ? 'Screen fallback'
-                : 'No rec';
-        final recordingTooltip = capabilities.recordingMode ==
-                JejakuARRecordingMode.nativeEncode
-            ? 'Native MP4 screen recording with AR visual overlay'
-            : capabilities.recordingMode == JejakuARRecordingMode.dartFallback
-                ? 'Dart fallback screen recording with AR visual overlay'
-                : null;
-
-        final downgradeLabels = plan.unsupportedFeatureLabels;
-        final downgradeTooltip = downgradeLabels.isEmpty
-            ? null
-            : 'Disabled native features: ${downgradeLabels.join(', ')}';
-
-        return [
-          _HudPill(
-            icon: placementIcon,
-            label: placementLabel,
-            color: placementColor,
-            tooltip: placementTooltip,
-          ),
-          _HudPill(
-            icon: Icons.videocam_outlined,
-            label: recordingLabel,
-            color: capabilities.canRecord
-                ? colors.primary
-                : colors.onSurfaceVariant,
-            tooltip: recordingTooltip,
-          ),
-          if (plan.hasNativeDowngrades)
-            _HudPill(
-              icon: Icons.tune,
-              label: 'AR limited',
-              color: colors.tertiary,
-              tooltip: downgradeTooltip,
-            ),
-        ];
-      },
-      error: (_, __) => [
+    return [
+      for (final pill in ARCapabilityPills.forPlan(
+        arSessionPlan,
+        sceneDiagnostics,
+        colors,
+      ))
         _HudPill(
-          icon: Icons.map_outlined,
-          label: 'Local AR',
-          color: colors.primary,
+          icon: pill.icon,
+          label: pill.label,
+          color: pill.color,
+          tooltip: pill.tooltip,
         ),
-        _HudPill(
-          icon: Icons.videocam_outlined,
-          label: 'No rec',
-          color: colors.onSurfaceVariant,
-        ),
-      ],
-      loading: () => [
-        _HudPill(
-          icon: Icons.sensors,
-          label: 'AR check',
-          color: colors.secondary,
-        ),
-        _HudPill(
-          icon: Icons.videocam_outlined,
-          label: 'Rec check',
-          color: colors.secondary,
-        ),
-      ],
-    );
+    ];
   }
 
   String? _captureDiagnosticsExtraString(
