@@ -11,7 +11,7 @@ class _Record {
   final String status;
 }
 
-Widget _table({required Size size}) {
+Widget _table() {
   const records = [
     _Record('Charlie', 'Active'),
     _Record('Alpha', 'Pending'),
@@ -52,7 +52,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(_table(size: const Size(1100, 800)));
+    await tester.pumpWidget(_table());
     expect(find.text('1–2 of 3'), findsOneWidget);
     expect(find.text('Charlie'), findsOneWidget);
 
@@ -70,7 +70,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(_table(size: const Size(420, 850)));
+    await tester.pumpWidget(_table());
 
     expect(find.byType(DataTable), findsNothing);
     expect(find.byType(ListTile), findsNWidgets(2));
