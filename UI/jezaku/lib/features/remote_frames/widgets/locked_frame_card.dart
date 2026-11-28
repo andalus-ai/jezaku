@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 import 'package:jejaku/features/ar_viewer/visibility/frame_access.dart';
 
 /// "12 m", "340 m", "1.2 km"; null when the distance is not known.
@@ -63,7 +64,7 @@ class LockedFrameCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: colors.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(JzRadius.lg),
           ),
           child: Row(
             children: [

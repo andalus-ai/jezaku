@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 
 /// Shown over the camera while the AR session resumes after an interruption
 /// (a phone call, the app in the background), and when it could not resume.
@@ -31,7 +32,7 @@ class ARSessionInterruptionPanel extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.86),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(JzRadius.md),
             border: Border.all(
               color: failed ? Colors.orangeAccent : Colors.white24,
             ),

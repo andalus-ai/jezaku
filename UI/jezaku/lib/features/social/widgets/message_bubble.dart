@@ -1,5 +1,6 @@
 import 'package:jejaku/utils/helper.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 
 import '../models/chat_message.dart';
 
@@ -22,7 +23,7 @@ class MessageBubble extends StatelessWidget {
           color: message.isMine
               ? colorScheme.primaryContainer
               : colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(JzRadius.lg),
         ),
         child: Column(
           crossAxisAlignment: message.isMine

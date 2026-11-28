@@ -52,6 +52,16 @@ values that cross cleanly.
 | `ARWallCard` | Public/Group badge uses `success`/`warning` (was `Colors.green`/`orange`); the label colour is chosen with `JezakuStatusColors.onColor` because dark-theme status colours are light. The active-wall dot uses `success` and now has an "Active wall" semantic label. |
 | Parent dashboard | The "Request" chip on a child uses a tinted `warning` (was `Colors.orange.shade100`, which glared in dark theme). |
 
+### Corner radii
+
+Every `BorderRadius.circular(<4|8|12|16|24|999>)` literal in library files now
+reads `JzRadius.xs/sm/md/lg/xl/pill` (64 sites, 32 files). Values are
+unchanged, so this slice should look identical. Left as literals: off-scale
+values (3, 5, 6, 14, 18, 99), `part of` files (they need the owning library to
+import `jezaku_ds`), and `ar_viewer_screen.dart` (at its size-guard ceiling).
+`test/design_token_usage_guard_test.dart` fails if a new on-scale literal
+appears in a non-exempt file.
+
 Deliberately **not** migrated: colours drawn over the camera, AR or minimap
 imagery (`camera_*`, minimap legend, `anchor_media_pill` overlay), where
 contrast against live video is the constraint, not the theme; the like-heart

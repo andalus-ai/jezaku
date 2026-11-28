@@ -2,6 +2,7 @@ import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/services/anchor_media_resolver.dart';
 import 'package:jejaku/features/home/widgets/anchor_media_pill.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 
 /// The frame's photo at 4:3, or a typed placeholder when no preview bytes are
 /// available. Shared by the memory details and the photo page.
@@ -25,7 +26,7 @@ class MemoryPreview extends StatelessWidget {
       return AspectRatio(
         aspectRatio: 4 / 3,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(JzRadius.md),
           child: Image.memory(
             imageBytes,
             key: ValueKey('memory_media_image_${memory.id}'),
@@ -79,7 +80,7 @@ class MemoryPreviewFallback extends StatelessWidget {
         color: memory.isPrivate
             ? colorScheme.tertiaryContainer
             : colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(JzRadius.md),
       ),
       child: Center(
         child: Column(

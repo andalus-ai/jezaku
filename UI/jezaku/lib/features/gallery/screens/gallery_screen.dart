@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/home/models/anchor_map_point.dart';
@@ -547,10 +548,10 @@ class _GalleryTrailChip extends StatelessWidget {
       width: 176,
       child: Material(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
         child: InkWell(
           key: ValueKey('gallery_trail_${memory.id}'),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(JzRadius.sm),
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.all(10),

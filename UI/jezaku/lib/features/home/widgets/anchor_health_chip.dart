@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 
 class AnchorHealthChip extends StatelessWidget {
@@ -19,7 +20,7 @@ class AnchorHealthChip extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: healthColor.container,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: EdgeInsets.symmetric(

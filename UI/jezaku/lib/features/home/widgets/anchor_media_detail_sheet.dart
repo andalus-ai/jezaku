@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:jejaku/features/home/models/anchor_memory.dart';
@@ -144,7 +145,7 @@ class _MediaDetailBody extends StatelessWidget {
         AspectRatio(
           aspectRatio: 16 / 9,
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(JzRadius.sm),
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerHighest,
@@ -571,7 +572,7 @@ class _DetailSection extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),

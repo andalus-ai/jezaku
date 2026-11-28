@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 import 'package:jejaku/features/trails/models/ar_trail_session.dart';
 
 class ActiveARTrailBanner extends StatelessWidget {
@@ -42,7 +43,7 @@ class ActiveARTrailBanner extends StatelessWidget {
     return Material(
       key: const ValueKey('active_ar_trail_banner'),
       elevation: 8,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(JzRadius.sm),
       color: colorScheme.surface,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),

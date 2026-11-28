@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/home/models/anchor_journey_step.dart';
@@ -497,7 +498,7 @@ class _ContinueARTrailCard extends StatelessWidget {
       key: const ValueKey('home_continue_ar_trail_card'),
       decoration: BoxDecoration(
         color: colorScheme.secondaryContainer.withValues(alpha: 0.54),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
         border: Border.all(
           color: colorScheme.secondary.withValues(alpha: 0.2),
         ),
@@ -627,7 +628,7 @@ class _TrailPulseCard extends StatelessWidget {
       key: const ValueKey('home_trail_pulse_card'),
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.52),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
         border: Border.all(
           color: colorScheme.primary.withValues(alpha: 0.22),
         ),
@@ -934,7 +935,7 @@ class _MapContextPanel extends StatelessWidget {
       key: const ValueKey('home_map_context_panel'),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(JzRadius.md),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1128,7 +1129,7 @@ class _CountBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(JzRadius.lg),
       ),
       child: Text(
         '$count',
@@ -1236,7 +1237,7 @@ class _MapPin extends StatelessWidget {
                 DecoratedBox(
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.68),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(JzRadius.sm),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(

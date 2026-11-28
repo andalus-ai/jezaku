@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/ar_viewer/screens/ar_viewer_screen.dart';
@@ -909,7 +910,7 @@ class _ActiveTrailIncompleteCue extends StatelessWidget {
       key: const ValueKey('active_trail_route_incomplete_cue'),
       decoration: BoxDecoration(
         color: colorScheme.tertiaryContainer.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
         border: Border.all(
           color: colorScheme.tertiary.withValues(alpha: 0.24),
         ),
@@ -1003,7 +1004,7 @@ class _ActiveTrailCompletionCue extends StatelessWidget {
       key: const ValueKey('active_trail_route_completion_cue'),
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
         border: Border.all(
           color: colorScheme.primary.withValues(alpha: 0.22),
         ),

@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 import 'package:jejaku/features/legal/content/legal_documents.dart';
 import 'package:jejaku/features/legal/models/legal_document.dart';
 
@@ -87,7 +88,7 @@ class _DraftNotice extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: scheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(JzRadius.md),
       ),
       child: Row(
         children: [

@@ -1,6 +1,7 @@
 import 'package:jejaku/features/frame_styles/models/frame_look.dart';
 import 'package:jejaku/features/frame_styles/widgets/frame_look_preview.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 
 /// The frame gallery: pick a look from the catalog, then optionally recolour
 /// it. Stateless; the owner keeps the selection.
@@ -46,13 +47,13 @@ class FrameStylePicker extends StatelessWidget {
                 label: '${look.label} frame',
                 child: InkWell(
                   key: ValueKey('frame_look_${look.id}'),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(JzRadius.md),
                   onTap: () => onLookChanged(look.id),
                   child: Container(
                     width: 92,
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(JzRadius.md),
                       border: Border.all(
                         width: selected ? 2 : 1,
                         color: selected
