@@ -15,8 +15,8 @@ abstract final class FramePublishJobMapper {
     final meta = memory.captureMetadata;
     // Others see the frame where the owner moved it to.
     final position = memory.placementOffset.applyTo(
-      latitude: position.latitude,
-      longitude: position.longitude,
+      latitude: memory.latitude,
+      longitude: memory.longitude,
     );
     return FramePublishJob(
       memoryId: memory.id,
@@ -25,8 +25,8 @@ abstract final class FramePublishJobMapper {
       // The service only knows geo, visual and hybrid. A frame hung in AR is
       // anchored by position and by what the camera saw.
       anchorType: memory.hasArExperience ? 'hybrid' : 'geo',
-      latitude: memory.latitude,
-      longitude: memory.longitude,
+      latitude: position.latitude,
+      longitude: position.longitude,
       frameStyle: memory.frameLookId,
       capturedAt: (memory.capturedAt ?? DateTime.now()).toUtc(),
       photo: photoOf(memory, storedBytes: storedBytes),
