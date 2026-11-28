@@ -11,7 +11,7 @@ class AdminDetailScaffold extends StatelessWidget {
     this.actions = const [],
     this.metadata = const [],
     super.key,
-  }) : assert(tabs.length == tabViews.length);
+  }) : assert(tabs.isNotEmpty), assert(tabs.length == tabViews.length);
 
   final String title;
   final String subtitle;
@@ -30,26 +30,43 @@ class AdminDetailScaffold extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 22, 24, 14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (leading != null) ...[leading!, const SizedBox(width: 14)],
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 4),
-                      Text(subtitle, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant)),
-                    ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 720;
+              final heading = Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (leading != null) ...[leading!, const SizedBox(width: 14)],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 4),
+                        Text(subtitle, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant)),
+                      ],
+                    ),
                   ),
-                ),
-                status,
-                ...actions.map((action) => Padding(padding: const EdgeInsets.only(left: 8), child: action)),
-              ],
-            ),
+                  if (!compact) ...[
+                    status,
+                    ...actions.map((action) => Padding(padding: const EdgeInsets.only(left: 8), child: action)),
+                  ],
+                ],
+              );
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(24, 22, 24, 14),
+                child: compact
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          heading,
+                          const SizedBox(height: 12),
+                          Wrap(spacing: 8, runSpacing: 8, children: [status, ...actions]),
+                        ],
+                      )
+                    : heading,
+              );
+            },
           ),
           if (metadata.isNotEmpty)
             Padding(
