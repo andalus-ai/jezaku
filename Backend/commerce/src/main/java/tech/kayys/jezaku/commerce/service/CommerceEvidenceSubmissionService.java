@@ -34,7 +34,8 @@ public class CommerceEvidenceSubmissionService {
 
     public MerchantEvidence submit(String actorId, String merchantId, String mediaAssetId, MerchantEvidence.Category category) {
         if (actorId == null || actorId.isBlank()) throw new ForbiddenException("Authenticated user required");
-        if (mediaAssetId == null || mediaAssetId.isBlank()) throw new BadRequestException("mediaAssetId is required");
+        if (mediaAssetId == null || mediaAssetId.isBlank() || mediaAssetId.contains("/") || mediaAssetId.contains("\\\\"))
+            throw new BadRequestException("A valid mediaAssetId is required");
         if (category == null) throw new BadRequestException("Evidence category is required");
         Merchant merchant = merchants.findById(merchantId).orElseThrow(() -> new NotFoundException("Merchant not found"));
         if (merchant.status() != MerchantStatus.PENDING_VERIFICATION)
@@ -44,7 +45,14 @@ public class CommerceEvidenceSubmissionService {
         if (member.role() != MerchantMembership.Role.OWNER && member.role() != MerchantMembership.Role.ADMIN)
             throw new ForbiddenException("Only merchant owners and administrators can submit evidence");
 
-        MediaAssetOwnershipVerifier.OwnershipResult result = media.verify(mediaAssetId, actorId);
+        final MediaAssetOwnershipVerifier.OwnershipResult result;
+        try {
+            result = media.verify(mediaAssetId, actorId);
+        } catch (ServiceUnavailableException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw new ServiceUnavailableException("Media ownership verification is unavailable");
+        }
         if (result == null || !result.authorized() || !"merchant_evidence".equals(result.purpose())
                 || !"active".equalsIgnoreCase(result.status()) || !"approved".equalsIgnoreCase(result.moderationStatus()))
             throw new ForbiddenException("Media asset is not eligible as merchant evidence");
