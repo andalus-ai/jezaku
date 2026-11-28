@@ -9,6 +9,7 @@ import 'package:jejaku/features/virtual_wall/widgets/manage_linked_anchors_dialo
 import 'package:jejaku/features/virtual_wall/widgets/wall_members_list.dart';
 import 'package:jejaku/features/virtual_wall/widgets/wall_overview_widgets.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 
 class VirtualWallDetailScreen extends ConsumerWidget {
   const VirtualWallDetailScreen({super.key, required this.wallId});
@@ -128,7 +129,7 @@ class VirtualWallDetailScreen extends ConsumerWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(JzRadius.md),
               ),
               child: const Icon(Icons.qr_code, size: 160),
             ),

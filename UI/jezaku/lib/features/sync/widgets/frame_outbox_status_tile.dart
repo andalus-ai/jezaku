@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/sync/outbox/outbox_entry.dart';
 import 'package:jejaku/features/sync/outbox/outbox_presentation.dart';
@@ -50,7 +51,7 @@ class FrameOutboxStatusTile extends ConsumerWidget {
           color: refused
               ? scheme.errorContainer
               : scheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(JzRadius.md),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

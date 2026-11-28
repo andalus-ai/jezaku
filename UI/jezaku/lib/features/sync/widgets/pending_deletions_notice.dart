@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/sync/states/frame_outbox_controller.dart';
 import 'package:jejaku/features/sync/states/frame_outbox_providers.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 
 /// Tells the person that frames they deleted are not removed from the server
 /// yet (they were deleted offline, or the sign-in is gone) and lets them try
@@ -72,7 +73,7 @@ class _PendingDeletionsNoticeState
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: scheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(JzRadius.md),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

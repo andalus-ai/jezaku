@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 
 import '../../../utils/helper.dart';
 import '../models/chat_message.dart';
@@ -17,7 +18,7 @@ class ConversationSummary extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),

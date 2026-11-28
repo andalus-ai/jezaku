@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/app/theme/jezaku_status_colors.dart';
@@ -437,7 +438,7 @@ class _ChildSummaryCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(JzRadius.md),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -541,7 +542,7 @@ class _LocationCard extends StatelessWidget {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(JzRadius.md),
                 ),
                 child: const Center(child: Icon(Icons.map_outlined, size: 56)),
               ),

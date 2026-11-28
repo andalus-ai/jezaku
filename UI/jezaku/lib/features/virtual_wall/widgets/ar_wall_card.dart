@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 import 'package:jejaku/app/theme/jezaku_status_colors.dart';
 import 'package:jejaku/features/virtual_wall/models/ar_wall.dart';
 import 'package:jejaku/features/virtual_wall/models/wall_trail_preview.dart';
@@ -189,7 +190,7 @@ class _TrailPreviewBadge extends StatelessWidget {
       key: ValueKey('wall_card_trail_preview_$wallId'),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -258,7 +259,7 @@ class _Badge extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(JzRadius.lg),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

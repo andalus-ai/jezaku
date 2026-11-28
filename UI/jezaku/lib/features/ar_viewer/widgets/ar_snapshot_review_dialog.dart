@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:ar_engine/ar_engine.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 import 'package:jejaku/features/ar_viewer/services/photo_frame_placement_adjuster.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 
@@ -147,7 +148,7 @@ class _ARSnapshotReviewDialogState extends State<ARSnapshotReviewDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(JzRadius.md),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 320),
                 child: Image.memory(

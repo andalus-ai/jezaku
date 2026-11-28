@@ -3,6 +3,7 @@ import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/states/viewer_location_provider.dart';
 import 'package:jejaku/features/virtual_wall/models/wall_trail_preview.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 
 class LinkedAnchorRouteOrderEditor extends ConsumerWidget {
   const LinkedAnchorRouteOrderEditor({
@@ -94,7 +95,7 @@ class RouteAuthoringPreview extends StatelessWidget {
       key: ValueKey('${keyPrefix}_route_preview'),
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
         border: Border.all(color: colorScheme.primary.withValues(alpha: 0.24)),
       ),
       child: Padding(
@@ -214,7 +215,7 @@ class RouteOrderChip extends StatelessWidget {
       key: ValueKey('${keyPrefix}_route_order_${memory.id}'),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: const EdgeInsets.only(left: 8, top: 4, bottom: 4),

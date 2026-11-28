@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/camera/models/capture_sensor_snapshot.dart';
 import 'package:jejaku/features/camera/states/capture_session_provider.dart';
@@ -374,7 +375,7 @@ class _CapturePreview extends StatelessWidget {
     return AspectRatio(
       aspectRatio: 4 / 3,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(JzRadius.md),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHighest,
@@ -503,7 +504,7 @@ class _RecordingHealthSummary extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -547,7 +548,7 @@ class _RecordingQualityNotice extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -597,7 +598,7 @@ class _RecordingQualityReviewPanel extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -655,7 +656,7 @@ class _RecordingMetadataChip extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.68),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
         border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
       ),
       child: Padding(
@@ -686,7 +687,7 @@ class _PlacementConfidencePanel extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -904,7 +905,7 @@ class _PlacementReviewPanel extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),

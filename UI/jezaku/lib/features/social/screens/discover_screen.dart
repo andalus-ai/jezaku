@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/home/screens/memory_search_screen.dart';
@@ -96,7 +97,7 @@ class DiscoverScreen extends ConsumerWidget {
               final topic = topics[index];
               return Card(
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(JzRadius.md),
                   onTap: () => Navigator.pushNamed(
                     context,
                     topic.routeName,
@@ -151,7 +152,7 @@ class _DiscoverPrivacyNotice extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colorScheme.secondaryContainer,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(JzRadius.sm),
         ),
         child: Padding(
           padding: const EdgeInsets.all(16),

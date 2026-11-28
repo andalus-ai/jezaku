@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
@@ -198,7 +199,7 @@ class _CalibrationIssueBanner extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -253,7 +254,7 @@ class _CalibrationSuggestionPanel extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),

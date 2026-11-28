@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 
 /// Shown when there is no frame to show. With a radius it explains the
 /// physical range; with a null [radiusMeters] (demo rules, no radius) it only
@@ -39,7 +40,7 @@ class FrameRadiusEmptyHint extends StatelessWidget {
       child: Material(
         key: const ValueKey('ar_no_frames_in_radius'),
         color: Colors.black.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(JzRadius.md),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(

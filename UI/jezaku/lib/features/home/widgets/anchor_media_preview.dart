@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/services/anchor_media_resolver.dart';
@@ -87,7 +88,7 @@ class _AnchorMediaAvailabilityBadge extends StatelessWidget {
         key: ValueKey('anchor_media_preview_missing_cache_badge_$anchorId'),
         decoration: BoxDecoration(
           color: colorScheme.errorContainer,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(JzRadius.pill),
           border: Border.all(color: colorScheme.surface, width: 1.5),
         ),
         child: Padding(

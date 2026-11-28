@@ -1,5 +1,6 @@
 import 'package:jejaku/features/virtual_wall/models/ar_wall.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 
 class WallItemsGrid extends StatelessWidget {
   const WallItemsGrid({required this.items, super.key});
@@ -22,7 +23,7 @@ class WallItemsGrid extends StatelessWidget {
         final item = items[index];
         return Card(
           child: InkWell(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(JzRadius.md),
             onTap: () => _showItemDetail(context, item),
             child: Padding(
               padding: const EdgeInsets.all(10),

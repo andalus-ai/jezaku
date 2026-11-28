@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/app/navigation/app_routes.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
@@ -274,7 +275,7 @@ class _LocalFirstSyncBanner extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -334,7 +335,7 @@ class _SyncDeliveryLedgerPanel extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.72),
         ),
@@ -607,7 +608,7 @@ class _SyncQualityReviewSummary extends StatelessWidget {
         color: hasPendingReview
             ? colorScheme.errorContainer.withValues(alpha: 0.62)
             : colorScheme.primaryContainer.withValues(alpha: 0.56),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
         border: Border.all(
           color: (hasPendingReview ? colorScheme.error : colorScheme.primary)
               .withValues(alpha: 0.18),
@@ -696,7 +697,7 @@ class _SyncQualityCountChip extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -1190,7 +1191,7 @@ class _SyncMetadataUpdatePanel extends StatelessWidget {
       key: ValueKey('sync_metadata_update_panel_${memory.id}'),
       decoration: BoxDecoration(
         color: colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -1284,7 +1285,7 @@ class _SyncRecordingProfilePanel extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.56),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
         border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
       ),
       child: Padding(
@@ -1347,7 +1348,7 @@ class _SyncRecordingQualityNotice extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1394,7 +1395,7 @@ class _SyncMetadataPill extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

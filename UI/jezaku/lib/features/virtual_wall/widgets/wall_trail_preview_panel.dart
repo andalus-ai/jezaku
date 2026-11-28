@@ -1,5 +1,6 @@
 import 'package:jejaku/features/virtual_wall/models/wall_trail_preview.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:jezaku_ds/jezaku_ds.dart' show JzRadius;
 
 class WallTrailPreviewPanel extends StatelessWidget {
   const WallTrailPreviewPanel({
@@ -19,7 +20,7 @@ class WallTrailPreviewPanel extends StatelessWidget {
       key: ValueKey('wall_detail_trail_preview_$wallId'),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(JzRadius.sm),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
