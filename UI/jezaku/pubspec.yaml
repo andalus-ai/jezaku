@@ -16,6 +16,13 @@ dependencies:
     path: ../Packages/ar_model_cache
   jezaku_ar:
     path: ../Packages/jezaku_ar
+  # Shared design tokens. Pinned to a reviewed commit (see docs/design-system-adoption.md);
+  # never track a floating branch.
+  jezaku_ds:
+    git:
+      url: https://github.com/andalus-ai/jezaku-ds
+      path: packages/jezaku_ds
+      ref: 3159d821b1fe1ee5c5f0b5c4ddaf27f93d993163
 
   # State Management
   flutter_riverpod: ^3.0.3
