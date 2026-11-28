@@ -21,13 +21,18 @@ class FrameDeletionSyncer {
     required FrameDeletionApi api,
     required PendingDeletionStore store,
     DateTime Function()? clock,
+    void Function(int pendingCount)? onChanged,
   })  : _api = api,
         _store = store,
-        _clock = clock ?? DateTime.now;
+        _clock = clock ?? DateTime.now,
+        _onChanged = onChanged;
 
   final FrameDeletionApi _api;
   final PendingDeletionStore _store;
   final DateTime Function() _clock;
+
+  /// Told how many deletions wait whenever that number changes.
+  final void Function(int pendingCount)? _onChanged;
 
   Future<int>? _running;
 
@@ -36,12 +41,15 @@ class FrameDeletionSyncer {
 
   /// Remembers that [serverMemoryId] has to be deleted on the service. Asking
   /// twice for the same frame keeps one record.
-  Future<void> record({required String serverMemoryId, String? ownerId}) {
+  Future<void> record({
+    required String serverMemoryId,
+    String? ownerId,
+  }) async {
     final waiting = _store.load();
     if (waiting.any((d) => d.serverMemoryId == serverMemoryId)) {
-      return Future<void>.value();
+      return;
     }
-    return _store.save([
+    final saving = _store.save([
       ...waiting,
       PendingDeletion(
         serverMemoryId: serverMemoryId,
@@ -49,6 +57,8 @@ class FrameDeletionSyncer {
         deletedAt: _clock().toUtc(),
       ),
     ]);
+    _onChanged?.call(waiting.length + 1);
+    await saving;
   }
 
   /// Sends the deletions of [userId]'s frames and returns how many the service
@@ -87,10 +97,13 @@ class FrameDeletionSyncer {
     return done;
   }
 
-  Future<void> _forget(String serverMemoryId) {
-    return _store.save([
+  Future<void> _forget(String serverMemoryId) async {
+    final remaining = [
       for (final deletion in _store.load())
         if (deletion.serverMemoryId != serverMemoryId) deletion,
-    ]);
+    ];
+    final saving = _store.save(remaining);
+    _onChanged?.call(remaining.length);
+    await saving;
   }
 }

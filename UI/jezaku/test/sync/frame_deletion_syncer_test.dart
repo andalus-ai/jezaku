@@ -139,6 +139,22 @@ void main() {
     expect(api.calls, ['a']);
   });
 
+  test('reports how many deletions wait whenever that changes', () async {
+    final counts = <int>[];
+    final reporting = FrameDeletionSyncer(
+      api: api,
+      store: InMemoryPendingDeletionStore(),
+      onChanged: counts.add,
+    );
+
+    await reporting.record(serverMemoryId: 'a', ownerId: 'u-1');
+    await reporting.record(serverMemoryId: 'a', ownerId: 'u-1');
+    await reporting.record(serverMemoryId: 'b', ownerId: 'u-1');
+    await reporting.run(userId: 'u-1');
+
+    expect(counts, [1, 2, 1, 0]);
+  });
+
   group('SharedPreferencesPendingDeletionStore', () {
     test('keeps deletions across a restart and skips damaged records',
         () async {

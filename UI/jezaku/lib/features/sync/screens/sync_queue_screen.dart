@@ -14,6 +14,7 @@ import 'package:jejaku/features/sync/states/anchor_sync_delivery_log_provider.da
 import 'package:jejaku/features/sync/states/anchor_media_upload_queue_provider.dart';
 import 'package:jejaku/features/sync/states/frame_outbox_controller.dart';
 import 'package:jejaku/features/sync/widgets/frame_outbox_status_tile.dart';
+import 'package:jejaku/features/sync/widgets/pending_deletions_notice.dart';
 
 enum _SyncQueueFilter { all, uploads, media, metadata, quality }
 
@@ -66,85 +67,94 @@ class _SyncQueueScreenState extends ConsumerState<SyncQueueScreen> {
             ),
         ],
       ),
-      body: pendingMemories.isEmpty
-          ? _EmptySyncState(
-              deliveryEntries: deliveryEntries,
-              onClearDeliveryLog: _clearDeliveryLog,
-            )
-          : Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  child: _LocalFirstSyncBanner(
-                    runtime: syncRuntime,
-                    pendingCount: pendingMemories.length,
-                  ),
-                ),
-                if (deliveryEntries.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: _SyncDeliveryLedgerPanel(
-                      entries: deliveryEntries,
-                      onClear: _clearDeliveryLog,
-                    ),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: _SyncQueueFilters(
-                    selectedFilter: _selectedFilter,
-                    allCount: pendingMemories.length,
-                    uploadCount: uploadMemories.length,
-                    mediaCount: mediaMemories.length,
-                    metadataCount: metadataMemories.length,
-                    qualityCount: qualityMemories.length,
-                    pendingQualityReviewCount:
-                        pendingQualityReviewMemories.length,
-                    onUploadMediaPayloads: mediaMemories.isEmpty
-                        ? null
-                        : () => _uploadMediaPayloads(
-                              context,
-                              mediaMemories,
-                            ),
-                    onSyncUploads: uploadMemories.isEmpty
-                        ? null
-                        : () => _markUploadsSynced(
-                              context,
-                              uploadMemories,
-                            ),
-                    onSyncMetadataUpdates: metadataMemories.isEmpty
-                        ? null
-                        : () => _markMetadataUpdatesSynced(
-                              context,
-                              metadataMemories,
-                            ),
-                    onAcceptPendingQualityReviews:
-                        pendingQualityReviewMemories.isEmpty
-                            ? null
-                            : () => _acceptPendingQualityReviews(
-                                  context,
-                                  pendingQualityReviewMemories,
-                                ),
-                    onChanged: (filter) {
-                      setState(() {
-                        _selectedFilter = filter;
-                      });
-                    },
-                  ),
-                ),
-                Expanded(
-                  child: filteredMemories.isEmpty
-                      ? _FilteredEmptySyncState(filter: _selectedFilter)
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                          itemCount: filteredMemories.length,
-                          itemBuilder: (context, index) {
-                            final memory = filteredMemories[index];
-                            return _SyncMemoryCard(memory: memory);
+      body: Column(
+        children: [
+          // Frames deleted here that the server still has, whatever else
+          // is (or is not) waiting.
+          const PendingDeletionsNotice(),
+          Expanded(
+            child: pendingMemories.isEmpty
+                ? _EmptySyncState(
+                    deliveryEntries: deliveryEntries,
+                    onClearDeliveryLog: _clearDeliveryLog,
+                  )
+                : Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        child: _LocalFirstSyncBanner(
+                          runtime: syncRuntime,
+                          pendingCount: pendingMemories.length,
+                        ),
+                      ),
+                      if (deliveryEntries.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                          child: _SyncDeliveryLedgerPanel(
+                            entries: deliveryEntries,
+                            onClear: _clearDeliveryLog,
+                          ),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                        child: _SyncQueueFilters(
+                          selectedFilter: _selectedFilter,
+                          allCount: pendingMemories.length,
+                          uploadCount: uploadMemories.length,
+                          mediaCount: mediaMemories.length,
+                          metadataCount: metadataMemories.length,
+                          qualityCount: qualityMemories.length,
+                          pendingQualityReviewCount:
+                              pendingQualityReviewMemories.length,
+                          onUploadMediaPayloads: mediaMemories.isEmpty
+                              ? null
+                              : () => _uploadMediaPayloads(
+                                    context,
+                                    mediaMemories,
+                                  ),
+                          onSyncUploads: uploadMemories.isEmpty
+                              ? null
+                              : () => _markUploadsSynced(
+                                    context,
+                                    uploadMemories,
+                                  ),
+                          onSyncMetadataUpdates: metadataMemories.isEmpty
+                              ? null
+                              : () => _markMetadataUpdatesSynced(
+                                    context,
+                                    metadataMemories,
+                                  ),
+                          onAcceptPendingQualityReviews:
+                              pendingQualityReviewMemories.isEmpty
+                                  ? null
+                                  : () => _acceptPendingQualityReviews(
+                                        context,
+                                        pendingQualityReviewMemories,
+                                      ),
+                          onChanged: (filter) {
+                            setState(() {
+                              _selectedFilter = filter;
+                            });
                           },
                         ),
-                ),
-              ],
-            ),
+                      ),
+                      Expanded(
+                        child: filteredMemories.isEmpty
+                            ? _FilteredEmptySyncState(filter: _selectedFilter)
+                            : ListView.builder(
+                                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                                itemCount: filteredMemories.length,
+                                itemBuilder: (context, index) {
+                                  final memory = filteredMemories[index];
+                                  return _SyncMemoryCard(memory: memory);
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
