@@ -176,10 +176,10 @@ class _AdminDataTableState<T> extends State<AdminDataTable<T>> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Text('\${start + 1}–\${start + pageItems.length} of \${items.length}', style: Theme.of(context).textTheme.bodySmall),
+                  Text('${start + 1}–${start + pageItems.length} of ${items.length}', style: Theme.of(context).textTheme.bodySmall),
                   const Spacer(),
                   IconButton(tooltip: 'Previous page', onPressed: currentPage == 0 ? null : () => setState(() => _page = currentPage - 1), icon: const Icon(Icons.chevron_left)),
-                  Text('\${currentPage + 1} / $pageCount'),
+                  Text('${currentPage + 1} / $pageCount'),
                   IconButton(tooltip: 'Next page', onPressed: currentPage + 1 >= pageCount ? null : () => setState(() => _page = currentPage + 1), icon: const Icon(Icons.chevron_right)),
                 ],
               ),
