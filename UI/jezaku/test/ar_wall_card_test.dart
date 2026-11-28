@@ -75,15 +75,19 @@ void main() {
 
       testWidgets('active wall exposes an "Active wall" semantic label',
           (tester) async {
+        final semantics = tester.ensureSemantics();
         await _pump(tester, theme, _wall(isActive: true));
 
         expect(find.bySemanticsLabel('Active wall'), findsOneWidget);
+        semantics.dispose();
       });
 
       testWidgets('inactive wall has no active indicator', (tester) async {
+        final semantics = tester.ensureSemantics();
         await _pump(tester, theme, _wall());
 
         expect(find.bySemanticsLabel('Active wall'), findsNothing);
+        semantics.dispose();
       });
     });
   }
