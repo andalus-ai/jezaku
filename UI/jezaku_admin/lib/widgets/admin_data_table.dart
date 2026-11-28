@@ -125,7 +125,7 @@ class _AdminDataTableState<T> extends State<AdminDataTable<T>> {
             ),
             const SizedBox(height: 14),
             if (items.isEmpty)
-              const Expanded(child: AdminFeedbackState(kind: AdminFeedbackKind.empty))
+              Expanded(child: AdminFeedbackState(kind: AdminFeedbackKind.empty, title: widget.emptyTitle, message: widget.emptyMessage))
             else ...[
               Expanded(
                 child: compact
