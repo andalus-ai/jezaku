@@ -4,7 +4,7 @@
 
 Jezaku adopts the standalone **Jezaku Design System (JzDS)** package, `jezaku_ds`, from `andalus-ai/jezaku-ds`. The consuming applications pin an immutable Git commit so dependency updates are deliberate and reviewable.
 
-Current pilot pin: `${sha}`.
+Current pilot pin: `3159d821b1fe1ee5c5f0b5c4ddaf27f93d993163`.
 
 ## Responsibilities
 
@@ -19,6 +19,14 @@ Current pilot pin: `${sha}`.
 - End-user app: replace the two action buttons in `MemoryEmptyState` with `JzButton` while preserving its existing semantics and callbacks.
 - Admin app: use `JzButton` for the retry action in `AdminFeedbackState`.
 - Widget tests cover the existing end-user actions and the Admin retry callback.
+
+## Theme tokens and the `material_ui` type split
+
+The app theme itself (seed colour, radii, status colours) is adopted separately;
+see [design-system-adoption.md](design-system-adoption.md), which also explains
+why `JzTheme` and `JzThemeTokens` cannot be installed on this app's
+`material_ui` `ThemeData`, and what that means for `Jz*` widgets (they read the
+`flutter/material` theme, not the app's).
 
 ## Dependency policy
 
