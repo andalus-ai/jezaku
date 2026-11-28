@@ -284,6 +284,68 @@ void main() {
     });
   });
 
+  group('MemoryApi.updatePlacement', () {
+    test('PATCHes the position to the anchor endpoint', () async {
+      final adapter = _Adapter((_) => _json(200, {'id': 'srv-1'}));
+      final api = MemoryApi(dio: _dio(adapter, 'http://memory.test'));
+
+      await api.updatePlacement(
+        serverMemoryId: 'srv/1',
+        ownerId: 'u-1',
+        latitude: -6.9,
+        longitude: 107.6,
+        altitudeMeters: 701.5,
+      );
+
+      final request = adapter.requests.single;
+      expect(request.method, 'PATCH');
+      expect(request.uri.path, '/memories/srv%2F1/anchor');
+      expect(_bodyOf(request), {
+        'ownerId': 'u-1',
+        'position': {
+          'latitude': -6.9,
+          'longitude': 107.6,
+          'altitudeMeters': 701.5,
+        },
+      });
+    });
+
+    test('leaves the altitude out when it is unknown', () async {
+      final adapter = _Adapter((_) => _json(200, {'id': 'srv-1'}));
+      final api = MemoryApi(dio: _dio(adapter, 'http://memory.test'));
+
+      await api.updatePlacement(
+        serverMemoryId: 'a',
+        ownerId: 'u',
+        latitude: 1,
+        longitude: 2,
+      );
+
+      final position = _bodyOf(adapter.requests.single)['position'] as Map;
+      expect(position.containsKey('altitudeMeters'), isFalse);
+    });
+
+    test('maps refusals like the other calls', () async {
+      Future<ApiFailure> failWith(int status) => _failure(
+            MemoryApi(
+              dio: _dio(
+                _Adapter((_) => _json(status, {'code': 'X'})),
+                'http://memory.test',
+              ),
+            ).updatePlacement(
+              serverMemoryId: 'a',
+              ownerId: 'u',
+              latitude: 1,
+              longitude: 2,
+            ),
+          );
+
+      expect((await failWith(403)).reason, ApiFailureReason.notAllowed);
+      expect((await failWith(400)).statusCode, 400);
+      expect((await failWith(503)).statusCode, 503);
+    });
+  });
+
   group('MemoryApi.deleteFrame', () {
     test('DELETEs the frame by its encoded id', () async {
       final adapter = _Adapter(

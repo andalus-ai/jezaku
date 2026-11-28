@@ -220,8 +220,8 @@ class AnchorSyncCoordinator {
   /// "synced" on the spot. Returns null when this build has no outbox.
   ///
   /// New frames are handed to the outbox and sent now (or as soon as the
-  /// device is online). A change of who a published frame is shared with is
-  /// sent too. The frames' status changes only when the server has them. Other
+  /// device is online). A change of who a published frame is shared with, or of
+  /// where it hangs, is sent too. The frames' status changes only when the server has them. Other
   /// edits to frames already on the server have no route to the server yet, so
   /// they stay pending and the person is told.
   AnchorSyncOutcome? _handToOutbox(List<AnchorMemory> items) {
@@ -233,18 +233,18 @@ class AnchorSyncCoordinator {
       for (final memory in items)
         if (memory.syncReason == AnchorSyncReason.newCapture) memory,
     ];
-    final audienceEdits = [
+    final serverEdits = [
       for (final memory in items)
-        if (memory.syncReason == AnchorSyncReason.audienceUpdate &&
+        if (memory.syncReason == AnchorSyncReason.serverUpdate &&
             memory.serverMemoryId != null)
           memory,
     ];
-    final editCount = items.length - newFrames.length - audienceEdits.length;
+    final editCount = items.length - newFrames.length - serverEdits.length;
     final editNote = editCount == 0
         ? ''
         : ' Changes to $editCount frame${editCount == 1 ? '' : 's'} already '
             'on the server cannot be sent yet.';
-    if (newFrames.isEmpty && audienceEdits.isEmpty) {
+    if (newFrames.isEmpty && serverEdits.isEmpty) {
       return AnchorSyncOutcome.blocked(
         itemCount: items.length,
         message: 'Nothing new to send.$editNote',
@@ -258,12 +258,12 @@ class AnchorSyncCoordinator {
     final sending = <String>[
       if (newFrames.isNotEmpty)
         '${newFrames.length} ${newFrames.length == 1 ? 'frame' : 'frames'}',
-      if (audienceEdits.isNotEmpty)
-        'who ${audienceEdits.length} '
-            '${audienceEdits.length == 1 ? 'frame is' : 'frames are'} shared with',
+      if (serverEdits.isNotEmpty)
+        'changes to ${serverEdits.length} published '
+            '${serverEdits.length == 1 ? 'frame' : 'frames'}',
     ];
     return AnchorSyncOutcome.started(
-      itemCount: newFrames.length + audienceEdits.length,
+      itemCount: newFrames.length + serverEdits.length,
       message: 'Sending ${sending.join(' and ')}. Each shows as synced once '
           'the server has it.$editNote',
     );

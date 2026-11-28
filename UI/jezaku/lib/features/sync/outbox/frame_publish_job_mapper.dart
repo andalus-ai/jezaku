@@ -13,6 +13,11 @@ abstract final class FramePublishJobMapper {
     Uint8List? storedBytes,
   }) {
     final meta = memory.captureMetadata;
+    // Others see the frame where the owner moved it to.
+    final position = memory.placementOffset.applyTo(
+      latitude: position.latitude,
+      longitude: position.longitude,
+    );
     return FramePublishJob(
       memoryId: memory.id,
       ownerId: ownerId,
@@ -26,7 +31,7 @@ abstract final class FramePublishJobMapper {
       capturedAt: (memory.capturedAt ?? DateTime.now()).toUtc(),
       photo: photoOf(memory, storedBytes: storedBytes),
       caption: memory.caption,
-      altitudeMeters: meta.altitudeMeters,
+      altitudeMeters: memory.placementOffset.raiseAltitude(meta.altitudeMeters),
       headingDegrees: _heading(meta.headingDegrees),
       pitchDegrees: _within(meta.pitchDegrees, -90, 90),
       rollDegrees: _within(meta.rollDegrees, -180, 180),

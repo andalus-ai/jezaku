@@ -409,7 +409,7 @@ class AnchorSyncPayloadBuilder {
   String _operationFor(AnchorSyncReason reason) {
     return switch (reason) {
       AnchorSyncReason.metadataUpdate ||
-      AnchorSyncReason.audienceUpdate =>
+      AnchorSyncReason.serverUpdate =>
         'metadata_update',
       AnchorSyncReason.none || AnchorSyncReason.newCapture => 'create_memory',
     };

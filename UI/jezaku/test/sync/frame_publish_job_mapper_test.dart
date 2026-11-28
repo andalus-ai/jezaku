@@ -57,6 +57,35 @@ AnchorMediaAttachment _photo(Uint8List bytes) =>
     AnchorMediaAttachment(type: AnchorMediaType.cameraPhoto, bytes: bytes);
 
 void main() {
+  group('FramePublishJobMapper.fromMemory placement', () {
+    test('a frame without a correction is sent where it was captured', () {
+      final job = FramePublishJobMapper.fromMemory(
+        _memory(media: _photo(_jpeg)),
+        ownerId: 'u-1',
+      );
+
+      expect(job.latitude, -6.9);
+      expect(job.longitude, 107.6);
+      expect(job.altitudeMeters, 700);
+    });
+
+    test('a corrected frame is sent where the owner moved it to', () {
+      final moved = _memory(media: _photo(_jpeg)).copyWith(
+        captureMetadata: _memory().captureMetadata.copyWith(
+              correctionEastMeters: 10,
+              correctionNorthMeters: -20,
+              correctionUpMeters: 1.5,
+            ),
+      );
+
+      final job = FramePublishJobMapper.fromMemory(moved, ownerId: 'u-1');
+
+      expect(job.latitude, closeTo(-6.9 - 20 / 111320, 1e-9));
+      expect(job.longitude, greaterThan(107.6));
+      expect(job.altitudeMeters, 701.5);
+    });
+  });
+
   group('FramePublishJobMapper.fromMemory', () {
     test('carries the frame the way the memory service expects it', () {
       final job = FramePublishJobMapper.fromMemory(

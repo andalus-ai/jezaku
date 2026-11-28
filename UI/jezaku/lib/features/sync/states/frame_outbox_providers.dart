@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/api/authenticated_dio.dart';
 import 'package:jejaku/features/auth/states/auth_providers.dart';
 import 'package:jejaku/features/home/models/frame_audience.dart';
+import 'package:jejaku/features/home/models/placement_offset.dart';
 import 'package:jejaku/features/home/services/anchor_media_repository.dart';
 import 'package:jejaku/features/home/states/anchor_providers.dart';
 import 'package:jejaku/features/remote_frames/states/memory_api_provider.dart';
@@ -11,6 +12,7 @@ import 'package:jejaku/features/sync/outbox/api_frame_publisher.dart';
 import 'package:jejaku/features/sync/outbox/frame_audience_syncer.dart';
 import 'package:jejaku/features/sync/outbox/frame_deletion_syncer.dart';
 import 'package:jejaku/features/sync/outbox/frame_look_syncer.dart';
+import 'package:jejaku/features/sync/outbox/frame_placement_syncer.dart';
 import 'package:jejaku/features/sync/outbox/frame_outbox_processor.dart';
 import 'package:jejaku/features/sync/outbox/frame_publisher.dart';
 import 'package:jejaku/features/sync/outbox/media_api.dart';
@@ -82,6 +84,10 @@ final Provider<FrameOutboxProcessor?> frameOutboxProcessorProvider =
             ref.read(anchorMediaRepositoryProvider).mediaById(mediaId)?.bytes,
       ),
       sent,
+      (memoryId) => ref
+          .read(nearbyAnchorsProvider)
+          .firstWhere((frame) => frame.id == memoryId)
+          .placementOffset,
     ),
     onPublished: (memoryId, serverMemoryId) async {
       // Unknown after a restart: the look and audience are then sent once
@@ -102,6 +108,7 @@ final Provider<FrameOutboxProcessor?> frameOutboxProcessorProvider =
             serverMemoryId: serverMemoryId,
             serverFrameLookId: state?.look,
             serverAudience: state?.audience,
+            serverPlacementOffset: state?.offset,
           );
     },
   );
@@ -109,18 +116,27 @@ final Provider<FrameOutboxProcessor?> frameOutboxProcessorProvider =
 
 /// What a frame was sent with.
 class _SentState {
-  const _SentState({required this.look, required this.audience});
+  const _SentState({
+    required this.look,
+    required this.audience,
+    required this.offset,
+  });
 
   final String look;
   final FrameAudience audience;
+  final PlacementOffset offset;
 }
 
-/// Remembers the look and audience of every job it hands out.
+/// Remembers the look, audience and placement of every job it hands out.
 class _SentStateRecordingJobs implements FramePublishJobSource {
-  _SentStateRecordingJobs(this._inner, this._sent);
+  _SentStateRecordingJobs(this._inner, this._sent, this._offsetOf);
 
   final FramePublishJobSource _inner;
   final Map<String, _SentState> _sent;
+
+  /// Reads the frame's correction as it is now, which is what the job's
+  /// position was computed from.
+  final PlacementOffset Function(String memoryId) _offsetOf;
 
   @override
   FramePublishJob? jobFor(String memoryId, {required String ownerId}) {
@@ -129,6 +145,7 @@ class _SentStateRecordingJobs implements FramePublishJobSource {
       _sent[memoryId] = _SentState(
         look: job.frameStyle,
         audience: FrameAudience.fromName(job.visibility, FrameAudience.private),
+        offset: _offsetOf(memoryId),
       );
     }
     return job;
@@ -166,6 +183,27 @@ final frameAudienceSyncerProvider = Provider<FrameAudienceSyncer?>((ref) {
         .markFrameAudienceSynced(memoryId, audience),
     // The service refuses the change: the frame shows "update failed" and the
     // next pass tries again.
+    onRejected: (memoryId) =>
+        ref.read(nearbyAnchorsProvider.notifier).markMemorySyncFailed(memoryId),
+  );
+});
+
+/// Sends placement changes of published frames, or null when this build has
+/// no outbox.
+final Provider<FramePlacementSyncer?> framePlacementSyncerProvider =
+    Provider<FramePlacementSyncer?>((ref) {
+  final memoryApi = ref.watch(memoryApiProvider);
+  if (memoryApi == null || ref.watch(frameOutboxProcessorProvider) == null) {
+    return null;
+  }
+  return FramePlacementSyncer(
+    api: memoryApi,
+    memories: () => ref.read(nearbyAnchorsProvider),
+    onSynced: (memoryId, offset) => ref
+        .read(nearbyAnchorsProvider.notifier)
+        .markFramePlacementSynced(memoryId, offset),
+    // The service refuses the new place: the frame shows "update failed" and
+    // the next pass tries again.
     onRejected: (memoryId) =>
         ref.read(nearbyAnchorsProvider.notifier).markMemorySyncFailed(memoryId),
   );
