@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jezaku_ds/jezaku_ds.dart';
 
 enum AdminFeedbackKind { loading, empty, error, forbidden, unavailable }
 
@@ -47,7 +48,12 @@ class AdminFeedbackState extends StatelessWidget {
               Text(message ?? defaultMessage, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant)),
               if (onRetry != null || action != null) ...[
                 const SizedBox(height: 18),
-                if (action != null) action! else OutlinedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh, size: 18), label: const Text('Try again')),
+                if (action != null) action! else JzButton(
+                  label: 'Try again',
+                  variant: JzButtonVariant.outline,
+                  leading: const Icon(Icons.refresh, size: 18),
+                  onPressed: onRetry,
+                ),
               ],
             ],
           ),
