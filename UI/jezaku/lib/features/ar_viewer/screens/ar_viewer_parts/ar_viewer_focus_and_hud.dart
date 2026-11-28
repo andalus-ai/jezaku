@@ -688,31 +688,3 @@ class _DiagnosticsIssueTile extends StatelessWidget {
     return tile;
   }
 }
-
-class _ArReticlePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.12)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4;
-
-    for (final radius in [72.0, 140.0, 220.0]) {
-      canvas.drawCircle(center, radius, paint);
-    }
-    canvas.drawLine(
-      Offset(center.dx - 26, center.dy),
-      Offset(center.dx + 26, center.dy),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(center.dx, center.dy - 26),
-      Offset(center.dx, center.dy + 26),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
