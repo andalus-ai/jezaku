@@ -170,8 +170,19 @@ void main() {
   });
 
   group('limited features', () {
-    test('a fully supported session shows two pills', () {
-      expect(_pills(_data(_geo)), hasLength(2));
+    test('the "AR limited" pill appears exactly when the plan was downgraded',
+        () {
+      for (final engine in [_geo, _local]) {
+        final plan = _plan(engine);
+
+        final pills = _pills(AsyncData(plan));
+
+        expect(
+          pills.any((p) => p.label == 'AR limited'),
+          plan.hasNativeDowngrades,
+        );
+        expect(pills, hasLength(plan.hasNativeDowngrades ? 3 : 2));
+      }
     });
 
     test('turned-off native features add an "AR limited" pill', () {
