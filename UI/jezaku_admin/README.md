@@ -26,7 +26,7 @@ The console is not a source of domain truth and must not access service database
 
 ## Shared UI foundation
 
-The Admin app pins the generic Alhambra UI package to an immutable Git commit and uses its theme and reusable components. Keep Jezaku-specific navigation, domain workflows, and backend authorization in this app and the Quarkus services. See [Alhambra platform integration](../../docs/alhambra-platform-integration.md).
+The Admin app uses Alhambra for platform-level foundations and JzDS (`jezaku_ds`) for shared Jezaku presentation components. Both dependencies are pinned to immutable Git commits. Keep Jezaku-specific navigation, domain workflows, and backend authorization in this app and the Quarkus services. See [Alhambra platform integration](../../docs/alhambra-platform-integration.md) and the [JzDS adoption guide](../docs/jzds-adoption.md).
 
 ## Development
 
