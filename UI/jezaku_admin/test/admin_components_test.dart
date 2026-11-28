@@ -249,7 +249,7 @@ void main() {
       home: Builder(
         builder: (context) => Scaffold(
           body: ElevatedButton(
-            onPressed: () async => discard = await confirmAdminDiscardChanges(context),
+            onPressed: () async { discard = await confirmAdminDiscardChanges(context); },
             child: const Text('Leave form'),
           ),
         ),
