@@ -21,6 +21,8 @@ Use semantic design tokens for:
 - Elevation: a small intentional scale, with contrast checked in light and dark themes.
 - Motion: duration and easing tokens with reduced-motion alternatives.
 
+The shared tokens come from the `jezaku_ds` package; see [design-system-adoption.md](design-system-adoption.md) for how the app consumes them.
+
 Do not scatter raw color, padding, radius, or animation values across feature widgets. Add a token only when it represents a reusable semantic role. Keep contrast sufficient in both themes and over camera/map imagery.
 
 ## 3. Navigation and screen hierarchy

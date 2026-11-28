@@ -17,6 +17,7 @@ This directory documents the Flutter client, main application, reusable Dart pac
 - [Feature catalog](feature-catalog.md) — current app feature directories, responsibilities, and boundaries.
 - [Reusable package catalog](package-catalog.md) — responsibilities, dependency direction, and public contract expectations for packages.
 - [Design system and UX standards](design-system-and-ux.md) — visual foundations, accessibility, interaction states, and polish criteria.
+- [Adopting the Jezaku design system](design-system-adoption.md) — how the app consumes `jezaku_ds`, the `material_ui` type split, and remaining work.
 - [Quality gates](quality-gates.md) — accessibility, responsive layout, privacy, hardware, performance, and release validation checklist.
 
 ## Scoped instructions

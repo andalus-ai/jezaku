@@ -8,6 +8,7 @@ The checked-in manifests and **UI/jezaku/pubspec.yaml** show these direct relati
 
 ~~~text
 UI/jezaku --runtime--> ar_engine, ar_model_cache, jezaku_ar
+UI/jezaku --runtime--> jezaku_ds (external git dependency, pinned; see design-system-adoption.md)
 UI/jezaku --dev-----> ar_engine_testkit
 
 jezaku_ar --runtime--> ar_engine, ar_model_cache
