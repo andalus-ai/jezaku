@@ -241,3 +241,24 @@ void main() {
     expect(find.textContaining('Operator A'), findsOneWidget);
     expect(find.text('Reference: audit-123'), findsOneWidget);
   });
+
+
+  testWidgets('unsaved changes guard lets operator keep editing or discard', (tester) async {
+    var discard = false;
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: ElevatedButton(
+            onPressed: () async => discard = await confirmAdminDiscardChanges(context),
+            child: const Text('Leave form'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Leave form'));
+    await tester.pumpAndSettle();
+    expect(find.text('Discard unsaved changes?'), findsOneWidget);
+    await tester.tap(find.text('Keep editing'));
+    await tester.pumpAndSettle();
+    expect(discard, isFalse);
+  });
