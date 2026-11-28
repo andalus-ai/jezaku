@@ -32,7 +32,6 @@ import 'package:jejaku/features/ar_viewer/services/ar_model_asset_cache_provider
 import 'package:jejaku/features/ar_viewer/services/ar_overlay_anchor_selector.dart';
 import 'package:jejaku/features/ar_viewer/services/local_pose_validity.dart';
 import 'package:jejaku/features/ar_viewer/services/rehang_policy.dart';
-import 'package:jejaku/features/ar_viewer/services/ar_viewer_health_policy.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_memory_cloud_anchor_hosting_service.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_recording_coordinator.dart';
 import 'package:jejaku/features/ar_viewer/services/ar_visual_frame_capturer.dart';
@@ -56,6 +55,7 @@ import 'package:jejaku/features/ar_viewer/services/ar_runtime_permission_service
 import 'package:jejaku/features/ar_viewer/states/ar_capture_provider.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_capability_providers.dart';
 import 'package:jejaku/features/ar_viewer/states/ar_scene_diagnostics_provider.dart';
+import 'package:jejaku/features/ar_viewer/widgets/ar_camera_backdrop.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_debug_log_controls.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_hud_edge_scrim.dart';
 import 'package:jejaku/features/ar_viewer/widgets/ar_placement_quality_chip.dart';
@@ -113,7 +113,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     includeUIOverlay: true,
     outputFormat: 'mp4',
   );
-  static const _nativeSessionHealthPolicy = ARViewerHealthPolicy.viewing;
   static const _screenRecordingMaxPixelRatio = 1.5;
   static int _diagnosticsSessionSerial = 0;
   late ARHudState _hud = ref.read(arHudStoreProvider).load();
@@ -793,7 +792,21 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
         child: Stack(
           children: [
             Positioned.fill(
-              child: _buildCameraBackdrop(),
+              child: ARCameraBackdrop(
+                permissions: _arPermissionsFuture,
+                sessionGeneration: _arSessionGeneration,
+                controller: _arController,
+                onRetryPermissions: _retryARRuntimePermissions,
+                onOpenPermissionSettings: _openARRuntimePermissionSettings,
+                onRefreshScene: _refreshNativeScene,
+                onViewCreated: _handleNativeARViewCreated,
+                onSessionConfigResolved: _handleNativeSessionConfigResolved,
+                onSessionHealthChanged: _handleNativeSessionHealthChanged,
+                onSessionHealthAssessmentChanged:
+                    _handleNativeSessionHealthAssessmentChanged,
+                onSessionDiagnosticsReportChanged:
+                    _handleNativeSessionDiagnosticsReportChanged,
+              ),
             ),
             Positioned.fill(
               child: RepaintBoundary(
@@ -913,108 +926,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildCameraBackdrop() {
-    return FutureBuilder<ARRuntimePermissions>(
-      future: _arPermissionsFuture,
-      builder: (context, permissionSnapshot) {
-        final permissions = permissionSnapshot.data;
-        if (permissions == null) {
-          return _buildProjectionBackdrop(statusLabel: 'Requesting camera');
-        }
-        if (!permissions.cameraGranted) {
-          return _buildProjectionBackdrop(
-            statusLabel: permissions.statusLabel,
-            message: permissions.guidanceLabel,
-            actionLabel: permissions.shouldOpenSettings
-                ? 'Open settings'
-                : 'Grant access',
-            onAction: permissions.shouldOpenSettings
-                ? _openARRuntimePermissionSettings
-                : _retryARRuntimePermissions,
-          );
-        }
-        final sessionConfig = ref.watch(arViewerSessionConfigProvider);
-        return sessionConfig.when(
-          data: (config) {
-            return Stack(
-              children: [
-                Positioned.fill(
-                  child: ARWidget(
-                    key: ValueKey('native_ar_hanging_photo_view_$_arSessionGeneration'),
-                    // Geospatial stays as resolved against device capabilities
-                    // so memories can lock to real-world coordinates. Placement
-                    // quality is reported in the HUD; GPS/compass projection
-                    // remains the labeled fallback.
-                    config: config.copyWith(
-                      depthEnabled: false,
-                      occlusionEnabled: false,
-                      targetFrameRate: 30,
-                    ),
-                    resolveConfigAgainstCapabilities: true,
-                    consumeGestures: false,
-                    loadingWidget: _buildProjectionBackdrop(
-                      statusLabel: 'Starting AR camera',
-                    ),
-                    errorBuilder: (context, error) => _buildProjectionBackdrop(
-                      statusLabel: 'AR camera unavailable',
-                      message: '$error',
-                      actionLabel: 'Retry',
-                      onAction: _refreshNativeScene,
-                    ),
-                    onARViewCreated: _handleNativeARViewCreated,
-                    onSessionConfigResolved: _handleNativeSessionConfigResolved,
-                    onSessionHealthChanged: _handleNativeSessionHealthChanged,
-                    onSessionHealthAssessmentChanged:
-                        _handleNativeSessionHealthAssessmentChanged,
-                    onSessionDiagnosticsReportChanged:
-                        _handleNativeSessionDiagnosticsReportChanged,
-                    sessionHealthPolicy: _nativeSessionHealthPolicy,
-                  ),
-                ),
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: CustomPaint(painter: _ArReticlePainter()),
-                  ),
-                ),
-                // Keep the low-level AR engine HUD available during local
-                // device validation without exposing diagnostic overlays in
-                // release builds or changing normal user interactions.
-                if (kDebugMode && _arController != null)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: ARDebugOverlay(
-                        controller: _arController!,
-                        showPlanes: true,
-                        showFPS: true,
-                        showPose: true,
-                        showTrackingState: true,
-                        showEntityCount: true,
-                        showAnchorPositions: true,
-                        showLightEstimate: true,
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
-          loading: () => _buildProjectionBackdrop(
-            statusLabel: 'Preparing AR session',
-          ),
-          error: (error, _) => _buildProjectionBackdrop(
-            statusLabel: 'AR session unavailable',
-            message: '$error',
-            actionLabel: 'Retry',
-            onAction: () {
-              ref.invalidate(arViewerCapabilitiesProvider);
-              ref.invalidate(arViewerSessionPlanProvider);
-              ref.invalidate(arViewerSessionConfigProvider);
-            },
-          ),
-        );
-      },
     );
   }
 
@@ -1580,79 +1491,6 @@ class _ARViewerScreenState extends ConsumerState<ARViewerScreen>
     if (!_sceneSync.refresh()) {
       _resetNativeSceneDiagnostics();
     }
-  }
-
-  Widget _buildProjectionBackdrop({
-    required String statusLabel,
-    String? message,
-    String? actionLabel,
-    VoidCallback? onAction,
-  }) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF111827),
-            Color(0xFF0F172A),
-            Color(0xFF020617),
-          ],
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: CustomPaint(painter: _ArReticlePainter()),
-          ),
-          const Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.view_in_ar, color: Colors.white54, size: 96),
-                SizedBox(height: 12),
-              ],
-            ),
-          ),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 128),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    statusLabel,
-                    style: const TextStyle(color: Colors.white70),
-                    textAlign: TextAlign.center,
-                  ),
-                  if (message != null) ...[
-                    const SizedBox(height: 8),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 280),
-                      child: Text(
-                        message,
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 12,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
-                  if (actionLabel != null && onAction != null) ...[
-                    const SizedBox(height: 14),
-                    FilledButton(
-                      onPressed: onAction,
-                      child: Text(actionLabel),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   List<Widget> _buildAnchorOverlays(
