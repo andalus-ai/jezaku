@@ -1,8 +1,12 @@
 package tech.kayys.jezaku.extensions.validation;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.networknt.schema.JsonSchemaFactory;
+import com.networknt.schema.SpecVersion;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.io.InputStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -10,14 +14,21 @@ class ExtensionManifestValidatorTest {
     private ExtensionManifestValidator validator;
 
     @BeforeEach
-    void setUp() {
-        validator = new ExtensionManifestValidator(new ObjectMapper(), new ExtensionCapabilityCatalog());
+    void setUp() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        try (InputStream schemaStream = getClass().getResourceAsStream("/schemas/jezaku-extension-manifest.schema.json")) {
+            assertNotNull(schemaStream, "manifest schema must be packaged as a module resource");
+            var schemaNode = mapper.readTree(schemaStream);
+            var schema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012).getSchema(schemaNode);
+            validator = new ExtensionManifestValidator(mapper, new ExtensionCapabilityCatalog(), schema);
+        }
     }
 
     @Test
-    void acceptsKnownCapabilityAndScopedPermission() {
+    void acceptsSchemaValidKnownCapabilityAndScopedPermission() {
         var result = validator.validate(validManifest());
         assertTrue(result.valid(), () -> result.violations().toString());
+        assertTrue(result.highRiskCapabilities().isEmpty());
     }
 
     @Test
@@ -37,12 +48,41 @@ class ExtensionManifestValidatorTest {
     }
 
     @Test
+    void rejectsUnknownPropertiesAndInvalidNestedAssetMetadataThroughSchema() {
+        String invalid = validManifest().replace("\"assets\":[]",
+                "\"assets\":[{\"path\":\"../escape.bin\",\"mediaType\":\"application/octet-stream\","
+                        + "\"sha256\":\"bad\",\"license\":\"MIT\",\"unexpected\":true}]")
+                .replace("\"packageType\":\"declarative-object\"",
+                        "\"packageType\":\"declarative-object\",\"unexpectedRootField\":true");
+        var result = validator.validate(invalid);
+        assertFalse(result.valid());
+        assertTrue(result.violations().stream().anyMatch(v -> v.startsWith("schema:")));
+    }
+
+    @Test
+    void reportsHighRiskCapabilitiesWithoutGrantingThem() {
+        String manifest = validManifest()
+                .replace("\"spatial.object.read\",\"rationale\"",
+                        "\"spatial.location.precise\",\"rationale\"")
+                .replace("\"spatial.object.read\",\"access\"",
+                        "\"spatial.location.precise\",\"access\"");
+        var result = validator.validate(manifest);
+        assertTrue(result.valid(), () -> result.violations().toString());
+        assertEquals(java.util.List.of("spatial.location.precise"), result.highRiskCapabilities());
+    }
+
+    @Test
     void rejectsUnsupportedScopeAndImpact() {
         var result = validator.validate(validManifest().replace("\"type\":\"owned\"", "\"type\":\"global\"")
                 .replace("\"physicalWorldImpact\":\"none\"", "\"physicalWorldImpact\":\"actuate-anything\""));
         assertFalse(result.valid());
         assertTrue(result.violations().stream().anyMatch(v -> v.contains("scope.type")));
         assertTrue(result.violations().stream().anyMatch(v -> v.contains("physicalWorldImpact")));
+    }
+
+    @Test
+    void rejectsTrailingJsonTokens() {
+        assertFalse(validator.validate(validManifest() + "{}").valid());
     }
 
     @Test
