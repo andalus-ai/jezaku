@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:jezaku_admin/main.dart';
+import 'package:jezaku_admin/widgets/admin_feedback_state.dart';
+import 'package:jezaku_ds/jezaku_ds.dart';
 
 void main() {
   testWidgets('shows the redesigned overview without simulated live data',
@@ -98,3 +100,22 @@ void main() {
     expect(find.text('Spatial Operations'), findsOneWidget);
   });
 }
+
+
+testWidgets('admin feedback retry uses the shared JzDS action', (tester) async {
+  var retries = 0;
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: AdminFeedbackState(
+          kind: AdminFeedbackKind.error,
+          onRetry: () => retries++,
+        ),
+      ),
+    ),
+  );
+
+  expect(find.byType(JzButton), findsOneWidget);
+  await tester.tap(find.text('Try again'));
+  expect(retries, 1);
+});
