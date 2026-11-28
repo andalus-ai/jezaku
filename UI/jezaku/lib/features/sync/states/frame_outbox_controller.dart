@@ -118,6 +118,9 @@ class FrameOutboxController extends Notifier<FrameOutboxState> {
     if (ref.mounted) {
       await syncDetails();
     }
+    if (ref.mounted) {
+      await syncDeletions();
+    }
   }
 
   /// Sends look changes of already published frames (see [FrameLookSyncer]).
@@ -132,13 +135,28 @@ class FrameOutboxController extends Notifier<FrameOutboxState> {
     await syncer.run(userId: ref.read(signedInUserIdProvider));
   }
 
-  /// Sends audience changes of already published frames (the audience
-  /// syncer).
+  /// Sends changes to already published frames that the service takes: who
+  /// they are shared with and where they hang (the audience and placement
+  /// syncers).
   Future<void> syncDetails() async {
     if (!ref.mounted) {
       return;
     }
-    final syncer = ref.read(frameAudienceSyncerProvider);
+    final userId = ref.read(signedInUserIdProvider);
+    await ref.read(frameAudienceSyncerProvider)?.run(userId: userId);
+    if (!ref.mounted) {
+      return;
+    }
+    await ref.read(framePlacementSyncerProvider)?.run(userId: userId);
+  }
+
+  /// Tells the service about frames deleted on this device (the deletion
+  /// syncer).
+  Future<void> syncDeletions() async {
+    if (!ref.mounted) {
+      return;
+    }
+    final syncer = ref.read(frameDeletionSyncerProvider);
     if (syncer == null) {
       return;
     }

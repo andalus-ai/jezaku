@@ -40,7 +40,7 @@ void main() {
     // This frame has no id on the server, so even its audience cannot be sent.
     notifier.togglePrivacy(memory.id);
     final edited = storedFrame(container, memory.id);
-    expect(edited.syncReason, AnchorSyncReason.audienceUpdate);
+    expect(edited.syncReason, AnchorSyncReason.serverUpdate);
 
     final outcome = container
         .read(anchorSyncCoordinatorProvider)
@@ -50,7 +50,7 @@ void main() {
     expect(outcome.message, contains('cannot be sent yet'));
     final after = storedFrame(container, memory.id);
     expect(after.syncStatus, AnchorSyncStatus.queued);
-    expect(after.syncReason, AnchorSyncReason.audienceUpdate);
+    expect(after.syncReason, AnchorSyncReason.serverUpdate);
   });
 
   test('a build without a server keeps the device-only behaviour', () {
