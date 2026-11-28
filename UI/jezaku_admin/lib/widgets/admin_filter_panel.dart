@@ -13,11 +13,10 @@ class AdminFilterGroup {
 }
 
 class AdminFilterPanel extends StatefulWidget {
-  const AdminFilterPanel({required this.groups, required this.selectedValues, required this.onApply, this.onClear, super.key});
+  const AdminFilterPanel({required this.groups, required this.selectedValues, required this.onApply, super.key});
   final List<AdminFilterGroup> groups;
   final Set<String> selectedValues;
   final ValueChanged<Set<String>> onApply;
-  final VoidCallback? onClear;
 
   @override
   State<AdminFilterPanel> createState() => _AdminFilterPanelState();
