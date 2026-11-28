@@ -64,14 +64,14 @@ class _TimelineRow extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(entry.title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
             const SizedBox(height: 3),
-            Text('$date · $time · \${entry.actor}', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant)),
+            Text('$date · $time · ${entry.actor}', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant)),
             if (entry.description != null) ...[
               const SizedBox(height: 5),
               Text(entry.description!, style: Theme.of(context).textTheme.bodyMedium),
             ],
             if (entry.reference != null) ...[
               const SizedBox(height: 4),
-              SelectableText('Reference: \${entry.reference}', style: Theme.of(context).textTheme.labelSmall),
+              SelectableText('Reference: ${entry.reference}', style: Theme.of(context).textTheme.labelSmall),
             ],
           ]),
         )),
