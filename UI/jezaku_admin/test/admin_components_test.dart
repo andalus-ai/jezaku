@@ -25,7 +25,7 @@ Widget _table() {
           child: AdminDataTable<_Record>(
             items: records,
             pageSize: 2,
-            searchText: (record) => '\${record.name} \${record.status}',
+            searchText: (record) => '${record.name} ${record.status}',
             columns: [
               AdminTableColumn<_Record>(
                 label: 'Name',
@@ -141,3 +141,99 @@ void main() {
     expect(find.text('Audit content'), findsOneWidget);
   });
 }
+
+
+  testWidgets('filter panel applies draft selections only on apply', (tester) async {
+    Set<String>? applied;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: AdminFilterPanel(
+          groups: const [
+            AdminFilterGroup(label: 'Status', options: [
+              AdminFilterOption(value: 'active', label: 'Active'),
+              AdminFilterOption(value: 'pending', label: 'Pending'),
+            ]),
+          ],
+          selectedValues: const {},
+          onApply: (values) => applied = values,
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Active'));
+    await tester.pumpAndSettle();
+    expect(applied, isNull);
+    await tester.tap(find.text('Apply filters'));
+    expect(applied, contains('active'));
+  });
+
+  testWidgets('required validated field reports missing value', (tester) async {
+    final key = GlobalKey<FormState>();
+    final controller = TextEditingController();
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Form(
+          key: key,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: AdminValidatedTextField(controller: controller, label: 'Operator name', required: true),
+          ),
+        ),
+      ),
+    ));
+    expect(key.currentState!.validate(), isFalse);
+    await tester.pumpAndSettle();
+    expect(find.text('Operator name is required'), findsOneWidget);
+    controller.dispose();
+  });
+
+  testWidgets('workflow review requires a reason before confirmation', (tester) async {
+    String? result = 'not-set';
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: ElevatedButton(
+            onPressed: () async {
+              result = await showAdminWorkflowReview(
+                context,
+                title: 'suspension',
+                consequence: 'The operator will lose access.',
+                scope: 'Workspace Alpha',
+                items: const [AdminReviewItem(label: 'Account', value: 'operator-1')],
+              );
+            },
+            child: const Text('Review'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Review'));
+    await tester.pumpAndSettle();
+    expect(find.text('Review suspension'), findsOneWidget);
+    final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Confirm review'));
+    expect(button.onPressed, isNull);
+    await tester.enterText(find.byType(TextFormField), 'Incident response');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm review'));
+    await tester.pumpAndSettle();
+    expect(result, 'Incident response');
+  });
+
+  testWidgets('activity timeline shows actor and event reference', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: AdminActivityTimeline(entries: [
+          AdminActivityEntry(
+            title: 'Policy updated',
+            actor: 'Operator A',
+            timestamp: DateTime(2026, 11, 28, 10),
+            description: 'Updated review policy',
+            reference: 'audit-123',
+            severity: AdminActivitySeverity.warning,
+          ),
+        ]),
+      ),
+    ));
+    expect(find.text('Policy updated'), findsOneWidget);
+    expect(find.textContaining('Operator A'), findsOneWidget);
+    expect(find.text('Reference: audit-123'), findsOneWidget);
+  });
