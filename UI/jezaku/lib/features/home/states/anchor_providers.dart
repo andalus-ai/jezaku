@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/home/models/anchor_journey_step.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/models/frame_audience.dart';
+import 'package:jejaku/features/home/models/placement_offset.dart';
 import 'package:jejaku/features/home/services/anchor_media_repository.dart';
 import 'package:jejaku/features/home/services/anchor_memory_store.dart';
 import 'package:jejaku/features/home/services/anchor_spatial_journey_service.dart';
@@ -294,21 +295,38 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
   }
 
   AnchorMemory _withAudienceToggled(AnchorMemory memory) {
-    final toggled = memory.copyWith(isPrivate: !memory.isPrivate);
-    // Back to what the service already has: nothing is left to send.
-    if (memory.syncReason == AnchorSyncReason.audienceUpdate &&
-        toggled.audience == memory.serverAudience) {
-      return toggled.copyWith(
+    return _queuedServerEdit(
+      memory,
+      memory.copyWith(isPrivate: !memory.isPrivate),
+    );
+  }
+
+  /// [edited] is [before] with a change the memory service takes (audience,
+  /// placement). It waits as "published frame update" until the service has
+  /// everything, and is synced right away when the edit only put back what
+  /// the service already holds.
+  AnchorMemory _queuedServerEdit(AnchorMemory before, AnchorMemory edited) {
+    return _settled(
+      edited.copyWith(
+        syncStatus: _syncStatusAfterLocalChange(before.syncStatus),
+        syncReason: before.syncReason == AnchorSyncReason.none
+            ? AnchorSyncReason.serverUpdate
+            : before.syncReason,
+      ),
+    );
+  }
+
+  /// A frame whose only waiting changes are ones the service takes is synced
+  /// once the service holds them all.
+  AnchorMemory _settled(AnchorMemory memory) {
+    if (memory.syncReason == AnchorSyncReason.serverUpdate &&
+        memory.isUpToDateOnServer) {
+      return memory.copyWith(
         syncStatus: AnchorSyncStatus.synced,
         syncReason: AnchorSyncReason.none,
       );
     }
-    return toggled.copyWith(
-      syncStatus: _syncStatusAfterLocalChange(memory.syncStatus),
-      syncReason: memory.syncReason == AnchorSyncReason.none
-          ? AnchorSyncReason.audienceUpdate
-          : memory.syncReason,
-    );
+    return memory;
   }
 
   /// Changes how a frame looks. A look change is cosmetic: it does not queue
@@ -330,6 +348,10 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
     unawaited(ref.read(frameOutboxControllerProvider.notifier).syncLooks());
   }
 
+  /// Saves the owner's manual correction of where a frame hangs. For a
+  /// published frame the corrected position is sent to the service (now, or on
+  /// a later pass when offline), so other people see the frame where it was
+  /// moved to.
   void updateManualCorrection({
     required String memoryId,
     required double eastMeters,
@@ -344,24 +366,26 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
     state = [
       for (final memory in state)
         if (memory.id == memoryId)
-          memory.copyWith(
-            captureMetadata: memory.captureMetadata.copyWith(
-              correctionEastMeters: eastMeters,
-              correctionNorthMeters: northMeters,
-              correctionUpMeters: upMeters,
-              manualCorrectionSavedAt: savedAt,
-              anchorType: anchorType ??
-                  (hasCorrection
-                      ? 'Manually calibrated geo anchor'
-                      : memory.captureMetadata.anchorType),
+          _queuedServerEdit(
+            memory,
+            memory.copyWith(
+              captureMetadata: memory.captureMetadata.copyWith(
+                correctionEastMeters: eastMeters,
+                correctionNorthMeters: northMeters,
+                correctionUpMeters: upMeters,
+                manualCorrectionSavedAt: savedAt,
+                anchorType: anchorType ??
+                    (hasCorrection
+                        ? 'Manually calibrated geo anchor'
+                        : memory.captureMetadata.anchorType),
+              ),
             ),
-            syncStatus: _syncStatusAfterLocalChange(memory.syncStatus),
-            syncReason: _syncReasonAfterLocalChange(memory.syncReason),
           )
         else
           memory,
     ];
     _persistLocalMemories();
+    unawaited(ref.read(frameOutboxControllerProvider.notifier).syncDetails());
   }
 
   /// Replaces the AR session pose of [memoryId], e.g. after the user re-hung
@@ -483,6 +507,7 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
     required String serverMemoryId,
     String? serverFrameLookId,
     FrameAudience? serverAudience,
+    PlacementOffset? serverPlacementOffset,
   }) {
     state = [
       for (final memory in state)
@@ -493,6 +518,7 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
             serverMemoryId: serverMemoryId,
             serverFrameLookId: serverFrameLookId,
             serverAudience: serverAudience,
+            serverPlacementOffset: serverPlacementOffset,
           )
         else
           memory,
@@ -529,15 +555,20 @@ class AnchorMemoryController extends Notifier<List<AnchorMemory>> {
     AnchorMemory memory,
     FrameAudience audience,
   ) {
-    final synced = memory.copyWith(serverAudience: audience);
-    if (memory.syncReason == AnchorSyncReason.audienceUpdate &&
-        memory.audience == audience) {
-      return synced.copyWith(
-        syncStatus: AnchorSyncStatus.synced,
-        syncReason: AnchorSyncReason.none,
-      );
-    }
-    return synced;
+    return _settled(memory.copyWith(serverAudience: audience));
+  }
+
+  /// The service now holds the frame moved by [offset]. When that is what the
+  /// frame says and nothing else waits, the frame is synced.
+  void markFramePlacementSynced(String memoryId, PlacementOffset offset) {
+    state = [
+      for (final memory in state)
+        if (memory.id == memoryId)
+          _settled(memory.copyWith(serverPlacementOffset: offset))
+        else
+          memory,
+    ];
+    _persistLocalMemories();
   }
 
   /// Shows that sending this frame failed and needs the person to decide.

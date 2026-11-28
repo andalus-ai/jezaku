@@ -5,6 +5,7 @@ import 'package:ar_engine/ar_engine.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jejaku/features/home/models/anchor_memory.dart';
 import 'package:jejaku/features/home/models/frame_audience.dart';
+import 'package:jejaku/features/home/models/placement_offset.dart';
 import 'package:jejaku/features/home/services/ar_capture_diagnostics_payload.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -129,6 +130,7 @@ Map<String, Object?> _memoryToJson(AnchorMemory memory) {
     'serverMemoryId': memory.serverMemoryId,
     'serverFrameLook': memory.serverFrameLookId,
     'serverAudience': memory.serverAudience?.name,
+    'serverPlacement': _placementJson(memory.serverPlacementOffset),
     'allowComments': memory.allowComments,
     'hasArExperience': memory.hasArExperience,
     'captureMetadata': _captureMetadataToJson(memory.captureMetadata),
@@ -159,7 +161,10 @@ AnchorMemory? _memoryFromJson(Map<String, Object?> json) {
     ),
     syncReason: _enumByName(
       AnchorSyncReason.values,
-      json['syncReason'],
+      // Builds before the server update reason stored "audienceUpdate".
+      json['syncReason'] == 'audienceUpdate'
+          ? AnchorSyncReason.serverUpdate.name
+          : json['syncReason'],
       AnchorSyncReason.newCapture,
     ),
     moderationStatus: _enumByName(
@@ -185,6 +190,7 @@ AnchorMemory? _memoryFromJson(Map<String, Object?> json) {
         ? json['serverFrameLook']! as String
         : null,
     serverAudience: _serverAudience(json['serverAudience']),
+    serverPlacementOffset: _placementOffset(json['serverPlacement']),
     allowComments: _bool(json['allowComments'], fallback: true),
     hasArExperience: _bool(json['hasArExperience'], fallback: true),
     captureMetadata: _captureMetadataFromJson(
@@ -364,4 +370,33 @@ FrameAudience? _serverAudience(Object? value) {
     }
   }
   return null;
+}
+
+Map<String, double>? _placementJson(PlacementOffset? offset) {
+  if (offset == null) {
+    return null;
+  }
+  return <String, double>{
+    'east': offset.eastMeters,
+    'north': offset.northMeters,
+    'up': offset.upMeters,
+  };
+}
+
+/// The correction the service was sent, or null when it was never recorded.
+PlacementOffset? _placementOffset(Object? value) {
+  if (value is! Map) {
+    return null;
+  }
+  final east = value['east'];
+  final north = value['north'];
+  final up = value['up'];
+  if (east is! num || north is! num || up is! num) {
+    return null;
+  }
+  return PlacementOffset(
+    eastMeters: east.toDouble(),
+    northMeters: north.toDouble(),
+    upMeters: up.toDouble(),
+  );
 }

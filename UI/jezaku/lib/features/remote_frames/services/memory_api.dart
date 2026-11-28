@@ -5,6 +5,7 @@ import 'package:jejaku/features/remote_frames/models/remote_frame.dart';
 import 'package:jejaku/features/sync/outbox/frame_audience_syncer.dart';
 import 'package:jejaku/features/sync/outbox/frame_deletion_syncer.dart';
 import 'package:jejaku/features/sync/outbox/frame_look_syncer.dart';
+import 'package:jejaku/features/sync/outbox/frame_placement_syncer.dart';
 import 'package:jejaku/features/sync/outbox/frame_publisher.dart';
 
 /// Reads frames from the memory service. The service decides what the caller
@@ -12,7 +13,12 @@ import 'package:jejaku/features/sync/outbox/frame_publisher.dart';
 ///
 /// The [Dio] it is given must already add the access token (see
 /// `AuthInterceptor`).
-class MemoryApi implements FrameLookApi, FrameDetailsApi, FrameDeletionApi {
+class MemoryApi
+    implements
+        FrameLookApi,
+        FrameDetailsApi,
+        FramePlacementApi,
+        FrameDeletionApi {
   MemoryApi({required Dio dio}) : _dio = dio;
 
   final Dio _dio;
@@ -76,6 +82,30 @@ class MemoryApi implements FrameLookApi, FrameDetailsApi, FrameDeletionApi {
       body: <String, Object?>{
         'ownerId': ownerId,
         'visibility': audience.wireName,
+      },
+    );
+  }
+
+  /// Moves a published frame (`PATCH /memories/{id}/anchor`). Only the owner
+  /// may; the service checks the new place like a new publish.
+  @override
+  Future<void> updatePlacement({
+    required String serverMemoryId,
+    required String ownerId,
+    required double latitude,
+    required double longitude,
+    double? altitudeMeters,
+  }) async {
+    await patchJson(
+      _dio,
+      '/memories/${Uri.encodeComponent(serverMemoryId)}/anchor',
+      body: <String, Object?>{
+        'ownerId': ownerId,
+        'position': <String, Object?>{
+          'latitude': latitude,
+          'longitude': longitude,
+          if (altitudeMeters != null) 'altitudeMeters': altitudeMeters,
+        },
       },
     );
   }

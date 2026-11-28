@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:ar_engine/ar_engine.dart';
 import 'package:jejaku/features/home/models/frame_audience.dart';
+import 'package:jejaku/features/home/models/placement_offset.dart';
 
 const _unchanged = Object();
 
@@ -37,6 +38,7 @@ class AnchorMemory {
     this.serverMemoryId,
     this.serverFrameLookId,
     this.serverAudience,
+    this.serverPlacementOffset,
     this.allowComments = true,
     this.hasArExperience = true,
   }) : audience = audience ??
@@ -98,6 +100,28 @@ class AnchorMemory {
   bool get needsAudienceSync =>
       serverMemoryId != null && serverAudience != audience;
 
+  /// Where the service holds the frame, as the correction that was applied to
+  /// the captured position when it was sent, or null when that is not known
+  /// (then no correction is assumed).
+  final PlacementOffset? serverPlacementOffset;
+
+  /// The owner's manual correction of where the frame hangs.
+  PlacementOffset get placementOffset => PlacementOffset(
+        eastMeters: captureMetadata.correctionEastMeters,
+        northMeters: captureMetadata.correctionNorthMeters,
+        upMeters: captureMetadata.correctionUpMeters,
+      );
+
+  /// Whether the owner moved a published frame and the service has not been
+  /// told yet.
+  bool get needsPlacementSync =>
+      serverMemoryId != null &&
+      (serverPlacementOffset ?? PlacementOffset.zero) != placementOffset;
+
+  /// Whether everything the service can hold for this frame is up to date.
+  bool get isUpToDateOnServer =>
+      serverMemoryId != null && !needsAudienceSync && !needsPlacementSync;
+
   final bool allowComments;
   final bool hasArExperience;
 
@@ -129,6 +153,7 @@ class AnchorMemory {
     Object? serverMemoryId = _unchanged,
     Object? serverFrameLookId = _unchanged,
     Object? serverAudience = _unchanged,
+    Object? serverPlacementOffset = _unchanged,
     bool? allowComments,
     bool? hasArExperience,
   }) {
@@ -170,6 +195,9 @@ class AnchorMemory {
       serverAudience: identical(serverAudience, _unchanged)
           ? this.serverAudience
           : serverAudience as FrameAudience?,
+      serverPlacementOffset: identical(serverPlacementOffset, _unchanged)
+          ? this.serverPlacementOffset
+          : serverPlacementOffset as PlacementOffset?,
       allowComments: allowComments ?? this.allowComments,
       hasArExperience: hasArExperience ?? this.hasArExperience,
     );
@@ -867,28 +895,29 @@ enum AnchorSyncReason {
   newCapture,
   metadataUpdate,
 
-  /// The only change waiting is who the frame is shared with. That one can be
-  /// sent to the service, so the frame becomes synced when it has been.
-  audienceUpdate;
+  /// The only changes waiting are ones the service takes (who the frame is
+  /// shared with, where it hangs). They are sent, and the frame becomes synced
+  /// when the service has them all.
+  serverUpdate;
 
   String get label {
     return switch (this) {
       AnchorSyncReason.none => 'No local changes',
       AnchorSyncReason.newCapture => 'New memory upload',
       AnchorSyncReason.metadataUpdate => 'Metadata update',
-      AnchorSyncReason.audienceUpdate => 'Audience update',
+      AnchorSyncReason.serverUpdate => 'Metadata update',
     };
   }
 
   /// An edit to a frame that already exists (as opposed to a new upload).
   bool get isUpdate =>
       this == AnchorSyncReason.metadataUpdate ||
-      this == AnchorSyncReason.audienceUpdate;
+      this == AnchorSyncReason.serverUpdate;
 
-  /// The name sync payloads carry. An audience update is a metadata update to
+  /// The name sync payloads carry. A server update is a metadata update to
   /// anything reading the payload.
   String get payloadName => switch (this) {
-        AnchorSyncReason.audienceUpdate => AnchorSyncReason.metadataUpdate.name,
+        AnchorSyncReason.serverUpdate => AnchorSyncReason.metadataUpdate.name,
         _ => name,
       };
 }

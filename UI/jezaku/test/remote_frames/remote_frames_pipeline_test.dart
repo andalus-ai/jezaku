@@ -66,6 +66,16 @@ class _FakeApi implements MemoryApi {
       throw UnimplementedError();
 
   @override
+  Future<void> updatePlacement({
+    required String serverMemoryId,
+    required String ownerId,
+    required double latitude,
+    required double longitude,
+    double? altitudeMeters,
+  }) =>
+      throw UnimplementedError();
+
+  @override
   Future<void> deleteFrame({required String serverMemoryId}) =>
       throw UnimplementedError();
 }
